@@ -371,10 +371,6 @@ button {
   min-height: 220px;
 }
 
-.choice-card.is-disabled {
-  opacity: 0.55;
-}
-
 .choice-mark {
   color: var(--muted);
   font-size: var(--meta-size);

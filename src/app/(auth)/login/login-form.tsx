@@ -40,10 +40,12 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
                 minLength={8}
                 autoComplete="new-password"
               />
+              <p className="meta muted">至少 8 個字</p>
             </div>
           </>
         ) : (
           <>
+            <p className="muted">要加入要現有成員加你，唔能夠自己註冊。</p>
             <div className="field">
               <label htmlFor="identifier">電郵或顯示名</label>
               <input className="input" id="identifier" name="identifier" required autoComplete="username" />
@@ -67,7 +69,7 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
         <button className="btn btn-primary btn-block" type="submit" disabled={pending}>
           {emptySystem ? "建立帳戶" : "登入"}
         </button>
-        <p className="footer-note">記帳唔係下單。無 KYC、無開戶。</p>
+        <p className="footer-note">記帳唔係下單。唔會連接券商。</p>
       </form>
     </div>
   );

@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { destroySession } from "@/auth/session";
+import { clearStaleSession } from "@/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  await destroySession();
-  redirect("/login");
+  const result = await clearStaleSession();
+  redirect(result === "cleared" ? "/login" : "/");
 }

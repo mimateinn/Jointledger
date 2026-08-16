@@ -26,6 +26,7 @@ export function EntryForm({
   const [buyState, buyAction, buyPending] = useActionState(createBuyAction, initial);
   const [hkd, setHkd] = useState("");
   const [fx, setFx] = useState("");
+  const [symbol, setSymbol] = useState("");
   const [qty, setQty] = useState("");
   const [price, setPrice] = useState("");
 
@@ -74,9 +75,9 @@ export function EntryForm({
       </div>
 
       {tab === "deposit" ? (
-        <form className="card form-grid" action={depositAction}>
+        <form key="deposit" className="card form-grid" action={depositAction}>
           <div className="field">
-            <label htmlFor="memberId">邊個</label>
+            <label htmlFor="memberId">邊個倉</label>
             <select className="select" id="memberId" name="memberId" defaultValue={defaultMemberId}>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
@@ -95,22 +96,25 @@ export function EntryForm({
               required
               value={hkd}
               onChange={(e) => setHkd(e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="field">
-            <label htmlFor="fxRate">匯率（HKD / USD）</label>
+            <label htmlFor="fxRate">匯率</label>
             <input
               className="input"
               id="fxRate"
               name="fxRate"
               inputMode="decimal"
               required
-              placeholder="例如 7.82 或示範用 1"
+              placeholder="7.82"
               value={fx}
               onChange={(e) => setFx(e.target.value)}
+              autoComplete="off"
             />
+            <p className="meta muted">港紙兌美金，例如 7.82。填 1 即當美金入帳。</p>
           </div>
-          <p className="meta muted">USD {usd || "—"}（寫入時一併存）</p>
+          <p className="meta muted">{usd ? `美金 ${usd}，會一齊存做美金` : "會一齊存做美金"}</p>
           <div className="field">
             <label htmlFor="occurredOn">日期</label>
             <input className="input" id="occurredOn" name="occurredOn" type="date" required defaultValue={today} />
@@ -122,9 +126,9 @@ export function EntryForm({
           </button>
         </form>
       ) : (
-        <form className="card form-grid" action={buyAction}>
+        <form key="buy" className="card form-grid" action={buyAction}>
           <div className="field">
-            <label htmlFor="ledgerAccountId">帳簿</label>
+            <label htmlFor="ledgerAccountId">邊個倉</label>
             <select
               className="select"
               id="ledgerAccountId"
@@ -140,7 +144,16 @@ export function EntryForm({
           </div>
           <div className="field">
             <label htmlFor="symbol">代碼</label>
-            <input className="input" id="symbol" name="symbol" required placeholder="NVDA" />
+            <input
+              className="input"
+              id="symbol"
+              name="symbol"
+              required
+              placeholder="NVDA"
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value)}
+              autoComplete="off"
+            />
           </div>
           <div className="field">
             <label htmlFor="quantity">數量</label>
@@ -152,6 +165,7 @@ export function EntryForm({
               required
               value={qty}
               onChange={(e) => setQty(e.target.value)}
+              autoComplete="off"
             />
           </div>
           <div className="field">
@@ -164,6 +178,7 @@ export function EntryForm({
               required
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+              autoComplete="off"
             />
           </div>
           <p className="meta muted">成本 USD {cost || "—"} · 手續費 0</p>

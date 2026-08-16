@@ -37,7 +37,7 @@ export default async function HoldingsPage() {
                 <tr key={lot.tradeId}>
                   <td>{lot.symbol}</td>
                   <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                  <td className="muted">未有現價</td>
+                  <td className="muted">暫時用買入價，未有市場價</td>
                   <td className="tabular">{formatMoney(lot.costUsd)}</td>
                 </tr>
               ))}

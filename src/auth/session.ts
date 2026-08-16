@@ -63,23 +63,21 @@ export async function destroySession(): Promise<void> {
   clearSessionCookie(jar);
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
+type SessionInspection =
+  | { status: "none" }
+  | { status: "valid"; user: SessionUser }
+  | { status: "stale" };
+
+async function inspectSession(): Promise<SessionInspection> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) {
-    return null;
+    return { status: "none" };
   }
-
-  let row: {
-    id: string;
-    displayName: string;
-    email: string | null;
-    expiresAt: Date;
-  } | undefined;
 
   try {
     const db = getDb();
-    [row] = await db
+    const [row] = await db
       .select({
         id: users.id,
         displayName: users.displayName,
@@ -90,16 +88,38 @@ export async function getSessionUser(): Promise<SessionUser | null> {
       .innerJoin(users, eq(sessions.userId, users.id))
       .where(eq(sessions.tokenHash, hashToken(token)))
       .limit(1);
+
+    if (!row || row.expiresAt.getTime() < Date.now()) {
+      return { status: "stale" };
+    }
+    return {
+      status: "valid",
+      user: { id: row.id, displayName: row.displayName, email: row.email },
+    };
   } catch {
+    return { status: "stale" };
+  }
+}
+
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const session = await inspectSession();
+  if (session.status === "none") {
+    return null;
+  }
+  if (session.status === "stale") {
     redirect(INVALIDATE_SESSION_PATH);
   }
+  return session.user;
+}
 
-  if (!row || row.expiresAt.getTime() < Date.now()) {
-    // Cookie writes are only allowed in Route Handlers / Server Actions.
-    redirect(INVALIDATE_SESSION_PATH);
+/** GET invalidate: drop a missing/expired cookie only. Live sessions stay put. */
+export async function clearStaleSession(): Promise<"cleared" | "kept"> {
+  const session = await inspectSession();
+  if (session.status === "valid") {
+    return "kept";
   }
-
-  return { id: row.id, displayName: row.displayName, email: row.email };
+  await destroySession();
+  return "cleared";
 }
 
 export async function requireUser(): Promise<SessionUser> {
