@@ -184,9 +184,124 @@ button {
   border-color: transparent;
 }
 
+.app-frame {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.tape {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.tape-viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tape-track {
+  display: flex;
+  width: max-content;
+  height: 100%;
+  animation: tape-scroll 80s linear infinite;
+}
+
+.tape:hover .tape-track {
+  animation-play-state: paused;
+}
+
+.tape-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 16px;
+  white-space: nowrap;
+  border-right: 1px solid var(--border);
+  color: inherit;
+}
+
+.tape-symbol {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tape-name {
+  color: var(--muted);
+  font-size: var(--meta-size);
+  font-weight: 500;
+}
+
+.tape-proxy {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--chip-radius);
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.tape-last {
+  font-weight: 500;
+}
+
+.tape-chg {
+  font-size: var(--meta-size);
+  font-weight: 500;
+}
+
+.tape-pin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.tape-fx {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--meta-size);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.delay-update {
+  font-weight: 400;
+}
+
+@keyframes tape-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tape-track {
+    animation: none;
+  }
+}
+
 .shell {
   display: flex;
-  min-height: 100dvh;
+  flex: 1;
+  min-height: 0;
   background: var(--bg);
 }
 
