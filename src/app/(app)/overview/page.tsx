@@ -27,6 +27,7 @@ export default async function OverviewPage() {
         kind: a.kind,
       }))}
       all={view.all}
+      joint={view.joint}
       byMember={view.byMember.map((row) => ({
         memberId: row.member.id,
         displayName: row.member.displayName,

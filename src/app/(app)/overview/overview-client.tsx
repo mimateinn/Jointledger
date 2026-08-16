@@ -10,6 +10,7 @@ export function OverviewClient({
   members,
   accounts,
   all,
+  joint,
   byMember,
   lots,
 }: {
@@ -17,6 +18,7 @@ export function OverviewClient({
   members: { id: string; displayName: string }[];
   accounts: { id: string; memberId: string | null; name: string; kind: string }[];
   all: { cashUsd: string; navUsd: string };
+  joint: { cashUsd: string; navUsd: string };
   byMember: { memberId: string; displayName: string; cashUsd: string; navUsd: string }[];
   lots: {
     tradeId: string;
@@ -45,7 +47,7 @@ export function OverviewClient({
         const account = accounts.find((a) => a.id === lot.ledgerAccountId);
         return account?.kind === "joint";
       });
-      return { nav: "0", cash: "0", lots: jointLots };
+      return { nav: joint.navUsd, cash: joint.cashUsd, lots: jointLots };
     }
     const memberId = filter === "me" ? currentMemberId : filter;
     const row = byMember.find((item) => item.memberId === memberId);
@@ -54,7 +56,7 @@ export function OverviewClient({
       cash: row?.cashUsd ?? "0",
       lots: lots.filter((lot) => lot.memberId === memberId),
     };
-  }, [filter, all, lots, accounts, byMember, currentMemberId]);
+  }, [filter, all, joint, lots, accounts, byMember, currentMemberId]);
 
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
 

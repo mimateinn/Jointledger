@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/auth/cookie";
 
-const publicPaths = new Set(["/login"]);
+const publicPaths = new Set(["/login", "/api/auth/invalidate"]);
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -11,12 +11,15 @@ export function middleware(request: NextRequest) {
   if (!token && !isPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-  if (token && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+
+  // Do not treat cookie *presence* as authenticated. An expired or wiped
+  // session still sends jl_session; /login must stay reachable so
+  // getSessionUser() can invalidate and render the form.
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|icon|apple-icon|manifest.webmanifest|sw.js|swe-worker).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|icon|apple-icon|manifest.webmanifest|sw.js|swe-worker).*)",
+  ],
 };

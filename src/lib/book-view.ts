@@ -16,6 +16,17 @@ export async function loadBookView(user: SessionUser) {
   const lots = openLotsFromTrades(trades, allocations);
 
   const all = summarizeLedger(cashFlows, allocations, lots);
+  const jointAccountIds = new Set(
+    ctx.accounts.filter((account) => account.kind === "joint").map((account) => account.id),
+  );
+  const jointTradeIds = new Set(
+    trades.filter((trade) => jointAccountIds.has(trade.ledgerAccountId)).map((trade) => trade.id),
+  );
+  const joint = summarizeLedger(
+    cashFlows.filter((row) => jointAccountIds.has(row.ledgerAccountId)),
+    allocations.filter((row) => jointTradeIds.has(row.tradeId)),
+    lots.filter((lot) => jointAccountIds.has(lot.ledgerAccountId)),
+  );
   const byMember = ctx.members.map((member) => {
     const memberFlows = filterByMember(cashFlows, member.id);
     const memberAlloc = filterByMember(allocations, member.id);
@@ -34,6 +45,11 @@ export async function loadBookView(user: SessionUser) {
       cashUsd: moneyString(all.cashUsd),
       openValueUsd: moneyString(all.openValueUsd),
       navUsd: moneyString(all.navUsd),
+    },
+    joint: {
+      cashUsd: moneyString(joint.cashUsd),
+      openValueUsd: moneyString(joint.openValueUsd),
+      navUsd: moneyString(joint.navUsd),
     },
     byMember: byMember.map((row) => ({
       member: row.member,

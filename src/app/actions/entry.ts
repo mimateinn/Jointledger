@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/auth/session";
 import { createDrizzleStore } from "@/db/drizzle-store";
+import { withLedgerTransaction } from "@/db/ledger-tx";
 import { createCashFlow, createTrade } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
 
@@ -57,22 +58,24 @@ export async function createBuyAction(
 
   const ledgerAccountId = String(formData.get("ledgerAccountId") ?? "");
   const account = ctx.accounts.find((row) => row.id === ledgerAccountId);
-  if (!account?.memberId) {
+  const memberId = account?.memberId;
+  if (!account || !memberId) {
     return { error: "搵唔到帳簿" };
   }
 
   try {
-    const store = createDrizzleStore();
-    await createTrade(store, {
-      bookId: ctx.book.id,
-      ledgerAccountId: account.id,
-      memberId: account.memberId,
-      symbol: String(formData.get("symbol") ?? ""),
-      quantity: String(formData.get("quantity") ?? ""),
-      price: String(formData.get("price") ?? ""),
-      occurredOn: String(formData.get("occurredOn") ?? ""),
-      note: String(formData.get("note") ?? "") || null,
-    });
+    await withLedgerTransaction((store) =>
+      createTrade(store, {
+        bookId: ctx.book.id,
+        ledgerAccountId: account.id,
+        memberId,
+        symbol: String(formData.get("symbol") ?? ""),
+        quantity: String(formData.get("quantity") ?? ""),
+        price: String(formData.get("price") ?? ""),
+        occurredOn: String(formData.get("occurredOn") ?? ""),
+        note: String(formData.get("note") ?? "") || null,
+      }),
+    );
   } catch (error) {
     return { error: error instanceof Error ? error.message : "記帳失敗" };
   }

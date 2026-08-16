@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireUser } from "@/auth/session";
-import { createDrizzleStore } from "@/db/drizzle-store";
+import { withLedgerTransaction } from "@/db/ledger-tx";
 import { createBook } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
 
@@ -20,15 +20,16 @@ export async function createBookAction(
 
   const name = String(formData.get("name") ?? "").trim();
   try {
-    const store = createDrizzleStore();
-    await createBook(store, {
-      name,
-      createdByUserId: user.id,
-      creatorDisplayName: user.displayName,
-      creatorEmail: user.email,
-      tradeCurrency: "USD",
-      depositCurrency: "HKD",
-    });
+    await withLedgerTransaction((store) =>
+      createBook(store, {
+        name,
+        createdByUserId: user.id,
+        creatorDisplayName: user.displayName,
+        creatorEmail: user.email,
+        tradeCurrency: "USD",
+        depositCurrency: "HKD",
+      }),
+    );
   } catch (error) {
     return { error: error instanceof Error ? error.message : "開表失敗" };
   }

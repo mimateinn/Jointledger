@@ -131,13 +131,12 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
       return rows.map(asTrade);
     },
     async listTradeAllocations(bookId: string) {
-      const bookTrades = await db.select().from(trades).where(eq(trades.bookId, bookId));
-      const ids = bookTrades.map((row) => row.id);
-      if (ids.length === 0) {
-        return [];
-      }
-      const rows = await db.select().from(tradeAllocations);
-      return rows.filter((row) => ids.includes(row.tradeId)).map(asAllocation);
+      const rows = await db
+        .select({ allocation: tradeAllocations })
+        .from(tradeAllocations)
+        .innerJoin(trades, eq(tradeAllocations.tradeId, trades.id))
+        .where(eq(trades.bookId, bookId));
+      return rows.map((row) => asAllocation(row.allocation));
     },
     async getLedgerAccount(id: string) {
       const [row] = await db
