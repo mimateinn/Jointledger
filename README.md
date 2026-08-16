@@ -32,7 +32,7 @@ pnpm dev
 
 **唔會**用買入價當現價，亦唔會用成本估完整 NAV。入金 1000 再買成本 500：現金仍係 **500**。有標記先加市值；無標記嗰行係 `—`，NAV 標部分市值。唔會變 1000（成本市值）或 1500。
 
-Basic key 通常填到 SPY / QQQ / DIA / BTC/USD / ETH/USD / EUR/USD。HSI、N225、KS11、XAU/USD、FTSE 可能要更高計劃，無價就 `—` +「延遲／升級」，唔會改用第二個來源。
+跑馬燈鎖定 11 格（唔包括 ETH、USD/JPY）：SPY / QQQ / DIA / XAU/USD / BTC/USD / EUR/USD / HSI / N225 / KS11 / USD/HKD / FTSE。Basic key 通常填到 SPY / QQQ / DIA / BTC/USD / EUR/USD。HSI、N225、KS11、XAU/USD、FTSE 可能要更高計劃，無價就 `—` +「延遲／升級」，唔會改用第二個來源。
 
 美股三大係 **SPY / QQQ / DIA** ETF 代理（標「代理」）。唔會查 Twelve Data `SPX`，亦零 Massive `I:SPX` / `I:DJI` / `I:NDX` 呼叫。
 

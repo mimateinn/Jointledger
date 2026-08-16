@@ -9,10 +9,24 @@ import {
 } from "./symbol-map";
 
 describe("symbol map", () => {
-  it("freezes tape 12 with SPY/QQQ/DIA proxies first", () => {
-    expect(TAPE_CANON).toHaveLength(12);
-    expect(TAPE_CANON.slice(0, 3).map((row) => row.display)).toEqual(["SPY", "QQQ", "DIA"]);
+  it("freezes Design tape 11 with SPY/QQQ/DIA proxies first", () => {
+    expect(TAPE_CANON.map((row) => row.display)).toEqual([
+      "SPY",
+      "QQQ",
+      "DIA",
+      "XAU/USD",
+      "BTC/USD",
+      "EUR/USD",
+      "HSI",
+      "N225",
+      "KS11",
+      "USD/HKD",
+      "FTSE",
+    ]);
+    expect(TAPE_CANON).toHaveLength(11);
     expect(TAPE_CANON.slice(0, 3).every((row) => row.isEtfProxy)).toBe(true);
+    expect(TAPE_CANON.map((row) => row.tdSymbol)).not.toContain("ETH/USD");
+    expect(TAPE_CANON.map((row) => row.tdSymbol)).not.toContain("USD/JPY");
     expect(TAPE_CANON.map((row) => row.tdSymbol)).not.toContain("SPX");
     expect(TAPE_CANON.map((row) => row.tdSymbol)).toContain("N225");
     expect(TAPE_CANON.map((row) => row.tdSymbol)).not.toContain("NI225");

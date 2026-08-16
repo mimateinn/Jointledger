@@ -136,7 +136,7 @@ function instrument(row: {
 }
 
 /**
- * Frozen tape (canon §7 / M2 product cut).
+ * Frozen tape — Design 11 slots. No ETH. No USD/JPY.
  * US three are ETF proxies only — never SPX / DJI / NDX.
  */
 export const TAPE_CANON: readonly CanonInstrument[] = [
@@ -238,14 +238,6 @@ export const TAPE_CANON: readonly CanonInstrument[] = [
     tdSymbol: "FTSE",
     tapeSlot: 11,
     planHint: true,
-  }),
-  instrument({
-    display: "ETH/USD",
-    displayName: null,
-    assetClass: "crypto",
-    market: "CRYPTO",
-    tdSymbol: "ETH/USD",
-    tapeSlot: 12,
   }),
 ];
 
