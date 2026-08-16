@@ -397,6 +397,34 @@ button {
   margin-bottom: var(--gap);
 }
 
+.tabs-line {
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 0;
+  color: var(--muted);
+  font-size: var(--body-size);
+  font-weight: 500;
+}
+
+.tab-active {
+  color: var(--text);
+  border-bottom-color: var(--text);
+}
+
+.submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
 .empty {
   color: var(--muted);
   padding: 24px 0;

@@ -41,7 +41,7 @@ export function AccountClient({
           );
         })}
         <p className="meta muted" style={{ marginTop: 16 }}>
-          對方用顯示名或電郵自己設密碼。唔使邀請碼。
+          之後由而家嘅人加成員。而家未開放自己註冊。
         </p>
         <form className="form-grid" action={formAction} style={{ marginTop: 16 }}>
           <div className="field">

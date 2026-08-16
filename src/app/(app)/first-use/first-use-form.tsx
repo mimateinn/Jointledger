@@ -19,10 +19,9 @@ export function FirstUseForm() {
 
       <div className="grid grid-nav">
         <section className="card choice-card">
+          <div className="choice-mark">先做呢步</div>
           <h2 className="title">開張新記帳表</h2>
-          <p className="muted">
-            由零開始。成員之後在帳戶頁加，對方用顯示名或電郵自己設密碼。唔使邀請碼。
-          </p>
+          <p className="muted">由零開始。之後由而家嘅人加成員。而家未開放自己註冊。</p>
           <form className="form-grid" action={formAction}>
             <div className="field">
               <label htmlFor="name">記帳表名稱</label>
@@ -30,18 +29,21 @@ export function FirstUseForm() {
             </div>
             <p className="meta muted">買賣貨幣 USD · 入金貨幣 HKD</p>
             {state.error ? <p className="alert">{state.error}</p> : null}
-            <button className="btn btn-primary" type="submit" disabled={pending}>
-              開張新記帳表
+            <button className="btn btn-ghost" type="submit" disabled={pending}>
+              開新表
             </button>
           </form>
         </section>
 
         <section className="card choice-card">
-          <span className="chip">稍後先做</span>
+          <div className="choice-mark">稍後先做</div>
           <h2 className="title">匯入而家用緊嘅試算表</h2>
           <p className="muted">
             把而家用緊嘅試算表搬過嚟。預覽成員、買賣、出入金；對唔上嘅列會單獨標出，確認持股先寫入。
           </p>
+          <button className="btn btn-ghost" type="button">
+            稍後先做
+          </button>
         </section>
       </div>
 

@@ -3,10 +3,11 @@
 import { useActionState, useMemo, useState } from "react";
 import { createBuyAction, createDepositAction, type EntryState } from "@/app/actions/entry";
 import { deriveAmountUsd } from "@/ledger/create-cash-flow";
-import { deriveCostUsd } from "@/ledger/create-trade";
 import { formatMoney } from "@/lib/format";
 
 const initial: EntryState = {};
+const TABS = ["入金", "買入", "賣出", "出金"] as const;
+type Tab = (typeof TABS)[number];
 
 export function EntryForm({
   members,
@@ -21,7 +22,7 @@ export function EntryForm({
   defaultAccountId: string;
   today: string;
 }) {
-  const [tab, setTab] = useState<"deposit" | "buy">("deposit");
+  const [tab, setTab] = useState<Tab>("入金");
   const [depositState, depositAction, depositPending] = useActionState(createDepositAction, initial);
   const [buyState, buyAction, buyPending] = useActionState(createBuyAction, initial);
   const [hkd, setHkd] = useState("");
@@ -39,45 +40,27 @@ export function EntryForm({
     }
   }, [hkd, fx]);
 
-  const cost = useMemo(() => {
-    try {
-      if (!qty || !price) return "";
-      return formatMoney(deriveCostUsd(qty, price));
-    } catch {
-      return "";
-    }
-  }, [qty, price]);
-
   return (
     <div className="stack">
-      <div>
-        <h1 className="display">記一筆</h1>
-        <p className="muted" style={{ marginTop: 12 }}>
-          記帳唔係下單。
-        </p>
+      <h1 className="display">記一筆</h1>
+
+      <div className="tabs-line">
+        {TABS.map((item) => (
+          <button
+            key={item}
+            type="button"
+            className={tab === item ? "tab tab-active" : "tab"}
+            onClick={() => setTab(item)}
+          >
+            {item}
+          </button>
+        ))}
       </div>
 
-      <div className="tabs">
-        <button
-          type="button"
-          className={tab === "deposit" ? "chip chip-active" : "chip"}
-          onClick={() => setTab("deposit")}
-        >
-          入金
-        </button>
-        <button
-          type="button"
-          className={tab === "buy" ? "chip chip-active" : "chip"}
-          onClick={() => setTab("buy")}
-        >
-          加倉
-        </button>
-      </div>
-
-      {tab === "deposit" ? (
+      {tab === "入金" ? (
         <form key="deposit" className="card form-grid" action={depositAction}>
           <div className="field">
-            <label htmlFor="memberId">邊個倉</label>
+            <label htmlFor="memberId">記落邊個人</label>
             <select className="select" id="memberId" name="memberId" defaultValue={defaultMemberId}>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
@@ -87,7 +70,11 @@ export function EntryForm({
             </select>
           </div>
           <div className="field">
-            <label htmlFor="amountHkd">港元金額</label>
+            <label htmlFor="occurredOn">日期</label>
+            <input className="input" id="occurredOn" name="occurredOn" type="date" required defaultValue={today} />
+          </div>
+          <div className="field">
+            <label htmlFor="amountHkd">港幣</label>
             <input
               className="input"
               id="amountHkd"
@@ -114,21 +101,26 @@ export function EntryForm({
             />
             <p className="meta muted">港紙兌美金，例如 7.82。填 1 即當美金入帳。</p>
           </div>
-          <p className="meta muted">{usd ? `美金 ${usd}，會一齊存做美金` : "會一齊存做美金"}</p>
           <div className="field">
-            <label htmlFor="occurredOn">日期</label>
-            <input className="input" id="occurredOn" name="occurredOn" type="date" required defaultValue={today} />
+            <label htmlFor="amountUsd">美金</label>
+            <input className="input" id="amountUsd" readOnly value={usd} tabIndex={-1} />
+            <p className="meta muted">會一齊存做美金。</p>
           </div>
           {depositState.error ? <p className="alert">{depositState.error}</p> : null}
           {depositState.ok ? <p className="ok">{depositState.ok}</p> : null}
-          <button className="btn btn-primary" type="submit" disabled={depositPending}>
-            記入入金
-          </button>
+          <div className="submit-row">
+            <button className="btn btn-primary" type="submit" disabled={depositPending}>
+              記入
+            </button>
+            <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
+          </div>
         </form>
-      ) : (
+      ) : null}
+
+      {tab === "買入" ? (
         <form key="buy" className="card form-grid" action={buyAction}>
           <div className="field">
-            <label htmlFor="ledgerAccountId">邊個倉</label>
+            <label htmlFor="ledgerAccountId">記落邊個人</label>
             <select
               className="select"
               id="ledgerAccountId"
@@ -141,6 +133,17 @@ export function EntryForm({
                 </option>
               ))}
             </select>
+          </div>
+          <div className="field">
+            <label htmlFor="occurredOnBuy">日期</label>
+            <input
+              className="input"
+              id="occurredOnBuy"
+              name="occurredOn"
+              type="date"
+              required
+              defaultValue={today}
+            />
           </div>
           <div className="field">
             <label htmlFor="symbol">代碼</label>
@@ -169,7 +172,7 @@ export function EntryForm({
             />
           </div>
           <div className="field">
-            <label htmlFor="price">價格（USD）</label>
+            <label htmlFor="price">價格</label>
             <input
               className="input"
               id="price"
@@ -181,29 +184,16 @@ export function EntryForm({
               autoComplete="off"
             />
           </div>
-          <p className="meta muted">成本 USD {cost || "—"} · 手續費 0</p>
-          <div className="field">
-            <label htmlFor="occurredOnBuy">日期</label>
-            <input
-              className="input"
-              id="occurredOnBuy"
-              name="occurredOn"
-              type="date"
-              required
-              defaultValue={today}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="note">備註（可選）</label>
-            <input className="input" id="note" name="note" />
-          </div>
           {buyState.error ? <p className="alert">{buyState.error}</p> : null}
           {buyState.ok ? <p className="ok">{buyState.ok}</p> : null}
-          <button className="btn btn-primary" type="submit" disabled={buyPending}>
-            記入加倉
-          </button>
+          <div className="submit-row">
+            <button className="btn btn-primary" type="submit" disabled={buyPending}>
+              記入
+            </button>
+            <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
+          </div>
         </form>
-      )}
+      ) : null}
     </div>
   );
 }
