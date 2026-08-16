@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
-import { DelayBadge } from "@/components/delay-badge";
-import { loadInstrumentView } from "@/quotes";
+import { InstrumentKline } from "@/components/instrument-kline";
+import { instrumentTags } from "@/ohlcv";
+import { loadInstrumentView, resolveInstrument } from "@/quotes";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function InstrumentPage({ params }: { params: Promise<{ cod
     notFound();
   }
   const view = await loadInstrumentView(display).catch(() => null);
+  const instrument = resolveInstrument(display);
   const item = view ?? {
     display,
     name: null,
@@ -34,23 +36,17 @@ export default async function InstrumentPage({ params }: { params: Promise<{ cod
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <h1 className="display">{item.display}</h1>
-          {item.name ? <p className="muted">{item.name}</p> : null}
-        </div>
-        <DelayBadge label={item.delayLabel} lastUpdate={item.lastUpdateLabel} />
-      </div>
-      <section className="card stack">
-        <div className="meta muted">現價</div>
-        <div className="display tabular">{item.last ?? "—"}</div>
-        <div className={item.percentChange?.startsWith("-") ? "down" : item.percentChange?.startsWith("+") ? "up" : "muted"}>
-          {item.last ? (item.percentChange ?? "—") : "—"}
-        </div>
-        {item.isEtfProxy ? <span className="chip">代理</span> : null}
-        {item.planLimited && !item.last ? <span className="chip chip-delay">延遲／升級</span> : null}
-        <p className="muted">呢啲唔係投資建議，只係整理帳簿同公開資料。</p>
-      </section>
+      <InstrumentKline
+        display={item.display}
+        name={item.name}
+        last={item.last}
+        percentChange={item.percentChange}
+        delayLabel={item.delayLabel}
+        lastUpdateLabel={item.lastUpdateLabel}
+        isEtfProxy={item.isEtfProxy}
+        planLimited={item.planLimited}
+        tags={instrument ? instrumentTags(instrument) : []}
+      />
     </div>
   );
 }

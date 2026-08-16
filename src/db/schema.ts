@@ -4,6 +4,7 @@ import {
   integer,
   numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -166,3 +167,33 @@ export const quoteRefreshState = pgTable("quote_refresh_state", {
   creditUtcDate: text("credit_utc_date"),
   creditsUsed: integer("credits_used").notNull().default(0),
 });
+
+/** Daily OHLCV last-good. Key = (td_symbol, exchange, date). */
+export const ohlcvBars = pgTable(
+  "ohlcv_bars",
+  {
+    tdSymbol: text("td_symbol").notNull(),
+    tdExchange: text("td_exchange").notNull().default(""),
+    barDate: date("bar_date").notNull(),
+    open: money("open").notNull(),
+    high: money("high").notNull(),
+    low: money("low").notNull(),
+    close: money("close").notNull(),
+    volume: money("volume").notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.tdSymbol, table.tdExchange, table.barDate] })],
+);
+
+/** One upstream /time_series attempt per (td_symbol, exchange) per UTC calendar day. */
+export const ohlcvFetchState = pgTable(
+  "ohlcv_fetch_state",
+  {
+    tdSymbol: text("td_symbol").notNull(),
+    tdExchange: text("td_exchange").notNull().default(""),
+    lastFetchUtcDate: text("last_fetch_utc_date"),
+    lastStatus: text("last_status").notNull(),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  },
+  (table) => [primaryKey({ columns: [table.tdSymbol, table.tdExchange] })],
+);

@@ -545,6 +545,75 @@ button {
   padding: 24px 0;
 }
 
+.holdings-split {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+.table tbody tr {
+  cursor: pointer;
+}
+
+.table tbody tr.selected {
+  background: var(--bg);
+}
+
+.indicator-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.indicator-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.indicator-group-label {
+  color: var(--muted);
+  font-size: var(--meta-size);
+  font-weight: 500;
+  min-width: 36px;
+}
+
+.indicator-chips {
+  margin: 0;
+}
+
+.kline {
+  width: 100%;
+  min-height: 360px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+
+.kline-empty {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+}
+
+.instrument-quote .display {
+  margin: 0;
+}
+
+@media (max-width: 960px) {
+  .holdings-split {
+    grid-template-columns: 1fr;
+  }
+}
+
 .footer-note {
   text-align: center;
   color: var(--muted);
