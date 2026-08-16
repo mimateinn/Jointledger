@@ -1,6 +1,6 @@
-import { getSql } from "@/db/client";
 import { resolveDisplayedMark } from "./apply-status";
 import { nextUtcMinute, packTtlMs, utcDateString } from "./market-hours";
+import { withPackLock, type PackLockTx } from "./pack-lock";
 import { buildUniverse, flightKey, isDeniedSymbol, resolveInstrument } from "./symbol-map";
 import {
   loadQuoteRows,
@@ -12,7 +12,6 @@ import {
 import { fetchTwelveDataBatch, getTwelveDataApiKey } from "./twelve-data";
 import type { CanonInstrument, QuoteRow, QuoteStatus, UpstreamOutcome } from "./types";
 
-const PACK_LOCK = 2_026_081_602;
 const CREDIT_BUFFER = 40;
 const inflight = new Map<string, Promise<void>>();
 let packFlight: Promise<void> | null = null;
@@ -69,20 +68,17 @@ function needsFetch(row: QuoteRow | undefined, now: Date, ttl: number, hasKey: b
   return now.getTime() - row.fetchedAt.getTime() >= ttl;
 }
 
-async function withPackLock<T>(fn: () => Promise<T>): Promise<T> {
-  const sql = getSql();
-  await sql`select pg_advisory_lock(${PACK_LOCK})`;
-  try {
-    return await fn();
-  } finally {
-    await sql`select pg_advisory_unlock(${PACK_LOCK})`;
-  }
-}
-
-async function refreshUniverse(instruments: CanonInstrument[], now: Date): Promise<void> {
-  const ids = await upsertInstruments(instruments);
-  const previous = await loadQuoteRows(instruments.map((row) => row.display));
-  const state = await loadRefreshState();
+async function refreshUniverse(
+  instruments: CanonInstrument[],
+  now: Date,
+  tx: PackLockTx,
+): Promise<void> {
+  const ids = await upsertInstruments(instruments, tx);
+  const previous = await loadQuoteRows(
+    instruments.map((row) => row.display),
+    tx,
+  );
+  const state = await loadRefreshState(tx);
   const today = utcDateString(now);
   const creditsUsed = state.creditUtcDate === today ? state.creditsUsed : 0;
   const ttl = packTtlMs(now);
@@ -98,28 +94,36 @@ async function refreshUniverse(instruments: CanonInstrument[], now: Date): Promi
     if (isDeniedSymbol(row.display) || isDeniedSymbol(row.tdSymbol)) {
       const id = ids.get(row.display);
       if (id) {
-        await saveQuoteRow(id, {
-          last: null,
-          percentChange: null,
-          previousClose: null,
-          quotedAt: null,
-          fetchedAt: now,
-          status: "denied",
-        });
+        await saveQuoteRow(
+          id,
+          {
+            last: null,
+            percentChange: null,
+            previousClose: null,
+            quotedAt: null,
+            fetchedAt: now,
+            status: "denied",
+          },
+          tx,
+        );
       }
       continue;
     }
     if (!key) {
       const id = ids.get(row.display);
       if (id) {
-        await saveQuoteRow(id, {
-          last: null,
-          percentChange: null,
-          previousClose: null,
-          quotedAt: null,
-          fetchedAt: now,
-          status: "no_key",
-        });
+        await saveQuoteRow(
+          id,
+          {
+            last: null,
+            percentChange: null,
+            previousClose: null,
+            quotedAt: null,
+            fetchedAt: now,
+            status: "no_key",
+          },
+          tx,
+        );
       }
       continue;
     }
@@ -129,12 +133,15 @@ async function refreshUniverse(instruments: CanonInstrument[], now: Date): Promi
   }
 
   if (!key || due.length === 0) {
-    await saveRefreshState({
-      lastPackAt: state.lastPackAt ?? now,
-      rateLimitedUntil: state.rateLimitedUntil,
-      creditUtcDate: today,
-      creditsUsed,
-    });
+    await saveRefreshState(
+      {
+        lastPackAt: state.lastPackAt ?? now,
+        rateLimitedUntil: state.rateLimitedUntil,
+        creditUtcDate: today,
+        creditsUsed,
+      },
+      tx,
+    );
     return;
   }
 
@@ -150,22 +157,25 @@ async function refreshUniverse(instruments: CanonInstrument[], now: Date): Promi
     }
     const outcome = results.get(row.display) ?? { kind: "empty" as const };
     const persist = outcomeToPersist(outcome, previous.get(row.display), now);
-    await saveQuoteRow(id, { ...persist, fetchedAt: now });
+    await saveQuoteRow(id, { ...persist, fetchedAt: now }, tx);
   }
 
-  await saveRefreshState({
-    lastPackAt: now,
-    rateLimitedUntil: rateLimited ? nextUtcMinute(now) : state.rateLimitedUntil,
-    creditUtcDate: today,
-    creditsUsed: creditsUsed + credits,
-  });
+  await saveRefreshState(
+    {
+      lastPackAt: now,
+      rateLimitedUntil: rateLimited ? nextUtcMinute(now) : state.rateLimitedUntil,
+      creditUtcDate: today,
+      creditsUsed: creditsUsed + credits,
+    },
+    tx,
+  );
 }
 
 export async function ensureQuotes(openLotSymbols: readonly string[] = [], now = new Date()): Promise<void> {
   const universe = buildUniverse(openLotSymbols);
   const run = async () => {
     try {
-      await withPackLock(() => refreshUniverse(universe, now));
+      await withPackLock((tx) => refreshUniverse(universe, now, tx));
     } catch {
       // Render last-good / em-dash. Never fail the page.
     }

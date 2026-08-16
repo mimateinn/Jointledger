@@ -1,8 +1,10 @@
 import { eq, inArray } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { getDb, type Database } from "@/db/client";
 import { instruments, quoteRefreshState, quotes } from "@/db/schema";
 import { TAPE_CANON } from "./symbol-map";
 import type { CanonInstrument, QuoteRow, QuoteStatus } from "./types";
+
+export type QuoteExecutor = Pick<Database, "insert" | "select" | "update">;
 
 const STATE_ID = "pack";
 
@@ -13,8 +15,10 @@ export type RefreshState = {
   creditsUsed: number;
 };
 
-export async function upsertInstruments(rows: CanonInstrument[]): Promise<Map<string, string>> {
-  const db = getDb();
+export async function upsertInstruments(
+  rows: CanonInstrument[],
+  db: QuoteExecutor = getDb(),
+): Promise<Map<string, string>> {
   const ids = new Map<string, string>();
   for (const row of rows) {
     const existing = await db
@@ -58,12 +62,14 @@ export async function upsertInstruments(rows: CanonInstrument[]): Promise<Map<st
   return ids;
 }
 
-export async function loadQuoteRows(displays: string[]): Promise<Map<string, QuoteRow>> {
+export async function loadQuoteRows(
+  displays: string[],
+  db: QuoteExecutor = getDb(),
+): Promise<Map<string, QuoteRow>> {
   const out = new Map<string, QuoteRow>();
   if (displays.length === 0) {
     return out;
   }
-  const db = getDb();
   const inst = await db.select().from(instruments).where(inArray(instruments.displayCode, displays));
   if (inst.length === 0) {
     return out;
@@ -108,8 +114,8 @@ export async function saveQuoteRow(
     fetchedAt: Date;
     status: QuoteStatus;
   },
+  db: QuoteExecutor = getDb(),
 ): Promise<void> {
-  const db = getDb();
   await db
     .insert(quotes)
     .values({
@@ -138,8 +144,7 @@ export async function saveQuoteRow(
     });
 }
 
-export async function loadRefreshState(): Promise<RefreshState> {
-  const db = getDb();
+export async function loadRefreshState(db: QuoteExecutor = getDb()): Promise<RefreshState> {
   const [row] = await db.select().from(quoteRefreshState).where(eq(quoteRefreshState.id, STATE_ID)).limit(1);
   if (!row) {
     return { lastPackAt: null, rateLimitedUntil: null, creditUtcDate: null, creditsUsed: 0 };
@@ -152,8 +157,10 @@ export async function loadRefreshState(): Promise<RefreshState> {
   };
 }
 
-export async function saveRefreshState(state: RefreshState): Promise<void> {
-  const db = getDb();
+export async function saveRefreshState(
+  state: RefreshState,
+  db: QuoteExecutor = getDb(),
+): Promise<void> {
   await db
     .insert(quoteRefreshState)
     .values({
