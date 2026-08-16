@@ -23,6 +23,10 @@ const serwist = new Serwist({
       matcher: ({ request }) => request.mode === "navigate",
       handler: new NetworkOnly(),
     },
+    {
+      matcher: ({ url }) => url.pathname.startsWith("/api/"),
+      handler: new NetworkOnly(),
+    },
   ],
 });
 

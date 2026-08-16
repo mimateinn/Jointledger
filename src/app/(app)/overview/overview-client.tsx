@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { DelayBadge } from "@/components/delay-badge";
 import { formatMoney } from "@/lib/format";
 
 type Filter = "me" | "all" | string;
-
-const COST_ONLY = "暫時用買入價，未有市場價";
 
 function holdingsMeta(count: number): string {
   const words = ["零", "一", "兩", "三", "四", "五", "六", "七", "八", "九", "十"];
@@ -16,6 +15,19 @@ function holdingsMeta(count: number): string {
   return `${count}筆持股`;
 }
 
+function changeClass(change: string | null): string | undefined {
+  if (!change) {
+    return "muted";
+  }
+  if (change.startsWith("+")) {
+    return "up";
+  }
+  if (change.startsWith("-")) {
+    return "down";
+  }
+  return "muted";
+}
+
 export function OverviewClient({
   currentMemberId,
   members,
@@ -23,12 +35,13 @@ export function OverviewClient({
   all,
   byMember,
   lots,
+  delayLabel,
 }: {
   currentMemberId: string;
   members: { id: string; displayName: string }[];
   accounts: { id: string; memberId: string | null; name: string; kind: string }[];
-  all: { cashUsd: string; navUsd: string };
-  byMember: { memberId: string; displayName: string; cashUsd: string; navUsd: string }[];
+  all: { cashUsd: string; navUsd: string; partial: boolean };
+  byMember: { memberId: string; displayName: string; cashUsd: string; navUsd: string; partial: boolean }[];
   lots: {
     tradeId: string;
     memberId: string;
@@ -36,7 +49,11 @@ export function OverviewClient({
     symbol: string;
     quantity: string;
     costUsd: string;
+    lastDisplay: string | null;
+    percentChange: string | null;
+    marketValueUsd: string | null;
   }[];
+  delayLabel: string;
 }) {
   const [filter, setFilter] = useState<Filter>("me");
   const jointOpened = accounts.some((account) => account.kind === "joint");
@@ -50,7 +67,7 @@ export function OverviewClient({
 
   const shown = useMemo(() => {
     if (filter === "all") {
-      return { nav: all.navUsd, cash: all.cashUsd, lots };
+      return { nav: all.navUsd, cash: all.cashUsd, lots, partial: all.partial };
     }
     const memberId = filter === "me" ? currentMemberId : filter;
     const row = byMember.find((item) => item.memberId === memberId);
@@ -58,11 +75,13 @@ export function OverviewClient({
       nav: row?.navUsd ?? "0",
       cash: row?.cashUsd ?? "0",
       lots: lots.filter((lot) => lot.memberId === memberId),
+      partial: row?.partial ?? false,
     };
   }, [filter, all, lots, byMember, currentMemberId]);
 
   const emptyBook = lots.length === 0 && Number(all.navUsd) === 0 && Number(all.cashUsd) === 0;
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
+  const showPrices = !emptyBook && (lots.some((lot) => lot.lastDisplay) || lots.length > 0);
 
   return (
     <div>
@@ -82,7 +101,7 @@ export function OverviewClient({
             ))}
           </div>
         </div>
-        {emptyBook ? null : <span className="chip chip-delay">{COST_ONLY}</span>}
+        {showPrices ? <DelayBadge label={delayLabel} /> : null}
       </div>
 
       {emptyBook ? (
@@ -121,6 +140,7 @@ export function OverviewClient({
               <div className="display tabular" style={{ marginTop: 8 }}>
                 US$ {formatMoney(shown.nav)}
               </div>
+              {shown.partial ? <div className="metric-sub">部分市值</div> : null}
             </section>
             {byMember.map((row) => (
               <section className="card" key={row.memberId}>
@@ -130,6 +150,7 @@ export function OverviewClient({
                 </div>
                 <div className="metric-sub">
                   可用 {formatMoney(row.cashUsd)} · 現金，未計持倉
+                  {row.partial ? " · 部分市值" : ""}
                 </div>
               </section>
             ))}
@@ -152,18 +173,28 @@ export function OverviewClient({
                     <th>記落邊個人</th>
                     <th>數量</th>
                     <th>現價</th>
+                    <th>今日</th>
+                    <th>市值</th>
                     <th>成本</th>
                   </tr>
                 </thead>
                 <tbody>
                   {shown.lots.map((lot) => (
                     <tr key={lot.tradeId}>
-                      <td>{lot.symbol}</td>
+                      <td>
+                        <Link href={`/instrument/${encodeURIComponent(lot.symbol)}`}>{lot.symbol}</Link>
+                      </td>
                       <td>
                         <span className="chip">{accountName(lot.ledgerAccountId)}</span>
                       </td>
                       <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                      <td className="muted">{COST_ONLY}</td>
+                      <td className="tabular">{lot.lastDisplay ?? "—"}</td>
+                      <td className={`tabular ${changeClass(lot.percentChange)}`}>
+                        {lot.lastDisplay ? (lot.percentChange ?? "—") : "—"}
+                      </td>
+                      <td className="tabular">
+                        {lot.marketValueUsd ? formatMoney(lot.marketValueUsd) : "—"}
+                      </td>
                       <td className="tabular">{formatMoney(lot.costUsd)}</td>
                     </tr>
                   ))}

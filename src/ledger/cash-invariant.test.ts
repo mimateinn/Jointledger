@@ -7,16 +7,20 @@ import { createTrade } from "./create-trade";
 import { createMemoryStore } from "./memory-store";
 import { openLotsFromTrades, summarizeLedger } from "./summary";
 
-async function snapshot(store: ReturnType<typeof createMemoryStore>, bookId: string) {
+async function snapshot(
+  store: ReturnType<typeof createMemoryStore>,
+  bookId: string,
+  marks?: Record<string, string | null>,
+) {
   const cashFlows = await store.listCashFlows(bookId);
   const trades = await store.listTrades(bookId);
   const allocations = await store.listTradeAllocations(bookId);
   const lots = openLotsFromTrades(trades, allocations);
-  return summarizeLedger(cashFlows, allocations, lots);
+  return summarizeLedger(cashFlows, allocations, lots, marks);
 }
 
 describe("cash invariant", () => {
-  it("keeps NAV at 1000 after deposit 1000 and buy 10 @ 50", async () => {
+  it("keeps cash at 500 after deposit 1000 and buy 10 @ 50", async () => {
     const store = createMemoryStore();
     const { book, member, account } = await createBook(store, {
       name: "測試簿",
@@ -28,6 +32,7 @@ describe("cash invariant", () => {
     expect(empty.cashUsd.toString()).toBe("0");
     expect(empty.openValueUsd.toString()).toBe("0");
     expect(empty.navUsd.toString()).toBe("0");
+    expect(empty.partial).toBe(false);
 
     await createCashFlow(store, {
       bookId: book.id,
@@ -55,8 +60,10 @@ describe("cash invariant", () => {
 
     const afterBuy = await snapshot(store, book.id);
     expect(afterBuy.cashUsd.toFixed(2)).toBe("500.00");
-    expect(afterBuy.openValueUsd.toFixed(2)).toBe("500.00");
-    expect(afterBuy.navUsd.toFixed(2)).toBe("1000.00");
+    expect(afterBuy.openValueUsd.toFixed(2)).toBe("0.00");
+    expect(afterBuy.navUsd.toFixed(2)).toBe("500.00");
+    expect(afterBuy.partial).toBe(true);
+    expect(afterBuy.navUsd.toFixed(2)).not.toBe("1000.00");
     expect(afterBuy.navUsd.toFixed(2)).not.toBe("1500.00");
   });
 
@@ -95,7 +102,8 @@ describe("cash invariant", () => {
 
     const right = summarizeLedger(cashFlows, allocations, lots);
     expect(wrongNav.toFixed(2)).toBe("1500.00");
-    expect(right.navUsd.toFixed(2)).toBe("1000.00");
+    expect(right.cashUsd.toFixed(2)).toBe("500.00");
+    expect(right.navUsd.toFixed(2)).toBe("500.00");
     expect(right.navUsd.eq(wrongNav)).toBe(false);
   });
 

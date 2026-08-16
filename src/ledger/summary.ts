@@ -6,6 +6,9 @@ export type BookSnapshot = {
   cashUsd: Decimal;
   openValueUsd: Decimal;
   navUsd: Decimal;
+  markedLotCount: number;
+  unmarkedLotCount: number;
+  partial: boolean;
 };
 
 export type OpenLot = {
@@ -18,15 +21,19 @@ export type OpenLot = {
   occurredOn: string;
 };
 
+export type LotMarks = Readonly<Record<string, string | null | undefined>>;
+
 /**
  * cash_usd = Σ CashFlow.amount_usd − Σ TradeAllocation.cost_usd ＋ Σ TradeAllocation.proceeds_usd
- * Open lots are valued at cost in M1 (no market quotes).
- * NAV = cash_usd + open position value
+ * Marked MV = Σ (qty × last) for lots that have a last-good mark.
+ * Unmarked lots are excluded from MV (never cost-as-last).
+ * NAV = cash_usd + marked MV. If any lot is unmarked, snapshot.partial is true.
  */
 export function summarizeLedger(
   cashFlows: Pick<CashFlow, "amountUsd">[],
   allocations: Pick<TradeAllocation, "costUsd" | "proceedsUsd">[],
-  openLots: Pick<OpenLot, "costUsd">[],
+  openLots: Pick<OpenLot, "costUsd" | "quantity" | "symbol">[],
+  marks?: LotMarks,
 ): BookSnapshot {
   const inflows = cashFlows.reduce((sum, row) => sum.plus(money(row.amountUsd)), new Decimal(0));
   const costs = allocations.reduce((sum, row) => sum.plus(money(row.costUsd)), new Decimal(0));
@@ -35,12 +42,34 @@ export function summarizeLedger(
     new Decimal(0),
   );
   const cashUsd = inflows.minus(costs).plus(proceeds);
-  const openValueUsd = openLots.reduce((sum, lot) => sum.plus(money(lot.costUsd)), new Decimal(0));
+  let openValueUsd = new Decimal(0);
+  let markedLotCount = 0;
+  let unmarkedLotCount = 0;
+  for (const lot of openLots) {
+    const last = marks?.[lot.symbol.trim().toUpperCase()] ?? marks?.[lot.symbol];
+    const value = lotMarketValue(lot.quantity, last);
+    if (value) {
+      openValueUsd = openValueUsd.plus(value);
+      markedLotCount += 1;
+    } else {
+      unmarkedLotCount += 1;
+    }
+  }
   return {
     cashUsd,
     openValueUsd,
     navUsd: cashUsd.plus(openValueUsd),
+    markedLotCount,
+    unmarkedLotCount,
+    partial: unmarkedLotCount > 0,
   };
+}
+
+export function lotMarketValue(quantity: string, last: string | null | undefined): Decimal | null {
+  if (last == null || last.trim() === "") {
+    return null;
+  }
+  return money(quantity).times(money(last));
 }
 
 export function openLotsFromTrades(

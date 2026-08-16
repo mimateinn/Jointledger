@@ -1,4 +1,13 @@
-import { date, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  date,
+  integer,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 const money = (name: string) => numeric(name, { precision: 20, scale: 8 });
 
@@ -121,4 +130,39 @@ export const tradeAllocations = pgTable("trade_allocations", {
   quantity: money("quantity").notNull(),
   costUsd: money("cost_usd").notNull().default("0"),
   proceedsUsd: money("proceeds_usd").notNull().default("0"),
+});
+
+export const instruments = pgTable("instruments", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  displayCode: text("display_code").notNull().unique(),
+  displayName: text("display_name"),
+  assetClass: text("asset_class").notNull(),
+  market: text("market").notNull(),
+  tdSymbol: text("td_symbol").notNull(),
+  tdExchange: text("td_exchange"),
+  isEtfProxy: boolean("is_etf_proxy").notNull().default(false),
+  tapeSlot: integer("tape_slot"),
+  planHint: boolean("plan_hint").notNull().default(false),
+});
+
+export const quotes = pgTable("quotes", {
+  instrumentId: uuid("instrument_id")
+    .primaryKey()
+    .references(() => instruments.id),
+  last: money("last"),
+  percentChange: money("percent_change"),
+  previousClose: money("previous_close"),
+  quotedAt: timestamp("quoted_at", { withTimezone: true }),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  delaySeconds: integer("delay_seconds").notNull().default(900),
+  status: text("status").notNull(),
+  source: text("source").notNull().default("twelve_data"),
+});
+
+export const quoteRefreshState = pgTable("quote_refresh_state", {
+  id: text("id").primaryKey(),
+  lastPackAt: timestamp("last_pack_at", { withTimezone: true }),
+  rateLimitedUntil: timestamp("rate_limited_until", { withTimezone: true }),
+  creditUtcDate: text("credit_utc_date"),
+  creditsUsed: integer("credits_used").notNull().default(0),
 });

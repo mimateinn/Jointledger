@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { loadBookView } from "@/lib/book-view";
+import { DELAY_15 } from "@/quotes";
 import { OverviewClient } from "./overview-client";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,9 @@ export default async function OverviewPage() {
   if (!view) {
     redirect("/first-use");
   }
+
+  const anyPrice = view.lots.some((lot) => lot.lastDisplay);
+  const delayLabel = anyPrice ? DELAY_15 : view.lots.some((lot) => lot.planLimited) ? "延遲／升級" : DELAY_15;
 
   return (
     <OverviewClient
@@ -32,6 +36,7 @@ export default async function OverviewPage() {
         displayName: row.member.displayName,
         cashUsd: row.cashUsd,
         navUsd: row.navUsd,
+        partial: row.partial,
       }))}
       lots={view.lots.map((lot) => ({
         tradeId: lot.tradeId,
@@ -40,7 +45,11 @@ export default async function OverviewPage() {
         symbol: lot.symbol,
         quantity: lot.quantity,
         costUsd: lot.costUsd,
+        lastDisplay: lot.lastDisplay,
+        percentChange: lot.percentChange,
+        marketValueUsd: lot.marketValueUsd,
       }))}
+      delayLabel={delayLabel}
     />
   );
 }
