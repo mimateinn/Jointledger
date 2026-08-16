@@ -30,20 +30,30 @@ export async function registerAction(
     return { error: "密碼至少 8 個字" };
   }
 
+  const email = emailRaw ? emailRaw.toLowerCase() : null;
+  const passwordHash = await hashPassword(password);
   const db = getDb();
-  const [existing] = await db.select({ n: count() }).from(users);
-  if (Number(existing?.n ?? 0) > 0) {
+
+  // Serialize first-user signup: a count check alone races when the table is empty
+  // (FOR UPDATE locks zero rows). Advisory lock + re-check inside one transaction.
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(87241001)`);
+    const [existing] = await tx.select({ n: count() }).from(users);
+    if (Number(existing?.n ?? 0) > 0) {
+      return { ok: false as const };
+    }
+    const [created] = await tx
+      .insert(users)
+      .values({ displayName, email, passwordHash })
+      .returning();
+    return { ok: true as const, user: created };
+  });
+
+  if (!result.ok) {
     return { error: "系統已有用戶。請登入，或請現有成員先加你嘅顯示名。" };
   }
 
-  const email = emailRaw ? emailRaw.toLowerCase() : null;
-  const passwordHash = await hashPassword(password);
-  const [user] = await db
-    .insert(users)
-    .values({ displayName, email, passwordHash })
-    .returning();
-
-  await createSession(user.id);
+  await createSession(result.user.id);
   redirect("/first-use");
 }
 
