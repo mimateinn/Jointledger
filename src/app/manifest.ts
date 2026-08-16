@@ -1,0 +1,18 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "聯倉",
+    short_name: "聯倉",
+    description: "多人股票記帳。純粹記帳，不連接券商。",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#121411",
+    theme_color: "#121411",
+    lang: "zh-Hant",
+    icons: [
+      { src: "/icon", sizes: "192x192", type: "image/png" },
+      { src: "/apple-icon", sizes: "180x180", type: "image/png" },
+    ],
+  };
+}

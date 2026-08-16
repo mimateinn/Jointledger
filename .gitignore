@@ -1,0 +1,13 @@
+node_modules
+.next
+out
+dist
+.env
+.env.local
+.DS_Store
+*.log
+tsconfig.tsbuildinfo
+
+# Serwist generated
+public/sw*
+public/swe-worker*
