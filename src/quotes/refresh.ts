@@ -59,8 +59,11 @@ function outcomeToPersist(
   };
 }
 
-function needsFetch(row: QuoteRow | undefined, now: Date, ttl: number): boolean {
+function needsFetch(row: QuoteRow | undefined, now: Date, ttl: number, hasKey: boolean): boolean {
   if (!row) {
+    return true;
+  }
+  if (hasKey && (row.status === "no_key" || row.status === "unauthorized")) {
     return true;
   }
   return now.getTime() - row.fetchedAt.getTime() >= ttl;
@@ -120,7 +123,7 @@ async function refreshUniverse(instruments: CanonInstrument[], now: Date): Promi
       }
       continue;
     }
-    if (needsFetch(previous.get(row.display), now, ttl)) {
+    if (needsFetch(previous.get(row.display), now, ttl, Boolean(key))) {
       due.push(row);
     }
   }
