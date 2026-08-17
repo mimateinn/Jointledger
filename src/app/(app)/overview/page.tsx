@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { loadBookView } from "@/lib/book-view";
+import { ensureCurrentBook } from "@/lib/ensure-book";
 import { DELAY_15 } from "@/quotes";
 import { OverviewClient } from "./overview-client";
 
@@ -12,6 +13,7 @@ export default async function OverviewPage() {
   if (!user) {
     redirect("/login");
   }
+  await ensureCurrentBook(user);
   const view = await loadBookView(user);
   if (!view) {
     redirect("/first-use");

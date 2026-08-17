@@ -36,4 +36,6 @@ export type LedgerStore = {
   listLedgerAccounts(bookId: string): Promise<LedgerAccount[]>;
   getLedgerAccount(id: string): Promise<LedgerAccount | null>;
   clearBookEntries(bookId: string): Promise<void>;
+  deleteAllocations(ids: string[]): Promise<void>;
+  deleteTradesIfUnused(bookId: string, tradeIds: string[]): Promise<void>;
 };

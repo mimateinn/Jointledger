@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { loadBookView } from "@/lib/book-view";
+import { ensureCurrentBook } from "@/lib/ensure-book";
 import { LedgerClient } from "./ledger-client";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export default async function LedgerPage() {
   if (!user) {
     redirect("/login");
   }
+  await ensureCurrentBook(user);
   const view = await loadBookView(user);
   if (!view) {
     redirect("/first-use");

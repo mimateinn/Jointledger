@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { createDrizzleStore } from "@/db/drizzle-store";
 import { getCurrentMembership } from "@/lib/current-book";
+import { ensureCurrentBook } from "@/lib/ensure-book";
 import { scheduleInForce } from "@/ledger/set-allocation-schedule";
 import { todayIso } from "@/lib/format";
 import { AccountClient } from "./account-client";
@@ -14,6 +15,7 @@ export default async function AccountPage() {
   if (!user) {
     redirect("/login");
   }
+  await ensureCurrentBook(user);
   const ctx = await getCurrentMembership(user);
   if (!ctx) {
     redirect("/first-use");
@@ -36,9 +38,13 @@ export default async function AccountPage() {
       })),
     }));
 
+  const cashFlows = await store.listCashFlows(ctx.book.id);
+  const trades = await store.listTrades(ctx.book.id);
+
   return (
     <AccountClient
       currentUserId={user.id}
+      emptyLedger={cashFlows.length === 0 && trades.length === 0}
       members={ctx.members.map((m) => ({
         id: m.id,
         displayName: m.displayName,

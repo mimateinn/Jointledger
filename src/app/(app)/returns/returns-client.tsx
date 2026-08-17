@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EmptyPanel } from "@/components/empty-panel";
 import { formatMoney } from "@/lib/format";
 import { formatDietzPercent, type MemberReturn, type PeriodKey, type ReturnsReport } from "@/returns/report";
 
@@ -53,16 +54,25 @@ export function ReturnsClient({
               對本金{showPrincipal ? " ×" : ""}
             </button>
           ) : null}
-          <button
-            type="button"
-            className={showOld ? "chip chip-active" : "chip"}
-            onClick={() => setShowOld((value) => !value)}
-          >
-            舊表對照 · 可關
-          </button>
+          {!emptyBook ? (
+            <button
+              type="button"
+              className={showOld ? "chip chip-active" : "chip"}
+              onClick={() => setShowOld((value) => !value)}
+            >
+              舊表對照 · 可關
+            </button>
+          ) : null}
         </div>
       </div>
 
+      {emptyBook ? (
+        <EmptyPanel
+          title="未有流水"
+          body="未有入金或買賣，收益率暫時無得計。空表都可以用。"
+          actionLabel="記一筆"
+        />
+      ) : (
       <form className="chip-row" method="get">
         {PERIODS.map((item) => (
           <button
@@ -169,6 +179,7 @@ export function ReturnsClient({
       <p className="footer-note">
         平均資本≈0 或缺期初價：% 顯示 —，圖改畫 $ 或標「不足」。空白新表唔顯示「對本金」。
       </p>
+      )}
     </div>
   );
 }

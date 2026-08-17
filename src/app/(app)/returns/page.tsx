@@ -7,6 +7,7 @@ import { importBatches } from "@/db/tables";
 import { sumSheetPnl } from "@/import/old-sheet";
 import type { ImportPlan } from "@/import/types";
 import { loadBookView } from "@/lib/book-view";
+import { ensureCurrentBook } from "@/lib/ensure-book";
 import { todayIso } from "@/lib/format";
 import { buildReturnsReport, type PeriodKey } from "@/returns/report";
 import { ReturnsClient } from "./returns-client";
@@ -42,6 +43,7 @@ export default async function ReturnsPage({
   if (!user) {
     redirect("/login");
   }
+  await ensureCurrentBook(user);
   const view = await loadBookView(user);
   if (!view) {
     redirect("/first-use");

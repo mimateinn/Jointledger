@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { logoutAction } from "@/app/actions/auth";
 import { addMemberAction, issueInviteAction, type MemberState } from "@/app/actions/members";
 import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
+import { EmptyPanel } from "@/components/empty-panel";
+import { MemberDelete } from "@/components/member-delete";
 import { SubmitButton } from "@/components/submit-button";
 import { formatSchedulePercent } from "@/lib/format";
 
@@ -28,9 +30,11 @@ export function AccountClient({
   currentUserId,
   members,
   schedules,
+  emptyLedger,
 }: {
   currentUserId: string;
   members: { id: string; displayName: string; email: string | null; userId: string | null }[];
+  emptyLedger: boolean;
   schedules: {
     effectiveOn: string;
     current: boolean;
@@ -50,6 +54,13 @@ export function AccountClient({
   return (
     <div className="stack">
       <h1 className="display">帳戶</h1>
+      {emptyLedger ? (
+        <EmptyPanel
+          title="未有持倉或流水"
+          body="空表都可以管理成員。要記帳就去記一筆。"
+          actionLabel="記一筆"
+        />
+      ) : null}
       <section className="card">
         <div className="row" style={{ marginBottom: 8 }}>
           <h2 className="title">成員</h2>
@@ -69,6 +80,11 @@ export function AccountClient({
                 {member.email ? <div className="meta muted">{member.email}</div> : null}
               </div>
               <div className="meta muted">{member.userId ? "已登入" : "未設密碼"}</div>
+              <MemberDelete
+                memberId={member.id}
+                displayName={member.displayName}
+                lastUser={members.filter((row) => row.userId).length <= 1 && Boolean(member.userId)}
+              />
               {!member.userId ? (
                 <form action={inviteAction}>
                   <input type="hidden" name="memberId" value={member.id} />

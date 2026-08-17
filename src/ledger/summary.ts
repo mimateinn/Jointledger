@@ -21,6 +21,14 @@ export type OpenLot = {
   occurredOn: string;
 };
 
+/** Buy lot plus the sell trades that FIFO-closed any part of it. */
+export type PositionLot = OpenLot & {
+  closed: boolean;
+  originalQuantity: string;
+  originalCostUsd: string;
+  sellTradeIds: string[];
+};
+
 export type LotMarks = Readonly<Record<string, string | null | undefined>>;
 
 /**
@@ -148,6 +156,93 @@ export function openLotsFromTrades(
       costUsd: lot.remainingCost.toFixed(8),
       occurredOn: lot.occurredOn,
     }));
+}
+
+export function positionLotsFromTrades(
+  trades: Trade[],
+  allocations: TradeAllocation[],
+): PositionLot[] {
+  const byTrade = new Map(trades.map((trade) => [trade.id, trade]));
+  const events = allocations
+    .map((allocation) => {
+      const trade = byTrade.get(allocation.tradeId);
+      return trade ? { allocation, trade } : null;
+    })
+    .filter((row): row is { allocation: TradeAllocation; trade: Trade } => row !== null)
+    .sort((a, b) => {
+      const byDate = a.trade.occurredOn.localeCompare(b.trade.occurredOn);
+      if (byDate !== 0) {
+        return byDate;
+      }
+      if (a.trade.side === b.trade.side) {
+        return 0;
+      }
+      return a.trade.side === "buy" ? -1 : 1;
+    });
+
+  type LiveLot = PositionLot & { remainingQty: Decimal; remainingCost: Decimal };
+  const lots: LiveLot[] = [];
+
+  for (const { allocation, trade } of events) {
+    if (trade.side === "buy") {
+      const qty = money(allocation.quantity);
+      const cost = money(allocation.costUsd);
+      if (!qty.gt(0) || !cost.gt(0)) {
+        continue;
+      }
+      lots.push({
+        tradeId: trade.id,
+        memberId: allocation.memberId,
+        ledgerAccountId: trade.ledgerAccountId,
+        symbol: trade.symbol,
+        quantity: allocation.quantity,
+        costUsd: allocation.costUsd,
+        occurredOn: trade.occurredOn,
+        closed: false,
+        originalQuantity: allocation.quantity,
+        originalCostUsd: allocation.costUsd,
+        sellTradeIds: [],
+        remainingQty: qty,
+        remainingCost: cost,
+      });
+      continue;
+    }
+
+    let toClose = money(allocation.quantity);
+    for (const lot of lots) {
+      if (toClose.lte(0)) {
+        break;
+      }
+      if (lot.memberId !== allocation.memberId || lot.symbol !== trade.symbol) {
+        continue;
+      }
+      if (lot.remainingQty.lte(0)) {
+        continue;
+      }
+      const take = Decimal.min(lot.remainingQty, toClose);
+      const costTake = lot.remainingCost.mul(take).div(lot.remainingQty);
+      lot.remainingQty = lot.remainingQty.minus(take);
+      lot.remainingCost = lot.remainingCost.minus(costTake);
+      if (!lot.sellTradeIds.includes(trade.id)) {
+        lot.sellTradeIds.push(trade.id);
+      }
+      toClose = toClose.minus(take);
+    }
+  }
+
+  return lots.map((lot) => ({
+    tradeId: lot.tradeId,
+    memberId: lot.memberId,
+    ledgerAccountId: lot.ledgerAccountId,
+    symbol: lot.symbol,
+    quantity: lot.remainingQty.gt(0) ? lot.remainingQty.toFixed(8) : lot.originalQuantity,
+    costUsd: lot.remainingQty.gt(0) ? lot.remainingCost.toFixed(8) : lot.originalCostUsd,
+    occurredOn: lot.occurredOn,
+    closed: !lot.remainingQty.gt(0),
+    originalQuantity: lot.originalQuantity,
+    originalCostUsd: lot.originalCostUsd,
+    sellTradeIds: lot.sellTradeIds,
+  }));
 }
 
 export function filterByMember<T extends { memberId: string }>(

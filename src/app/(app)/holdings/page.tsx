@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { DelayBadge } from "@/components/delay-badge";
 import { HoldingsWorkspace } from "@/components/holdings-workspace";
+import { positionLotsFromTrades } from "@/ledger";
 import { loadBookView } from "@/lib/book-view";
+import { ensureCurrentBook } from "@/lib/ensure-book";
 import { instrumentTags } from "@/ohlcv";
 import { DELAY_15, loadMarksForLots, resolveInstrument } from "@/quotes";
 import { resolveWatchSymbol } from "@/quotes/symbol-map";
@@ -16,6 +18,7 @@ export default async function HoldingsPage() {
   if (!user) {
     redirect("/login");
   }
+  await ensureCurrentBook(user);
   const view = await loadBookView(user);
   if (!view) {
     redirect("/first-use");
@@ -23,6 +26,26 @@ export default async function HoldingsPage() {
 
   const anyPrice = view.lots.some((lot) => lot.lastDisplay);
   const delayLabel = anyPrice ? DELAY_15 : view.lots.some((lot) => lot.planLimited) ? "延遲／升級" : DELAY_15;
+
+  const closedLots = positionLotsFromTrades(view.trades, view.allocations)
+    .filter((lot) => lot.closed)
+    .map((lot) => ({
+      tradeId: lot.tradeId,
+      memberId: lot.memberId,
+      symbol: lot.symbol,
+      quantity: lot.quantity,
+      lastDisplay: null,
+      percentChange: null,
+      marketValueUsd: null,
+      costUsd: lot.costUsd,
+      planLimited: false,
+      isEtfProxy: false,
+      delayLabel,
+      lastUpdateLabel: null,
+      name: null,
+      tags: [] as string[],
+      closed: true,
+    }));
 
   const lots = view.lots.map((lot) => {
     const quote = view.quoteViews[lot.symbol];
@@ -74,7 +97,12 @@ export default async function HoldingsPage() {
       {view.all.partial && view.lots.length > 0 ? (
         <p className="meta muted">部分市值 · 未有標記嘅持股唔計入 NAV</p>
       ) : null}
-      <HoldingsWorkspace lots={lots} watchItems={watchItems} delayLabel={delayLabel} />
+      <HoldingsWorkspace
+        lots={lots}
+        closedLots={closedLots}
+        watchItems={watchItems}
+        delayLabel={delayLabel}
+      />
     </div>
   );
 }
