@@ -8,6 +8,8 @@ M2 做到：登入後頂欄行情跑馬燈、持倉按 Twelve Data 現價標記�
 
 M3 做到：由持倉或 11 格跑馬燈打開標的頁，用 TradingView Lightweight Charts 畫日線。預設只開 SMA20 + 成交量；其餘指標喺瀏覽器用已下載嘅 OHLCV 計。
 
+M4 做到：第一次用可以上傳而家用緊嘅 兩頁 xlsx（xlsx / csv），預覽之後經現有 domain 寫入。唔會連接 Google 試算表。
+
 ## 本機（Docker Postgres）
 
 ```bash
@@ -60,7 +62,7 @@ SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` /
 | 指令 | 作用 |
 | --- | --- |
 | `pnpm dev` | 開發伺服器 |
-| `pnpm test` | 現金不變式、NAV 標記、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用 |
+| `pnpm test` | 現金不變式、NAV 標記、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用、匯入行經 createCashFlow／createTrade |
 | `pnpm lint` | ESLint |
 | `pnpm db:migrate` | 套用 Drizzle migrations |
 | `pnpm build` | 生產建置（含 Serwist app-shell precache） |
@@ -68,7 +70,7 @@ SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` /
 ## M1 示範（必做路徑）
 
 1. 空系統會見到註冊：顯示名（例如 `Hey`）+ 密碼（至少 8 個字），電郵可留空。文案係「密碼只保護呢本記帳。唔會連接任何券商或股票戶口。」
-2. 登入後「你要點開始？」：先做呢步「開張新記帳表」。匯入而家用緊嘅試算表係「稍後先做」。
+2. 登入後「你要點開始？」：先做呢步「開張新記帳表」，或「開始匯入」上傳而家用緊嘅試算表。
 3. 去「記一筆」→ 入金：港元 `1000`、匯率 `1`（即當美金入帳）、日期用香港日曆。
 4. 同一頁「加倉」：邊個倉、代碼例如 `NVDA`、數量 `10`、價格 `50`。文案係「記帳唔係下單。」成本 500，手續費 0。
 5. 返「總覽」：
@@ -92,7 +94,8 @@ NAV = cash_usd + 已標記市值
 
 ## 架構
 
-- `src/ledger/`：同框架無關嘅寫入 API（`createBook`、`addMember`、`createCashFlow`、`createTrade`）。空表同之後嘅 Sheet 匯入都要行呢批函數，唔會另開一條匯入專用寫入路徑。
+- `src/ledger/`：同框架無關嘅寫入 API（`createBook`、`addMember`、`createCashFlow`、`createTrade`、`setAllocationSchedule`）。空表同 Sheet 匯入都要行呢批函數，唔會另開一條匯入專用寫入路徑。
+- `src/import/`：只係呼叫者。Server 用 exceljs 解 xlsx／csv。未確認欄位對應就零寫入。每轉都寫 `ImportBatch`（邊個、檔名、時間、列數、success／warning／skipped）。同一檔預設唔會默認重複入數，要明示追加或取代。
 - `src/quotes/symbol-map.ts`：唯一靜態 Twelve Data 對照（加 DB `instruments` / `quotes`）。Client 只收到 display、last、delay、is_etf_proxy。
 - `src/db/drizzle-store.ts`：Postgres / Drizzle 實作 `LedgerStore`。金額欄位全部 `numeric`，運算用 `decimal.js`。
 - `src/app/actions/`：server actions 呼叫 domain 函數，唔複製寫入邏輯。
@@ -102,6 +105,26 @@ NAV = cash_usd + 已標記市值
 - 登入：電郵或顯示名 + 密碼；argon2id；HttpOnly / SameSite=Lax cookie（生產加 Secure）。只有系統零用戶先可以註冊。
 - PWA：`@serwist/next` 只 precache app shell。寫入必須有網絡，無離線寫入隊列。
 
-## 範圍外（M3 不做）
+## 匯入試算表（M4）
 
-Sheet / xlsx 匯入、Modified Dietz、新聞、AI、完整關注名單流程、券商連接、Finnhub／Yahoo／未付費 Massive 行情、完整成員認領設密碼。
+唔會用 Google Sheet ID 做即時來源，亦唔會喺 runtime 打 Drive／Sheets API。把而家用緊嘅 兩頁 xlsx 兩頁匯出再上傳：
+
+1. **xlsx（建議）**：Google 試算表 → 檔案 → 下載 → Microsoft Excel（.xlsx）。要保留兩個分頁名稱：`TransInfo`、`Account Detail`。
+2. **兩個 csv**：每個分頁「下載 → 逗號分隔值」，兩個檔一齊上傳。檔名或欄位要認到係邊頁。
+
+欄位對唔上（認唔到嘅標題、一欄對多個目標）會停，零寫入，等你確認對應。預覽會列出成員數、買賣數、出入金數、Own→帳，以及對唔上／待確認列。
+
+**待確認**唔當鎖定真相，要揀「一併匯入」或「略過」：
+
+- 2020–21 仍未平倉：按表維持開倉，之後喺 app 先平。
+- 2024-01-15（分帳）追溯分帳套用舊倉。歷史買賣鎖買入當日生效嘅 AllocationSchedule；新單用而家嘅（分帳：50 / 50 再除以總和）。
+- 只喺一邊出現嘅代碼（例如 呢個代碼只喺 Account Detail、呢個代碼只喺 TransInfo）。
+- 同日同代碼聯名／獨倉對唔上：**唔會**默認 Hey 獨倉。
+
+Account Detail 係現金真相（H／S／W 入金）。TransInfo 一列＝一對買賣，賣出日空白＝仍開倉。買入成本用 `buy_total`（包手續費）。`trades.symbol` 照表寫（可以係 `0700.HK`），M4 唔會估市場。行情仍行 M2 對照；唔識就 `—`。
+
+匯入後總覽仍係鎖定 NAV：現金不變式 + 已標記市值。未標記持股係 `—`，NAV 標「部分市值」。入金 1000 再買成本 500，現金仍係 **500**，唔會變 1500。行情唔會寫 CashFlow／Trade。
+
+## 範圍外（M5 不做）
+
+Modified Dietz、新聞、AI、完整關注名單流程、券商連接、Finnhub／Yahoo／未付費 Massive 行情、完整成員認領設密碼。

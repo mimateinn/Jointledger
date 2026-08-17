@@ -1,10 +1,14 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { LedgerStore } from "@/ledger";
 import type {
+  AllocationLeg,
+  AllocationSchedule,
   Book,
   CashFlow,
   LedgerAccount,
   Member,
+  NewAllocationLeg,
+  NewAllocationSchedule,
   NewBook,
   NewCashFlow,
   NewLedgerAccount,
@@ -16,6 +20,8 @@ import type {
 } from "@/ledger/types";
 import { getDb, type Database } from "./client";
 import {
+  allocationLegs,
+  allocationSchedules,
   books,
   cashFlows,
   ledgerAccounts,
@@ -24,7 +30,7 @@ import {
   trades,
 } from "./schema";
 
-type Executor = Pick<Database, "insert" | "select">;
+type Executor = Pick<Database, "insert" | "select" | "delete">;
 
 function asBook(row: typeof books.$inferSelect): Book {
   return {
@@ -96,6 +102,23 @@ function asAllocation(row: typeof tradeAllocations.$inferSelect): TradeAllocatio
   };
 }
 
+function asSchedule(row: typeof allocationSchedules.$inferSelect): AllocationSchedule {
+  return {
+    id: row.id,
+    bookId: row.bookId,
+    effectiveOn: row.effectiveOn,
+  };
+}
+
+function asScheduleLeg(row: typeof allocationLegs.$inferSelect): AllocationLeg {
+  return {
+    id: row.id,
+    scheduleId: row.scheduleId,
+    memberId: row.memberId,
+    percent: row.percent,
+  };
+}
+
 export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
   return {
     async insertBook(input: NewBook) {
@@ -122,6 +145,14 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
       const [row] = await db.insert(tradeAllocations).values(input).returning();
       return asAllocation(row);
     },
+    async insertAllocationSchedule(input: NewAllocationSchedule) {
+      const [row] = await db.insert(allocationSchedules).values(input).returning();
+      return asSchedule(row);
+    },
+    async insertAllocationLeg(input: NewAllocationLeg) {
+      const [row] = await db.insert(allocationLegs).values(input).returning();
+      return asScheduleLeg(row);
+    },
     async listCashFlows(bookId: string) {
       const rows = await db.select().from(cashFlows).where(eq(cashFlows.bookId, bookId));
       return rows.map(asCashFlow);
@@ -144,6 +175,30 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
         .from(ledgerAccounts)
         .where(eq(ledgerAccounts.id, id));
       return row ? asAccount(row) : null;
+    },
+    async listAllocationSchedules(bookId: string) {
+      const scheduleRows = await db
+        .select()
+        .from(allocationSchedules)
+        .where(eq(allocationSchedules.bookId, bookId));
+      const ids = scheduleRows.map((row) => row.id);
+      const legRows =
+        ids.length === 0
+          ? []
+          : await db.select().from(allocationLegs).where(inArray(allocationLegs.scheduleId, ids));
+      return scheduleRows.map((schedule) => ({
+        ...asSchedule(schedule),
+        legs: legRows.filter((leg) => leg.scheduleId === schedule.id).map(asScheduleLeg),
+      }));
+    },
+    async clearBookEntries(bookId: string) {
+      const bookTrades = await db.select({ id: trades.id }).from(trades).where(eq(trades.bookId, bookId));
+      const tradeIds = bookTrades.map((row) => row.id);
+      if (tradeIds.length > 0) {
+        await db.delete(tradeAllocations).where(inArray(tradeAllocations.tradeId, tradeIds));
+      }
+      await db.delete(trades).where(eq(trades.bookId, bookId));
+      await db.delete(cashFlows).where(eq(cashFlows.bookId, bookId));
     },
   };
 }

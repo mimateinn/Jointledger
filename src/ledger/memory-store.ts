@@ -1,9 +1,13 @@
 import type { LedgerStore } from "./store";
 import type {
+  AllocationLeg,
+  AllocationSchedule,
   Book,
   CashFlow,
   LedgerAccount,
   Member,
+  NewAllocationLeg,
+  NewAllocationSchedule,
   NewBook,
   NewCashFlow,
   NewLedgerAccount,
@@ -25,6 +29,8 @@ export function createMemoryStore(): LedgerStore & {
   cashFlows: CashFlow[];
   trades: Trade[];
   allocations: TradeAllocation[];
+  schedules: AllocationSchedule[];
+  scheduleLegs: AllocationLeg[];
 } {
   const books: Book[] = [];
   const members: Member[] = [];
@@ -32,6 +38,8 @@ export function createMemoryStore(): LedgerStore & {
   const cashFlows: CashFlow[] = [];
   const trades: Trade[] = [];
   const allocations: TradeAllocation[] = [];
+  const schedules: AllocationSchedule[] = [];
+  const scheduleLegs: AllocationLeg[] = [];
 
   return {
     books,
@@ -40,6 +48,8 @@ export function createMemoryStore(): LedgerStore & {
     cashFlows,
     trades,
     allocations,
+    schedules,
+    scheduleLegs,
     async insertBook(input: NewBook) {
       const book: Book = { id: id(), ...input };
       books.push(book);
@@ -70,6 +80,16 @@ export function createMemoryStore(): LedgerStore & {
       allocations.push(row);
       return row;
     },
+    async insertAllocationSchedule(input: NewAllocationSchedule) {
+      const row: AllocationSchedule = { id: id(), ...input };
+      schedules.push(row);
+      return row;
+    },
+    async insertAllocationLeg(input: NewAllocationLeg) {
+      const row: AllocationLeg = { id: id(), ...input };
+      scheduleLegs.push(row);
+      return row;
+    },
     async listCashFlows(bookId: string) {
       return cashFlows.filter((row) => row.bookId === bookId);
     },
@@ -82,6 +102,32 @@ export function createMemoryStore(): LedgerStore & {
     },
     async getLedgerAccount(accountId: string) {
       return accounts.find((row) => row.id === accountId) ?? null;
+    },
+    async listAllocationSchedules(bookId: string) {
+      return schedules
+        .filter((row) => row.bookId === bookId)
+        .map((schedule) => ({
+          ...schedule,
+          legs: scheduleLegs.filter((leg) => leg.scheduleId === schedule.id),
+        }));
+    },
+    async clearBookEntries(bookId: string) {
+      const tradeIds = new Set(trades.filter((row) => row.bookId === bookId).map((row) => row.id));
+      for (let i = allocations.length - 1; i >= 0; i -= 1) {
+        if (tradeIds.has(allocations[i].tradeId)) {
+          allocations.splice(i, 1);
+        }
+      }
+      for (let i = trades.length - 1; i >= 0; i -= 1) {
+        if (trades[i].bookId === bookId) {
+          trades.splice(i, 1);
+        }
+      }
+      for (let i = cashFlows.length - 1; i >= 0; i -= 1) {
+        if (cashFlows[i].bookId === bookId) {
+          cashFlows.splice(i, 1);
+        }
+      }
     },
   };
 }

@@ -17,6 +17,7 @@
     "@serwist/next": "^9.2.1",
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.44.5",
+    "exceljs": "^4.4.0",
     "lightweight-charts": "^5.2.1",
     "next": "^15.5.2",
     "postgres": "^3.4.7",
