@@ -18,18 +18,18 @@ M7 做到：無 `FINNHUB_API_KEY` 時伺服器改拉 Google News 公開 RSS；�
 
 ## 本機試用
 
-要本機 **Node／pnpm**。localhost:5432 已通就 skip Docker；未通先先要 **Docker Desktop**。API key 可空。唔會連接券商。
+要本機 **Node／pnpm**。**唔使 Docker Desktop**，亦唔使裝 Postgres。API key 可空。唔會連接券商。
 
 - Windows：`start.bat`
 - Mac／Linux：`./start.sh`
 
-腳本探測 5432：通就唔跑 compose；未通先 `docker compose up -d --wait` 起現有 Postgres。然後 `pnpm db:migrate`，未 build 就 `pnpm build`，再 `pnpm start`。等 :3000 listen 先開 [http://localhost:3000](http://localhost:3000)。Release 說明見 [RELEASE.md](RELEASE.md)。
+腳本會檢查 node／pnpm（無就提示然後退出），必要時 `pnpm install`，確保 `data/` 同 `.env`（無 `.env` 就抄 `.env.example`），然後 `pnpm db:migrate`，再 `pnpm dev`。等 :3000 listen 先開 [http://localhost:3000](http://localhost:3000)。Release 說明見 [RELEASE.md](RELEASE.md)。
 
 ## 本機（手動）
 
 ```bash
 cp .env.example .env
-docker compose up -d
+mkdir -p data
 pnpm install
 pnpm db:migrate
 pnpm dev
@@ -37,7 +37,7 @@ pnpm dev
 
 瀏覽器開 [http://localhost:3000](http://localhost:3000)。
 
-`DATABASE_URL` 預設指向 `docker-compose.yml` 的 Postgres。生產可用 Neon，但本機唔需要 Neon 帳戶。
+`DATABASE_URL` 預設係單一檔 `file:./data/joint-ledger.sqlite`。以 `postgres://` 或 `postgresql://` 開頭就行而家嘅 Postgres 路徑（可選 `docker-compose.yml` 或 Neon）。本機唔需要 Neon 帳戶，亦唔使開 Docker。
 
 ## 行情（M2，可選）
 
@@ -56,7 +56,7 @@ pnpm dev
 
 美股三大係 **SPY / QQQ / DIA** ETF 代理（標「代理」）。唔會查 Twelve Data `SPX`，亦零 Massive `I:SPX` / `I:DJI` / `I:NDX` 呼叫。
 
-行情只經自己嘅 Route Handler / server 讀 Postgres last-good。瀏覽器唔會打 twelvedata／Binance／CoinGecko／Yahoo。開市最少 15 分鐘刷新一包（盤後／週末 60 分鐘），同一 `(td_symbol, exchange)` 喺 TTL 內單飛，唔會每頁、每人打上游。
+行情只經自己嘅 Route Handler / server 讀資料庫 last-good。瀏覽器唔會打 twelvedata／Binance／CoinGecko／Yahoo。開市最少 15 分鐘刷新一包（盤後／週末 60 分鐘），同一 `(td_symbol, exchange)` 喺 TTL 內單飛，唔會每頁、每人打上游。
 
 ## K 線（M3）
 
@@ -85,7 +85,7 @@ SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` /
 
 ## M1 示範（必做路徑）
 
-1. 空系統會見到註冊：顯示名（例如 `Hey`）+ 密碼（至少 8 個字），電郵可留空。文案係「密碼只保護呢本記帳。唔會連接任何券商或股票戶口。」
+1. 空系統會見到註冊：顯示名（例如 `小明`）+ 密碼（至少 8 個字），電郵可填 `demo@example.com` 或留空。文案係「密碼只保護呢本記帳。唔會連接任何券商或股票戶口。」
 2. 登入後「你要點開始？」：先做呢步「開張新記帳表」，或「開始匯入」上傳而家用緊嘅試算表。
 3. 去「記一筆」→ 入金：港元 `1000`、匯率 `1`（即當美金入帳）、日期用香港日曆。
 4. 同一頁「加倉」：邊個倉、代碼例如 `NVDA`、數量 `10`、價格 `50`。文案係「記帳唔係下單。」成本 500，手續費 0。
@@ -113,7 +113,7 @@ NAV = cash_usd + 已標記市值
 - `src/ledger/`：同框架無關嘅寫入 API（`createBook`、`addMember`、`createCashFlow`、`createTrade`、`setAllocationSchedule`）。空表同 Sheet 匯入都要行呢批函數，唔會另開一條匯入專用寫入路徑。
 - `src/import/`：只係呼叫者。Server 用 exceljs 解 xlsx／csv。未確認欄位對應就零寫入。每轉都寫 `ImportBatch`（邊個、檔名、時間、列數、success／warning／skipped）。同一檔預設唔會默認重複入數，要明示追加或取代。
 - `src/quotes/symbol-map.ts`：唯一靜態 Twelve Data 對照（加 DB `instruments` / `quotes`）。Client 只收到 display、last、delay、is_etf_proxy。
-- `src/db/drizzle-store.ts`：Postgres / Drizzle 實作 `LedgerStore`。金額欄位全部 `numeric`，運算用 `decimal.js`。
+- `src/db/drizzle-store.ts`：Drizzle 實作 `LedgerStore`。`DATABASE_URL` 以 `postgres://`／`postgresql://` 開頭用 Postgres；否則用 SQLite。金額欄位 Postgres 用 `numeric`，SQLite 用 text 存小數；運算用 `decimal.js`，唔用 JS float。
 - `src/app/actions/`：server actions 呼叫 domain 函數，唔複製寫入邏輯。
 - `GET /api/quotes`：已登入先讀得到；只回傳顯示用欄位，無 API key。
 - `GET /api/ohlcv`：已登入先讀得到；只回傳 `{time,open,high,low,close,volume}`，無 API key、無指標線。
@@ -190,7 +190,7 @@ NAV 仍係鎖定規則：現金不變式 + 已標記市值。未標記持股唔�
 
 靜音咗嘅代碼唔拉、唔回個股新聞。
 
-Server 用 Postgres `news_cache`，按 symbol／類別，TTL ≥ 15 分，單飛。RSS 失敗／被擋／空 feed：空列表，唔崩潰、唔換源、唔造假標題。
+Server 用資料庫 `news_cache`，按 symbol／類別，TTL ≥ 15 分，單飛。RSS 失敗／被擋／空 feed：空列表，唔崩潰、唔換源、唔造假標題。
 
 無 key 時列表標「公開新聞」同出版社，唔冒充 Finnhub。
 

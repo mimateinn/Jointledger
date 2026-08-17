@@ -6,7 +6,9 @@ import { claimErrorMessage, evaluateClaim } from "@/auth/claim";
 import { createSession, destroySession } from "@/auth/session";
 import { hashPassword, verifyPassword } from "@/auth/password";
 import { getDb } from "@/db/client";
-import { members, users } from "@/db/schema";
+import { insertFirstUser } from "@/db/first-user";
+import { xactLockSql } from "@/db/xact-lock";
+import { members, users } from "@/db/tables";
 
 export type AuthState = { error?: string };
 
@@ -33,22 +35,10 @@ export async function registerAction(
 
   const email = emailRaw ? emailRaw.toLowerCase() : null;
   const passwordHash = await hashPassword(password);
-  const db = getDb();
 
   // Serialize first-user signup: a count check alone races when the table is empty
   // (FOR UPDATE locks zero rows). Advisory lock + re-check inside one transaction.
-  const result = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(87241001)`);
-    const [existing] = await tx.select({ n: count() }).from(users);
-    if (Number(existing?.n ?? 0) > 0) {
-      return { ok: false as const };
-    }
-    const [created] = await tx
-      .insert(users)
-      .values({ displayName, email, passwordHash })
-      .returning();
-    return { ok: true as const, user: created };
-  });
+  const result = await insertFirstUser({ displayName, email, passwordHash });
 
   if (!result.ok) {
     return { error: "系統已有用戶。請登入，或請現有成員先加你嘅顯示名。" };
@@ -110,7 +100,7 @@ export async function claimAction(
 
   const db = getDb();
   const result = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(87241002)`);
+    await tx.execute(xactLockSql(87241002));
     const unclaimed = await tx.select().from(members).where(isNull(members.userId));
     const decision = await evaluateClaim({
       members: unclaimed,

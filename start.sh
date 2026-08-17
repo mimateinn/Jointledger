@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 本機一鍵試用：5432 已通就 skip compose；否則 Docker Postgres + migrate + next start
+# 本機一鍵試用：預設 SQLite，唔開 Docker、唔探 5432
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -14,25 +14,9 @@ port_open() {
   return 1
 }
 
-if ! command -v pnpm >/dev/null 2>&1; then
+if ! command -v node >/dev/null 2>&1 || ! command -v pnpm >/dev/null 2>&1; then
   echo "請先安裝 Node.js 同 pnpm（專案指定 pnpm@10.33.3），再開呢個腳本。"
   exit 1
-fi
-
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "已由 .env.example 複製 .env（API key 可留空）。"
-fi
-
-if port_open 5432; then
-  echo "localhost:5432 已通，skip compose。"
-else
-  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-    echo "請先開啟 Docker Desktop，再開呢個腳本。"
-    exit 1
-  fi
-  echo "起 Postgres（docker-compose.yml）…"
-  docker compose up -d --wait
 fi
 
 if [ ! -d node_modules ]; then
@@ -40,13 +24,15 @@ if [ ! -d node_modules ]; then
   pnpm install
 fi
 
+mkdir -p data
+
+if [ ! -f .env ]; then
+  cp .env.example .env
+  echo "已由 .env.example 複製 .env（API key 可留空）。"
+fi
+
 echo "套用 migrations…"
 pnpm db:migrate
-
-if [ ! -f .next/BUILD_ID ]; then
-  echo "未建置，行 pnpm build…"
-  pnpm build
-fi
 
 open_try() {
   if command -v open >/dev/null 2>&1; then
@@ -67,4 +53,4 @@ open_try() {
   done
 ) &
 
-pnpm start
+pnpm dev

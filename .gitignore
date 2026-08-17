@@ -8,6 +8,11 @@ dist
 *.log
 tsconfig.tsbuildinfo
 
+# Local SQLite default
+/data/*.sqlite
+/data/*.sqlite-*
+/data/*.db
+
 # Serwist generated
 public/sw*
 public/swe-worker*

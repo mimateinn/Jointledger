@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { books, ledgerAccounts, members } from "@/db/schema";
+import { books, ledgerAccounts, members } from "@/db/tables";
 import type { SessionUser } from "@/auth/session";
 
 export async function getCurrentMembership(user: SessionUser) {

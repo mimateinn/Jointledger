@@ -10,11 +10,13 @@
     "lint": "next lint",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
+    "db:generate:sqlite": "drizzle-kit generate --config drizzle.config.sqlite.ts",
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
     "@serwist/next": "^9.2.1",
+    "@libsql/client": "^0.15.15",
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.44.5",
     "exceljs": "^4.4.0",
@@ -41,6 +43,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
+      "libsql",
       "sharp",
       "unrs-resolver"
     ]

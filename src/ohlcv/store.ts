@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb, type Database } from "@/db/client";
-import { ohlcvBars, ohlcvFetchState, quoteRefreshState } from "@/db/schema";
+import { ohlcvBars, ohlcvFetchState, quoteRefreshState } from "@/db/tables";
 import { utcDateString } from "@/quotes/market-hours";
 import { CLIENT_BAR_LIMIT } from "./constants";
 import type { OhlcvBar, OhlcvFetchState, OhlcvStatus, SharedCreditState } from "./types";

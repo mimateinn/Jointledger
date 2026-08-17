@@ -28,7 +28,7 @@ import {
   members,
   tradeAllocations,
   trades,
-} from "./schema";
+} from "./tables";
 
 type Executor = Pick<Database, "insert" | "select" | "delete">;
 

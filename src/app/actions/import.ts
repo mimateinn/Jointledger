@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/auth/session";
 import { getDb } from "@/db/client";
 import { withLedgerTransaction } from "@/db/ledger-tx";
-import { importBatches } from "@/db/schema";
+import { importBatches } from "@/db/tables";
 import { applyImport } from "@/import/apply";
 import { applyManualMap, mapUpload } from "@/import/columns";
 import { parseUpload, pickSheets } from "@/import/parse";

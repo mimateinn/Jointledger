@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { newsCache } from "@/db/schema";
+import { newsCache } from "@/db/tables";
 import { resolveWatchSymbol } from "@/quotes/symbol-map";
 import { categoryCacheKey, loadCategoryNews, loadSymbolNews, symbolCacheKey } from "./source";
 import type { NewsCategory, NewsItem } from "./types";
