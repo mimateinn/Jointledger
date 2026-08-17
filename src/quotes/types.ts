@@ -23,6 +23,8 @@ export type CanonInstrument = {
   planHint: boolean;
 };
 
+export type QuoteSource = "twelve_data" | "binance" | "coingecko" | "yahoo";
+
 export type QuoteRow = {
   display: string;
   last: string | null;
@@ -32,7 +34,7 @@ export type QuoteRow = {
   fetchedAt: Date;
   delaySeconds: number;
   status: QuoteStatus;
-  source: "twelve_data";
+  source: QuoteSource;
 };
 
 /** Safe for the browser: no Twelve Data symbol, exchange, or key. */

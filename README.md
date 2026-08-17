@@ -34,17 +34,18 @@ pnpm dev
 
 | 情況 | 跑馬燈 / 現價 | NAV |
 | --- | --- | --- |
-| 無 key、401、計劃唔夠、查唔到 | `—`（指數／黃金可加「延遲／升級」） | 該持股唔計入市值；有未標記就標「部分市值」 |
+| 無 key | 伺服器行公開延遲鏈（加密 Binance → CoinGecko；股票／外匯／指數 Yahoo unofficial chart，標 delayed）。失敗用 last-good，連 last-good 都無就 `—` | 該持股唔計入市值；有未標記就標「部分市值」 |
+| 有 key 但 401、計劃唔夠、查唔到 | `—`（指數／黃金可加「延遲／升級」）。**唔改行公開源** | 同上 |
 | 429 / 超時 / 5xx | 7 個曆日內嘅 last-good，否則 `—` | 同上 |
 | 有 last | 顯示現價 +「延遲 15 分」 | `NAV = 現金 + qty × last` |
 
 **唔會**用買入價當現價，亦唔會用成本估完整 NAV。入金 1000 再買成本 500：現金仍係 **500**。有標記先加市值；無標記嗰行係 `—`，NAV 標部分市值。唔會變 1000（成本市值）或 1500。
 
-跑馬燈鎖定 11 格（唔包括 ETH、USD/JPY）：SPY / QQQ / DIA / XAU/USD / BTC/USD / EUR/USD / HSI / N225 / KS11 / USD/HKD / FTSE。Basic key 通常填到 SPY / QQQ / DIA / BTC/USD / EUR/USD。HSI、N225、KS11、XAU/USD、FTSE 可能要更高計劃，無價就 `—` +「延遲／升級」，唔會改用第二個來源。
+跑馬燈鎖定 11 格（唔包括 ETH、USD/JPY）：SPY / QQQ / DIA / XAU/USD / BTC/USD / EUR/USD / HSI / N225 / KS11 / USD/HKD / FTSE。Basic key 通常填到 SPY / QQQ / DIA / BTC/USD / EUR/USD。有 key 時 HSI、N225、KS11、XAU/USD、FTSE 可能要更高計劃，無價就 `—` +「延遲／升級」，**唔改行公開源**。無 key 先行公開延遲鏈；有 key 只打 Twelve Data。兩條路互斥。
 
 美股三大係 **SPY / QQQ / DIA** ETF 代理（標「代理」）。唔會查 Twelve Data `SPX`，亦零 Massive `I:SPX` / `I:DJI` / `I:NDX` 呼叫。
 
-行情只經自己嘅 Route Handler / server 讀 Postgres last-good。瀏覽器唔會打 twelvedata。開市最少 15 分鐘刷新一包（盤後／週末 60 分鐘），同一 `(td_symbol, exchange)` 喺 TTL 內單飛，唔會每頁、每人打上游。
+行情只經自己嘅 Route Handler / server 讀 Postgres last-good。瀏覽器唔會打 twelvedata／Binance／CoinGecko／Yahoo。開市最少 15 分鐘刷新一包（盤後／週末 60 分鐘），同一 `(td_symbol, exchange)` 喺 TTL 內單飛，唔會每頁、每人打上游。
 
 ## K 線（M3）
 
@@ -55,11 +56,11 @@ pnpm dev
 
 預設圖：主圖 SMA20 + 成交量副圖。上面五組掣（均線／通道／動量／量能／波動）可再開 SMA50/200、EMA、VWMA、布林、Donchian、Keltner、Ichimoku、PSAR、Supertrend、RSI、MACD、Stoch、StochRSI、CCI、%R、MFI、OBV、ATR、ADX。無 VWAP / MOM / ROC / CMF。全部喺前端用當日已取嘅日線計，唔會再打 Twelve Data 指標接口。
 
-日線只經 `GET /api/ohlcv?symbol=`。Server 用同一把 `TWELVE_DATA_API_KEY` 打 Twelve Data 日線（`interval=1day`，`outputsize=300`），按 `(td_symbol, exchange, date)` 存 Postgres last-good。每個 symbol 每個 UTC 曆日最多一次上游；同 M2 共用 Basic 800/日額度。429／5xx／額度滿：有 last-good 就畫舊棒，否則空圖 + `—`。無 key、401、403、404、deny-list、未知代碼（例如未入表嘅 `0700.HK`）：空圖 + `—`，唔會用現價或成本砌假 K，亦唔會抄另一隻嘅軸。
+日線只經 `GET /api/ohlcv?symbol=`。有 key：Server 打 Twelve Data 日線（`interval=1day`，`outputsize=300`），按 `(td_symbol, exchange, date)` 存 Postgres last-good。每個 symbol 每個 UTC 曆日最多一次上游；同 M2 共用 Basic 800/日額度。429／5xx／額度滿：有 last-good 就畫舊棒，否則空圖 + `—`。無 key：唔打 Twelve Data，改行公開延遲日線（加密 Binance klines；股票／外匯／指數 Yahoo chart）。401、403、404、deny-list、未知代碼（例如未入表嘅 `0700.HK`）：空圖 + `—`，唔會用現價或成本砌假 K，亦唔會抄另一隻嘅軸。
 
 SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` / `I:SPX` / `DJI` / `NDX` / `NI225`。
 
-無 key 一樣開到頁：現價同圖都係 `—`。
+無 key 一樣開到頁：有公開延遲價就顯示（Yahoo 標 delayed），否則現價同圖都係 `—`。
 
 ## 指令
 
@@ -209,4 +210,4 @@ Server 用 Postgres `news_cache`，按 symbol／類別，TTL ≥ 15 分，單飛
 
 ## 範圍外（M5 之後）
 
-券商連接、股息、拆股、匯出、改密碼、AI 摘要、Finnhub／Yahoo 行情、完整市場終端。
+券商連接、股息、拆股、匯出、改密碼、AI 摘要、Finnhub 行情、完整市場終端。無 key 時股票延遲價只經 Yahoo unofficial chart，唔做終端。

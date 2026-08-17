@@ -11,6 +11,7 @@ import {
   saveCachedBars,
   saveFetchState,
 } from "./store";
+import { fetchPublicTimeSeries } from "./public-source";
 import { fetchTwelveDataTimeSeries } from "./twelve-data";
 import type {
   OhlcvBar,
@@ -36,6 +37,7 @@ export type OhlcvDeps = {
   now?: Date;
   getKey?: () => string | null;
   fetchSeries?: (instrument: CanonInstrument) => Promise<TimeSeriesOutcome>;
+  fetchPublicSeries?: (instrument: CanonInstrument) => Promise<TimeSeriesOutcome>;
   loadBars?: (tdSymbol: string, exchange: string | null) => Promise<OhlcvBar[]>;
   saveBars?: (tdSymbol: string, exchange: string | null, bars: OhlcvBar[], fetchedAt: Date) => Promise<void>;
   loadState?: (tdSymbol: string, exchange: string | null) => Promise<OhlcvFetchState | null>;
@@ -68,6 +70,70 @@ function canUseLastGood(status: OhlcvStatus): boolean {
 
 function planLimitedFor(instrument: CanonInstrument, status: OhlcvStatus, bars: OhlcvBar[]): boolean {
   return status === "plan" || (bars.length === 0 && instrument.planHint);
+}
+
+async function loadOhlcvPublic(
+  instrument: CanonInstrument,
+  deps: OhlcvDeps,
+  cached: OhlcvBar[],
+  state: OhlcvFetchState | null,
+  now: Date,
+  today: string,
+): Promise<OhlcvView> {
+  const fetchPublic = deps.fetchPublicSeries ?? fetchPublicTimeSeries;
+  const saveBars = deps.saveBars ?? saveCachedBars;
+  const saveState = deps.saveState ?? saveFetchState;
+
+  if (state?.lastFetchUtcDate === today && state.lastStatus !== "no_key") {
+    if (EMPTY_STATUSES.has(state.lastStatus)) {
+      return emptyOhlcvView(
+        instrument.display,
+        state.lastStatus,
+        planLimitedFor(instrument, state.lastStatus, []),
+      );
+    }
+    return {
+      display: instrument.display,
+      bars: cached,
+      status: cached.length > 0 ? "ok" : state.lastStatus,
+      planLimited: planLimitedFor(instrument, state.lastStatus, cached),
+    };
+  }
+
+  const outcome = await fetchPublic(instrument);
+  const persistState = async (status: OhlcvStatus) => {
+    await saveState(instrument.tdSymbol, instrument.tdExchange, {
+      lastFetchUtcDate: today,
+      lastStatus: status,
+      lastAttemptAt: now,
+    }).catch(() => undefined);
+  };
+
+  if (outcome.kind === "ok") {
+    await saveBars(instrument.tdSymbol, instrument.tdExchange, outcome.bars, now).catch(() => undefined);
+    await persistState("ok");
+    return {
+      display: instrument.display,
+      bars: outcome.bars,
+      status: "ok",
+      planLimited: false,
+    };
+  }
+
+  await persistState(outcome.kind);
+  if (canUseLastGood(outcome.kind) && cached.length > 0) {
+    return {
+      display: instrument.display,
+      bars: cached,
+      status: outcome.kind,
+      planLimited: planLimitedFor(instrument, outcome.kind, cached),
+    };
+  }
+  return emptyOhlcvView(
+    instrument.display,
+    outcome.kind,
+    planLimitedFor(instrument, outcome.kind, []),
+  );
 }
 
 export async function loadOhlcv(display: string, deps: OhlcvDeps = {}): Promise<OhlcvView> {
@@ -111,7 +177,7 @@ async function loadOhlcvUncached(instrument: CanonInstrument, deps: OhlcvDeps): 
   const state = await loadState(instrument.tdSymbol, instrument.tdExchange).catch(() => null);
 
   if (!getKey()) {
-    return emptyOhlcvView(instrument.display, "no_key", instrument.planHint);
+    return loadOhlcvPublic(instrument, deps, cached, state, now, today);
   }
 
   if (state?.lastFetchUtcDate === today) {

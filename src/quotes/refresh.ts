@@ -9,7 +9,8 @@ import {
   saveRefreshState,
   upsertInstruments,
 } from "./store";
-import { fetchTwelveDataBatch, getTwelveDataApiKey } from "./twelve-data";
+import { fetchPublicQuotes, quotesVia } from "./public-source";
+import { fetchTwelveDataBatch } from "./twelve-data";
 import type { CanonInstrument, QuoteRow, QuoteStatus, UpstreamOutcome } from "./types";
 
 const CREDIT_BUFFER = 40;
@@ -65,6 +66,9 @@ function needsFetch(row: QuoteRow | undefined, now: Date, ttl: number, hasKey: b
   if (hasKey && (row.status === "no_key" || row.status === "unauthorized")) {
     return true;
   }
+  if (!hasKey && row.status === "no_key") {
+    return true;
+  }
   return now.getTime() - row.fetchedAt.getTime() >= ttl;
 }
 
@@ -84,11 +88,11 @@ async function refreshUniverse(
   const ttl = packTtlMs(now);
   const cap = dailyCreditCap();
 
-  if (state.rateLimitedUntil && state.rateLimitedUntil.getTime() > now.getTime()) {
+  const via = quotesVia();
+  if (via === "twelve_data" && state.rateLimitedUntil && state.rateLimitedUntil.getTime() > now.getTime()) {
     return;
   }
 
-  const key = getTwelveDataApiKey();
   const due: CanonInstrument[] = [];
   for (const row of instruments) {
     if (isDeniedSymbol(row.display) || isDeniedSymbol(row.tdSymbol)) {
@@ -109,30 +113,12 @@ async function refreshUniverse(
       }
       continue;
     }
-    if (!key) {
-      const id = ids.get(row.display);
-      if (id) {
-        await saveQuoteRow(
-          id,
-          {
-            last: null,
-            percentChange: null,
-            previousClose: null,
-            quotedAt: null,
-            fetchedAt: now,
-            status: "no_key",
-          },
-          tx,
-        );
-      }
-      continue;
-    }
-    if (needsFetch(previous.get(row.display), now, ttl, Boolean(key))) {
+    if (needsFetch(previous.get(row.display), now, ttl, via === "twelve_data")) {
       due.push(row);
     }
   }
 
-  if (!key || due.length === 0) {
+  if (due.length === 0) {
     await saveRefreshState(
       {
         lastPackAt: state.lastPackAt ?? now,
@@ -145,27 +131,60 @@ async function refreshUniverse(
     return;
   }
 
-  if (creditsUsed + due.length > cap - CREDIT_BUFFER) {
+  if (via === "twelve_data") {
+    if (creditsUsed + due.length > cap - CREDIT_BUFFER) {
+      return;
+    }
+
+    const { results, rateLimited, credits } = await fetchTwelveDataBatch(due);
+    for (const row of due) {
+      const id = ids.get(row.display);
+      if (!id) {
+        continue;
+      }
+      const outcome = results.get(row.display) ?? { kind: "empty" as const };
+      const persist = outcomeToPersist(outcome, previous.get(row.display), now);
+      await saveQuoteRow(id, { ...persist, fetchedAt: now, source: "twelve_data" }, tx);
+    }
+
+    await saveRefreshState(
+      {
+        lastPackAt: now,
+        rateLimitedUntil: rateLimited ? nextUtcMinute(now) : state.rateLimitedUntil,
+        creditUtcDate: today,
+        creditsUsed: creditsUsed + credits,
+      },
+      tx,
+    );
     return;
   }
 
-  const { results, rateLimited, credits } = await fetchTwelveDataBatch(due);
+  const publicHits = await fetchPublicQuotes(due);
   for (const row of due) {
     const id = ids.get(row.display);
     if (!id) {
       continue;
     }
-    const outcome = results.get(row.display) ?? { kind: "empty" as const };
+    const hit = publicHits.get(row.display);
+    const outcome = hit?.outcome ?? { kind: "empty" as const };
     const persist = outcomeToPersist(outcome, previous.get(row.display), now);
-    await saveQuoteRow(id, { ...persist, fetchedAt: now }, tx);
+    await saveQuoteRow(
+      id,
+      {
+        ...persist,
+        fetchedAt: now,
+        source: hit?.source ?? previous.get(row.display)?.source ?? "twelve_data",
+      },
+      tx,
+    );
   }
 
   await saveRefreshState(
     {
       lastPackAt: now,
-      rateLimitedUntil: rateLimited ? nextUtcMinute(now) : state.rateLimitedUntil,
+      rateLimitedUntil: state.rateLimitedUntil,
       creditUtcDate: today,
-      creditsUsed: creditsUsed + credits,
+      creditsUsed,
     },
     tx,
   );

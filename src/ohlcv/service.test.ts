@@ -28,19 +28,62 @@ afterEach(() => {
 });
 
 describe("loadOhlcv", () => {
-  it("returns an empty chart when there is no key and never invents candles from a last quote", async () => {
-    let fetched = false;
+  it("無 key：唔打 Twelve Data；公開源失敗且無 last-good 就空圖，唔用報價砌假 K", async () => {
+    let td = false;
+    let pub = false;
     const view = await loadOhlcv("NVDA", {
+      now: new Date("2026-08-16T12:00:00Z"),
       getKey: () => null,
       fetchSeries: async () => {
-        fetched = true;
+        td = true;
         return { kind: "ok", bars: NVDA };
       },
-      loadBars: async () => NVDA,
+      fetchPublicSeries: async () => {
+        pub = true;
+        return { kind: "empty" };
+      },
+      loadBars: async () => [],
+      saveState: async () => undefined,
     });
-    expect(fetched).toBe(false);
+    expect(td).toBe(false);
+    expect(pub).toBe(true);
     expect(view.bars).toEqual([]);
-    expect(view.status).toBe("no_key");
+    expect(view.status).toBe("empty");
+  });
+
+  it("有 key：唔打公開日線源", async () => {
+    let pub = false;
+    const view = await loadOhlcv("NVDA", {
+      now: new Date("2026-08-16T12:00:00Z"),
+      getKey: () => "k",
+      fetchSeries: async () => ({ kind: "ok", bars: NVDA }),
+      fetchPublicSeries: async () => {
+        pub = true;
+        return { kind: "ok", bars: HSI };
+      },
+      loadBars: async () => [],
+      saveBars: async () => undefined,
+      loadState: async () => null,
+      saveState: async () => undefined,
+      loadCredits: async () => credits(),
+      addCredits: async () => undefined,
+    });
+    expect(pub).toBe(false);
+    expect(view.bars).toEqual(NVDA);
+  });
+
+  it("無 key：公開源 5xx 用 last-good，唔造假價", async () => {
+    const view = await loadOhlcv("HSI", {
+      now: new Date("2026-08-16T12:00:00Z"),
+      getKey: () => null,
+      fetchSeries: async () => ({ kind: "ok", bars: NVDA }),
+      fetchPublicSeries: async () => ({ kind: "upstream" }),
+      loadBars: async () => HSI,
+      saveState: async () => undefined,
+    });
+    expect(view.bars).toEqual(HSI);
+    expect(view.status).toBe("upstream");
+    expect(view.bars).not.toEqual(NVDA);
   });
 
   it("blocks the deny-list before any /time_series call", async () => {

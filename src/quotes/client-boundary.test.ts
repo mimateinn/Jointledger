@@ -27,10 +27,14 @@ describe("quote client boundary", () => {
       expect(text, file).not.toMatch(/FINNHUB_API_KEY/);
       expect(text, file).not.toMatch(/NEXT_PUBLIC_.*API_KEY/);
       expect(text, file).not.toMatch(/NEXT_PUBLIC_.*NEWS/);
+      expect(text, file).not.toMatch(/NEXT_PUBLIC_.*QUOTE/);
       expect(text, file).not.toMatch(/news\.google\.com/);
       expect(text, file).not.toMatch(/from ["']@\/quotes\/symbol-map["']/);
       expect(text, file).not.toMatch(/from ["']@\/ohlcv(\/|["'])/);
       expect(text, file).not.toMatch(/api\.twelvedata\.com/);
+      expect(text, file).not.toMatch(/data-api\.binance\.vision/);
+      expect(text, file).not.toMatch(/api\.coingecko\.com/);
+      expect(text, file).not.toMatch(/query1\.finance\.yahoo\.com/);
       expect(text, file).not.toMatch(/massive\.com/);
     }
   });
