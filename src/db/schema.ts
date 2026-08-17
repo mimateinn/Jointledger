@@ -2,6 +2,7 @@ import {
   boolean,
   date,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -184,6 +185,25 @@ export const ohlcvBars = pgTable(
   },
   (table) => [primaryKey({ columns: [table.tdSymbol, table.tdExchange, table.barDate] })],
 );
+
+export const importBatches = pgTable("import_batches", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  bookId: uuid("book_id").references(() => books.id),
+  createdByUserId: uuid("created_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  filename: text("filename").notNull(),
+  fileHash: text("file_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  cashFlowCount: integer("cash_flow_count").notNull().default(0),
+  tradeCount: integer("trade_count").notNull().default(0),
+  warningCount: integer("warning_count").notNull().default(0),
+  skippedCount: integer("skipped_count").notNull().default(0),
+  status: text("status").notNull(),
+  mode: text("mode").notNull().default("initial"),
+  plan: jsonb("plan"),
+  rowLog: jsonb("row_log"),
+});
 
 /** One upstream /time_series attempt per (td_symbol, exchange) per UTC calendar day. */
 export const ohlcvFetchState = pgTable(

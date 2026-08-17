@@ -1,12 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createBookAction, type BookState } from "@/app/actions/book";
+import { ImportWizard } from "./import-wizard";
 
 const initial: BookState = {};
 
 export function FirstUseForm() {
   const [state, formAction, pending] = useActionState(createBookAction, initial);
+  const [mode, setMode] = useState<"choose" | "import">("choose");
+
+  if (mode === "import") {
+    return <ImportWizard onBack={() => setMode("choose")} />;
+  }
 
   return (
     <div className="stack">
@@ -41,8 +47,8 @@ export function FirstUseForm() {
           <p className="muted">
             把而家用緊嘅試算表搬過嚟。預覽成員、買賣、出入金；對唔上嘅列會單獨標出，確認持股先寫入。
           </p>
-          <button className="btn btn-ghost" type="button">
-            稍後先做
+          <button className="btn btn-ghost" type="button" onClick={() => setMode("import")}>
+            開始匯入
           </button>
         </section>
       </div>

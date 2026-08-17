@@ -77,18 +77,34 @@ export function openLotsFromTrades(
   allocations: TradeAllocation[],
 ): OpenLot[] {
   const byTrade = new Map(trades.map((trade) => [trade.id, trade]));
-  return allocations.flatMap((allocation) => {
-    const trade = byTrade.get(allocation.tradeId);
-    if (!trade) {
-      return [];
-    }
-    const hasCost = money(allocation.costUsd).gt(0);
-    const hasClose = money(allocation.proceedsUsd).gt(0);
-    if (!hasCost || hasClose) {
-      return [];
-    }
-    return [
-      {
+  const events = allocations
+    .map((allocation) => {
+      const trade = byTrade.get(allocation.tradeId);
+      return trade ? { allocation, trade } : null;
+    })
+    .filter((row): row is { allocation: TradeAllocation; trade: Trade } => row !== null)
+    .sort((a, b) => {
+      const byDate = a.trade.occurredOn.localeCompare(b.trade.occurredOn);
+      if (byDate !== 0) {
+        return byDate;
+      }
+      if (a.trade.side === b.trade.side) {
+        return 0;
+      }
+      return a.trade.side === "buy" ? -1 : 1;
+    });
+
+  type LiveLot = OpenLot & { remainingQty: Decimal; remainingCost: Decimal };
+  const open: LiveLot[] = [];
+
+  for (const { allocation, trade } of events) {
+    if (trade.side === "buy") {
+      const qty = money(allocation.quantity);
+      const cost = money(allocation.costUsd);
+      if (!qty.gt(0) || !cost.gt(0)) {
+        continue;
+      }
+      open.push({
         tradeId: trade.id,
         memberId: allocation.memberId,
         ledgerAccountId: trade.ledgerAccountId,
@@ -96,9 +112,42 @@ export function openLotsFromTrades(
         quantity: allocation.quantity,
         costUsd: allocation.costUsd,
         occurredOn: trade.occurredOn,
-      },
-    ];
-  });
+        remainingQty: qty,
+        remainingCost: cost,
+      });
+      continue;
+    }
+
+    let toClose = money(allocation.quantity);
+    for (const lot of open) {
+      if (toClose.lte(0)) {
+        break;
+      }
+      if (lot.memberId !== allocation.memberId || lot.symbol !== trade.symbol) {
+        continue;
+      }
+      if (lot.remainingQty.lte(0)) {
+        continue;
+      }
+      const take = Decimal.min(lot.remainingQty, toClose);
+      const costTake = lot.remainingCost.mul(take).div(lot.remainingQty);
+      lot.remainingQty = lot.remainingQty.minus(take);
+      lot.remainingCost = lot.remainingCost.minus(costTake);
+      toClose = toClose.minus(take);
+    }
+  }
+
+  return open
+    .filter((lot) => lot.remainingQty.gt(0))
+    .map((lot) => ({
+      tradeId: lot.tradeId,
+      memberId: lot.memberId,
+      ledgerAccountId: lot.ledgerAccountId,
+      symbol: lot.symbol,
+      quantity: lot.remainingQty.toFixed(8),
+      costUsd: lot.remainingCost.toFixed(8),
+      occurredOn: lot.occurredOn,
+    }));
 }
 
 export function filterByMember<T extends { memberId: string }>(

@@ -148,4 +148,52 @@ export type CreateTradeInput = {
   occurredOn: string;
   note?: string | null;
   side?: TradeSide;
+  /** When set, used instead of qty × price (import buy_total includes fee). */
+  costUsd?: string;
+  proceedsUsd?: string;
+  feeUsd?: string;
+  /** Joint F legs. When present, these allocations are written instead of a single memberId row. */
+  legs?: CreateTradeLeg[];
+};
+
+export type CreateTradeLeg = {
+  memberId: string;
+  quantity: string;
+  costUsd?: string;
+  proceedsUsd?: string;
+};
+
+export type AllocationSchedule = {
+  id: string;
+  bookId: string;
+  effectiveOn: string;
+};
+
+export type AllocationLeg = {
+  id: string;
+  scheduleId: string;
+  memberId: string;
+  percent: string;
+};
+
+export type NewAllocationSchedule = {
+  bookId: string;
+  effectiveOn: string;
+};
+
+export type NewAllocationLeg = {
+  scheduleId: string;
+  memberId: string;
+  percent: string;
+};
+
+export type SetAllocationScheduleInput = {
+  bookId: string;
+  effectiveOn: string;
+  legs: { memberId: string; percent: string }[];
+};
+
+export type CreateJointAccountInput = {
+  bookId: string;
+  name?: string;
 };
