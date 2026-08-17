@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { evaluateClaim, matchClaimableMember } from "./claim";
-import { mintInviteSecret } from "./invite";
+import { inviteExpiry, mintInviteSecret } from "./invite";
 import { hashPassword, verifyPassword } from "./password";
 
 const now = new Date("2026-08-17T00:00:00Z");
@@ -142,6 +142,58 @@ describe("claim", () => {
     expect(hashed).not.toContain(secret);
     expect(await verifyPassword(hashed, secret)).toBe(true);
     expect(await verifyPassword(hashed, "other")).toBe(false);
+  });
+
+  it("imported member has no secret until the existing issue path mints one", async () => {
+    const imported = {
+      id: "imp-sze",
+      displayName: "Sze",
+      email: null,
+      userId: null,
+      inviteSecretHash: null,
+      inviteExpiresAt: null,
+    };
+    const before = await evaluateClaim({
+      members: [imported],
+      identifier: "Sze",
+      inviteSecret: "anything",
+      now,
+      verify: verifyPassword,
+    });
+    expect(before).toEqual({ ok: false, reason: "used" });
+
+    const secret = mintInviteSecret();
+    const issued = {
+      ...imported,
+      inviteSecretHash: await hashPassword(secret),
+      inviteExpiresAt: inviteExpiry(now),
+    };
+    const after = await evaluateClaim({
+      members: [issued],
+      identifier: "Sze",
+      inviteSecret: secret,
+      now,
+      verify: verifyPassword,
+    });
+    expect(after.ok).toBe(true);
+    if (after.ok) {
+      expect(after.member.id).toBe("imp-sze");
+    }
+  });
+
+  it("account page issues invites to any unclaimed member, including import-created", () => {
+    const ui = readFileSync(join(process.cwd(), "src/app/(app)/account/account-client.tsx"), "utf8");
+    expect(ui).toContain("issueInviteAction");
+    const inviteBlock = ui.slice(ui.indexOf("{!member.userId"), ui.indexOf("加成員會發"));
+    expect(inviteBlock).toContain("發邀請密鑰");
+    expect(inviteBlock).toContain("inviteAction");
+    expect(inviteBlock).not.toContain("inviteSecretHash");
+
+    const action = readFileSync(join(process.cwd(), "src/app/actions/members.ts"), "utf8");
+    const issue = action.slice(action.indexOf("export async function issueInviteAction"));
+    expect(issue).toContain("target.userId");
+    expect(issue).toContain("writeInvite");
+    expect(issue).not.toMatch(/applyImport|existingBookId|inviteSecretHash/);
   });
 
   it("does not open a book from the claim action and requires the invite field", () => {

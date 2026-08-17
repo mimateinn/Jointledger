@@ -1,6 +1,11 @@
 import { Decimal } from "decimal.js";
 import { money } from "@/ledger/money";
 
+/** Stored allocation legs are unit fractions (0–1). Display as percent. */
+export function formatSchedulePercent(percent: string): string {
+  return `${money(percent).mul(100).toFixed(1)}%`;
+}
+
 export function formatMoney(value: string | Decimal, scale = 2): string {
   const fixed = money(value).toFixed(scale);
   const negative = fixed.startsWith("-");

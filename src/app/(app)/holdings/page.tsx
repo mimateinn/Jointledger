@@ -29,6 +29,7 @@ export default async function HoldingsPage() {
     const instrument = resolveInstrument(lot.symbol);
     return {
       tradeId: lot.tradeId,
+      memberId: lot.memberId,
       symbol: lot.symbol,
       quantity: lot.quantity,
       lastDisplay: lot.lastDisplay,
