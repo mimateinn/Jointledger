@@ -73,6 +73,7 @@ export function ReturnsClient({
           actionLabel="記一筆"
         />
       ) : (
+      <>
       <form className="chip-row" method="get">
         {PERIODS.map((item) => (
           <button
@@ -179,6 +180,7 @@ export function ReturnsClient({
       <p className="footer-note">
         平均資本≈0 或缺期初價：% 顯示 —，圖改畫 $ 或標「不足」。空白新表唔顯示「對本金」。
       </p>
+      </>
       )}
     </div>
   );
