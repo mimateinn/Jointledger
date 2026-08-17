@@ -80,7 +80,15 @@ function getSqliteClient() {
   globalForDb.sqlite?.close();
   ensureSqliteDir(url);
   const client = createClient({ url });
-  void client.execute("PRAGMA foreign_keys = ON");
+  const execute = client.execute.bind(client);
+  const ready = execute("PRAGMA journal_mode = WAL").then(() => execute("PRAGMA foreign_keys = ON"));
+  client.execute = ((stmt: Parameters<Client["execute"]>[0]) =>
+    ready.then(() => execute(stmt))) as Client["execute"];
+  if (typeof client.batch === "function") {
+    const batch = client.batch.bind(client);
+    client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
+      ready.then(() => batch(stmts, mode))) as Client["batch"];
+  }
   globalForDb.sqlite = client;
   globalForDb.sqliteUrl = url;
   return client;

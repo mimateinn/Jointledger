@@ -2,12 +2,13 @@
 
 import { useActionState, useState } from "react";
 import { createBookAction, type BookState } from "@/app/actions/book";
+import { SubmitButton } from "@/components/submit-button";
 import { ImportWizard } from "./import-wizard";
 
 const initial: BookState = {};
 
 export function FirstUseForm() {
-  const [state, formAction, pending] = useActionState(createBookAction, initial);
+  const [state, formAction] = useActionState(createBookAction, initial);
   const [mode, setMode] = useState<"choose" | "import">("choose");
 
   if (mode === "import") {
@@ -35,9 +36,9 @@ export function FirstUseForm() {
             </div>
             <p className="meta muted">買賣貨幣 USD · 入金貨幣 HKD</p>
             {state.error ? <p className="alert">{state.error}</p> : null}
-            <button className="btn btn-ghost" type="submit" disabled={pending}>
+            <SubmitButton className="btn btn-ghost" pendingLabel="開緊…">
               開新表
-            </button>
+            </SubmitButton>
           </form>
         </section>
 

@@ -18,15 +18,23 @@ export function emptyTapeViews(): {
   };
 }
 
-export async function refreshAndLoadTape(openLotSymbols: readonly string[] = []): Promise<{
+export async function refreshAndLoadTape(
+  openLotSymbols: readonly string[] = [],
+  options?: { refresh?: "wait" | "background" },
+): Promise<{
   items: QuoteView[];
   fx: QuoteView | null;
   delayLabel: string;
 }> {
-  try {
-    await ensureQuotes(openLotSymbols);
-  } catch {
-    return emptyTapeViews();
+  const refresh = options?.refresh ?? "wait";
+  if (refresh === "wait") {
+    try {
+      await ensureQuotes(openLotSymbols);
+    } catch {
+      return emptyTapeViews();
+    }
+  } else {
+    void ensureQuotes(openLotSymbols);
   }
   const rows = await quoteRowsForDisplays(TAPE_CANON.map((row) => row.display));
   const items = TAPE_CANON.map((instrument) => {
@@ -47,11 +55,18 @@ export async function refreshAndLoadTape(openLotSymbols: readonly string[] = [])
   };
 }
 
-export async function loadMarksForLots(symbols: readonly string[]): Promise<{
+export async function loadMarksForLots(
+  symbols: readonly string[],
+  options?: { refresh?: "wait" | "background" },
+): Promise<{
   marks: Record<string, string | null>;
   views: Record<string, QuoteView>;
 }> {
-  await ensureQuotes(symbols);
+  if ((options?.refresh ?? "wait") === "wait") {
+    await ensureQuotes(symbols);
+  } else {
+    void ensureQuotes(symbols);
+  }
   const unique = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
   const marks = await marksForDisplays(unique);
   const rows = await quoteRowsForDisplays(unique);

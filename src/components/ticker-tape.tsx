@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 export type TapeItem = {
   display: string;
@@ -27,7 +30,7 @@ function changeClass(change: string | null): string {
 function TapeCell({ item }: { item: TapeItem }) {
   const href = `/instrument/${encodeURIComponent(item.display)}`;
   return (
-    <Link href={href} className="tape-cell">
+    <Link href={href} prefetch className="tape-cell">
       <span className="tape-symbol">{item.display}</span>
       {item.name ? <span className="tape-name">{item.name}</span> : null}
       {item.isEtfProxy ? <span className="tape-proxy">代理</span> : null}
@@ -54,7 +57,32 @@ export function TickerTape({
   fx: TapeItem | null;
   delayLabel: string;
 }) {
-  const loop = [...items, ...items];
+  const [tape, setTape] = useState({ items, fx, delayLabel });
+
+  useEffect(() => {
+    setTape({ items, fx, delayLabel });
+  }, [items, fx, delayLabel]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/quotes")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { items?: TapeItem[]; fx?: TapeItem | null; delayLabel?: string } | null) => {
+        if (!cancelled && data?.items) {
+          setTape({
+            items: data.items,
+            fx: data.fx ?? null,
+            delayLabel: data.delayLabel ?? delayLabel,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [delayLabel]);
+
+  const loop = [...tape.items, ...tape.items];
   return (
     <div className="tape" aria-label="市場行情">
       <div className="tape-viewport">
@@ -65,14 +93,14 @@ export function TickerTape({
         </div>
       </div>
       <div className="tape-pin">
-        {fx ? (
-          <Link href={`/instrument/${encodeURIComponent(fx.display)}`} className="tape-fx">
-            <span>{fx.display}</span>
-            <span className="tabular">{fx.last ?? "—"}</span>
+        {tape.fx ? (
+          <Link href={`/instrument/${encodeURIComponent(tape.fx.display)}`} prefetch className="tape-fx">
+            <span>{tape.fx.display}</span>
+            <span className="tabular">{tape.fx.last ?? "—"}</span>
           </Link>
         ) : null}
-        <span className="chip chip-delay" title={fx?.lastUpdateLabel ?? undefined}>
-          {delayLabel}
+        <span className="chip chip-delay" title={tape.fx?.lastUpdateLabel ?? undefined}>
+          {tape.delayLabel}
         </span>
       </div>
     </div>

@@ -127,7 +127,7 @@ export function OverviewClient({
             <h2 className="title">未有入金</h2>
             <p className="muted">下一步：記一筆入金。記帳唔係下單。</p>
             <div>
-              <Link href="/entry" className="btn btn-primary">
+              <Link href="/entry" prefetch className="btn btn-primary">
                 記一筆入金
               </Link>
             </div>

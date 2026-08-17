@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { claimAction, loginAction, registerAction, type AuthState } from "@/app/actions/auth";
+import { SubmitButton } from "@/components/submit-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const initial: AuthState = {};
@@ -9,7 +10,7 @@ const initial: AuthState = {};
 export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
   const [mode, setMode] = useState<"login" | "claim">("login");
   const action = emptySystem ? registerAction : mode === "claim" ? claimAction : loginAction;
-  const [state, formAction, pending] = useActionState(action, initial);
+  const [state, formAction] = useActionState(action, initial);
 
   return (
     <div className="page-center">
@@ -84,9 +85,12 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
 
         {state.error ? <p className="alert">{state.error}</p> : null}
 
-        <button className="btn btn-primary btn-block" type="submit" disabled={pending}>
+        <SubmitButton
+          className="btn btn-primary btn-block"
+          pendingLabel={emptySystem ? "建立緊…" : mode === "claim" ? "認領緊…" : "登入緊…"}
+        >
           {emptySystem ? "建立帳戶" : mode === "claim" ? "認領並設密碼" : "登入"}
-        </button>
+        </SubmitButton>
         {emptySystem ? null : mode === "claim" ? (
           <p className="footer-note">顯示名或電郵只係認人。一定要有對方抄俾你嘅一次性邀請密鑰。唔會開新表。</p>
         ) : (

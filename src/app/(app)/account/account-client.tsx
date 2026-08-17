@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { logoutAction } from "@/app/actions/auth";
 import { addMemberAction, issueInviteAction, type MemberState } from "@/app/actions/members";
 import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
+import { SubmitButton } from "@/components/submit-button";
 import { formatSchedulePercent } from "@/lib/format";
 
 const initial: MemberState = {};
@@ -36,8 +37,8 @@ export function AccountClient({
     legs: { memberId: string; displayName: string; percent: string }[];
   }[];
 }) {
-  const [addState, addAction, addPending] = useActionState(addMemberAction, initial);
-  const [inviteState, inviteAction, invitePending] = useActionState(issueInviteAction, initial);
+  const [addState, addAction] = useActionState(addMemberAction, initial);
+  const [inviteState, inviteAction] = useActionState(issueInviteAction, initial);
   const [reimport, setReimport] = useState(false);
   const current = schedules.find((row) => row.current) ?? schedules.at(-1) ?? null;
   const shown = inviteState.inviteSecret ? inviteState : addState;
@@ -71,9 +72,9 @@ export function AccountClient({
               {!member.userId ? (
                 <form action={inviteAction}>
                   <input type="hidden" name="memberId" value={member.id} />
-                  <button className="btn btn-ghost" type="submit" disabled={invitePending}>
+                  <SubmitButton className="btn btn-ghost" pendingLabel="發緊…">
                     發邀請密鑰
-                  </button>
+                  </SubmitButton>
                 </form>
               ) : null}
             </div>
@@ -95,9 +96,9 @@ export function AccountClient({
           {addState.error ? <p className="alert">{addState.error}</p> : null}
           {inviteState.error ? <p className="alert">{inviteState.error}</p> : null}
           {shown.ok ? <p className="ok">{shown.ok}</p> : null}
-          <button className="btn btn-secondary" type="submit" disabled={addPending}>
+          <SubmitButton className="btn btn-secondary" pendingLabel="加緊…">
             加成員
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -133,9 +134,9 @@ export function AccountClient({
       </section>
 
       <form action={logoutAction}>
-        <button className="btn btn-secondary" type="submit">
+        <SubmitButton className="btn btn-secondary" pendingLabel="登出緊…">
           登出
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

@@ -32,9 +32,22 @@ echo 套用 migrations…
 call pnpm db:migrate
 if errorlevel 1 exit /b 1
 
+if /I "%JL_DEV%"=="1" (
+  echo JL_DEV=1：開發伺服器 pnpm dev
+  start "" /b powershell -NoProfile -Command "for ($i=0; $i -lt 90; $i++) { try { (New-Object System.Net.Sockets.TcpClient('127.0.0.1', 3000)).Close(); try { Start-Process 'http://localhost:3000' } catch {}; break } catch { Start-Sleep -Seconds 1 } }"
+  echo 等 http://localhost:3000 listen 之後先開瀏覽器（開唔到唔當失敗）
+  call pnpm dev
+  endlocal
+  exit /b %ERRORLEVEL%
+)
+
+echo 生產模式：pnpm build ^&^& pnpm start（JL_DEV=1 可行開發伺服器）
+call pnpm build
+if errorlevel 1 exit /b 1
+
 start "" /b powershell -NoProfile -Command "for ($i=0; $i -lt 90; $i++) { try { (New-Object System.Net.Sockets.TcpClient('127.0.0.1', 3000)).Close(); try { Start-Process 'http://localhost:3000' } catch {}; break } catch { Start-Sleep -Seconds 1 } }"
 echo 等 http://localhost:3000 listen 之後先開瀏覽器（開唔到唔當失敗）
 
-call pnpm dev
+call pnpm start
 endlocal
 exit /b %ERRORLEVEL%

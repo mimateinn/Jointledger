@@ -24,7 +24,7 @@
 2. 有需要就 `pnpm install`
 3. 確保 `data/` 同 `.env`（無 `.env` 就抄 `.env.example`）。**唔開 Docker、唔探 5432**
 4. `pnpm db:migrate`
-5. `pnpm dev`
+5. `pnpm build && pnpm start`（`JL_DEV=1` 先改行 `pnpm dev`）
 6. 等 localhost:3000 listen 之後先開瀏覽器（Windows `start`、macOS `open`、Linux `xdg-open`；開唔到唔當失敗）
 
 瀏覽器開 [http://localhost:3000](http://localhost:3000)。

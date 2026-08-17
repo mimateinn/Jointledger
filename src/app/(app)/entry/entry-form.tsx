@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createBuyAction, createDepositAction, type EntryState } from "@/app/actions/entry";
+import { SubmitButton } from "@/components/submit-button";
 import { deriveAmountUsd } from "@/ledger/create-cash-flow";
 import { formatMoney } from "@/lib/format";
 
@@ -23,8 +24,8 @@ export function EntryForm({
   today: string;
 }) {
   const [tab, setTab] = useState<Tab>("入金");
-  const [depositState, depositAction, depositPending] = useActionState(createDepositAction, initial);
-  const [buyState, buyAction, buyPending] = useActionState(createBuyAction, initial);
+  const [depositState, depositAction] = useActionState(createDepositAction, initial);
+  const [buyState, buyAction] = useActionState(createBuyAction, initial);
   const [hkd, setHkd] = useState("");
   const [fx, setFx] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -109,9 +110,7 @@ export function EntryForm({
           {depositState.error ? <p className="alert">{depositState.error}</p> : null}
           {depositState.ok ? <p className="ok">{depositState.ok}</p> : null}
           <div className="submit-row">
-            <button className="btn btn-primary" type="submit" disabled={depositPending}>
-              記入
-            </button>
+            <SubmitButton pendingLabel="記入緊…">記入</SubmitButton>
             <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
           </div>
         </form>
@@ -187,9 +186,7 @@ export function EntryForm({
           {buyState.error ? <p className="alert">{buyState.error}</p> : null}
           {buyState.ok ? <p className="ok">{buyState.ok}</p> : null}
           <div className="submit-row">
-            <button className="btn btn-primary" type="submit" disabled={buyPending}>
-              記入
-            </button>
+            <SubmitButton pendingLabel="記入緊…">記入</SubmitButton>
             <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
           </div>
         </form>

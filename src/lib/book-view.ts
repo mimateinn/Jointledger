@@ -37,7 +37,9 @@ export async function loadBookView(user: SessionUser) {
   const trades = await store.listTrades(ctx.book.id);
   const allocations = await store.listTradeAllocations(ctx.book.id);
   const lots = openLotsFromTrades(trades, allocations);
-  const { marks, views } = await loadMarksForLots(lots.map((lot) => lot.symbol)).catch(() => ({
+  const { marks, views } = await loadMarksForLots(lots.map((lot) => lot.symbol), {
+    refresh: "background",
+  }).catch(() => ({
     marks: {} as Record<string, string | null>,
     views: {} as Record<string, QuoteView>,
   }));

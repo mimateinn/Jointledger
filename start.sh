@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 本機一鍵試用：預設 SQLite，唔開 Docker、唔探 5432
+# 預設生產（build + start）；JL_DEV=1 先行開發伺服器
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -42,15 +43,26 @@ open_try() {
   fi
 }
 
-(
-  for _ in {1..90}; do
-    if port_open 3000; then
-      open_try || true
-      echo "開 http://localhost:3000 （開唔到瀏覽器唔當失敗）"
-      exit 0
-    fi
-    sleep 1
-  done
-) &
+wait_then_open() {
+  (
+    for _ in {1..90}; do
+      if port_open 3000; then
+        open_try || true
+        echo "開 http://localhost:3000 （開唔到瀏覽器唔當失敗）"
+        exit 0
+      fi
+      sleep 1
+    done
+  ) &
+}
 
-pnpm dev
+if [ "${JL_DEV:-}" = "1" ]; then
+  echo "JL_DEV=1：開發伺服器 pnpm dev"
+  wait_then_open
+  pnpm dev
+else
+  echo "生產模式：pnpm build && pnpm start（JL_DEV=1 可行開發伺服器）"
+  pnpm build
+  wait_then_open
+  pnpm start
+fi

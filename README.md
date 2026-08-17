@@ -23,7 +23,7 @@ M7 做到：無 `FINNHUB_API_KEY` 時伺服器改拉 Google News 公開 RSS；�
 - Windows：`start.bat`
 - Mac／Linux：`./start.sh`
 
-腳本會檢查 node／pnpm（無就提示然後退出），必要時 `pnpm install`，確保 `data/` 同 `.env`（無 `.env` 就抄 `.env.example`），然後 `pnpm db:migrate`，再 `pnpm dev`。等 :3000 listen 先開 [http://localhost:3000](http://localhost:3000)。Release 說明見 [RELEASE.md](RELEASE.md)。
+腳本會檢查 node／pnpm（無就提示然後退出），必要時 `pnpm install`，確保 `data/` 同 `.env`（無 `.env` 就抄 `.env.example`），然後 `pnpm db:migrate`，再 `pnpm build && pnpm start`（生產）。等 :3000 listen 先開 [http://localhost:3000](http://localhost:3000)。要開發伺服器：`JL_DEV=1 ./start.sh` 或 `set JL_DEV=1` 之後跑 `start.bat`。Release 說明見 [RELEASE.md](RELEASE.md)。
 
 ## 本機（手動）
 
@@ -77,7 +77,8 @@ SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` /
 
 | 指令 | 作用 |
 | --- | --- |
-| `pnpm dev` | 開發伺服器 |
+| `pnpm dev` | 開發伺服器（`JL_DEV=1` 先用） |
+| `pnpm start` | 生產伺服器（`start.bat` / `start.sh` 預設 `build` 之後行呢個） |
 | `pnpm test` | 現金不變式、NAV 標記、Dietz、關注解析、Finnhub 唔打 quote、有 key 失敗唔 fallback RSS、無 key 只打 RSS、認領唔開新表、再匯入現有 Book、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用、匯入行經 createCashFlow／createTrade |
 | `pnpm lint` | ESLint |
 | `pnpm db:migrate` | 套用 Drizzle migrations |
