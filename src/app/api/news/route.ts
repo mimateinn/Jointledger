@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/auth/session";
 import { getCurrentMembership } from "@/lib/current-book";
 import { newsForCategory, newsForSymbol } from "@/news/service";
+import { newsVia } from "@/news/source";
 import type { NewsCategory } from "@/news/types";
 import { listWatchItems } from "@/watchlist/repo";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   const category = url.searchParams.get("category");
   if (category && CATEGORIES.has(category as NewsCategory)) {
     const items = await newsForCategory(category as NewsCategory).catch(() => []);
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, via: newsVia() });
   }
 
   const watched = await listWatchItems(ctx.book.id);
@@ -39,5 +40,5 @@ export async function GET(request: Request) {
       items[symbol] = await newsForSymbol(symbol, muted.has(symbol)).catch(() => []);
     }),
   );
-  return NextResponse.json({ items });
+  return NextResponse.json({ items, via: newsVia() });
 }

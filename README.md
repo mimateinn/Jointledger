@@ -12,6 +12,8 @@ M4 做到：第一次用可以上傳而家用緊嘅 兩頁 xlsx（xlsx / csv）�
 
 M5 做到：收益率用期間淨值 $ + Modified Dietz %（短過一年唔年化）；持倉頁「關注」手動名單；Finnhub 新聞只經自己嘅 API；成員認領綁現有 Member；帳戶頁「再匯入」追加／取代現有 Book。
 
+M7 做到：無 `FINNHUB_API_KEY` 時伺服器改拉 Google News 公開 RSS；有 key 仍只打 Finnhub 新聞，失敗唔改行 RSS。
+
 ## 本機（Docker Postgres）
 
 ```bash
@@ -64,7 +66,7 @@ SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` /
 | 指令 | 作用 |
 | --- | --- |
 | `pnpm dev` | 開發伺服器 |
-| `pnpm test` | 現金不變式、NAV 標記、Dietz、關注解析、Finnhub 唔打 quote、認領唔開新表、再匯入現有 Book、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用、匯入行經 createCashFlow／createTrade |
+| `pnpm test` | 現金不變式、NAV 標記、Dietz、關注解析、Finnhub 唔打 quote、有 key 失敗唔 fallback RSS、無 key 只打 RSS、認領唔開新表、再匯入現有 Book、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用、匯入行經 createCashFlow／createTrade |
 | `pnpm lint` | ESLint |
 | `pnpm db:migrate` | 套用 Drizzle migrations |
 | `pnpm build` | 生產建置（含 Serwist app-shell precache） |
@@ -105,7 +107,7 @@ NAV = cash_usd + 已標記市值
 - `GET /api/ohlcv`：已登入先讀得到；只回傳 `{time,open,high,low,close,volume}`，無 API key、無指標線。
 - `src/ohlcv/`：日線 cache 同 calendar-day single-flight。`src/indicators/`：純函數，無 fetch／env。
 - 登入：電郵或顯示名 + 密碼；argon2id；HttpOnly / SameSite=Lax cookie（生產加 Secure）。只有系統零用戶先可以註冊。之後認領要一次性成員密鑰，綁現有 Member。
-- `GET /api/news`：已登入先讀得到；只回新聞標題，無 API key、無報價。`FINNHUB_API_KEY` 可空。
+- `GET /api/news`：已登入先讀得到；只回新聞標題／出版社／連結／時間 + `via`（`finnhub` 或 `rss`），無 API key、無報價。`FINNHUB_API_KEY` 可空（改行公開 RSS）。
 - `src/returns/`：期間 $ + Modified Dietz，只讀帳簿 + last-good。
 - `src/watchlist/`：每個 Book 一份關注名單；寫入唔經 ledger write API。
 - PWA：`@serwist/next` 只 precache app shell。寫入必須有網絡，無離線寫入隊列。
@@ -167,19 +169,20 @@ NAV 仍係鎖定規則：現金不變式 + 已標記市值。未標記持股唔�
 3. 行內「靜音新聞」：靜音咗嘅名唔會再推公司新聞；市場欄仍在。
 4. 「取消關注」只刪名單，唔動帳簿。
 
-## 新聞（M5）
+## 新聞（M5 + M7 後備）
 
-只打 Finnhub **新聞**。`FINNHUB_API_KEY` 放 server env，唔會 `NEXT_PUBLIC_*`。瀏覽器只打自己嘅 `GET /api/news`。
+`FINNHUB_API_KEY` 放 server env，唔會 `NEXT_PUBLIC_*`。瀏覽器只打自己嘅 `GET /api/news`。兩條路互斥：
 
-- 美股名：`company-news`（免費層北美）。其他市場：公司新聞空白，保留市場欄。
-- 市場：`/news?category=general|forex|crypto`。
-- 靜音咗嘅名唔推公司新聞。
+- **有 key：** 只打 Finnhub 新聞。美股名用 `company-news`（免費層北美）；市場用 `/news?category=general|forex|crypto`。429／失敗＝空列表，**唔改行 RSS**。零 Finnhub quote。
+- **無 key（trim 後空）：** 只打 Google News **公開 RSS**。個股 search＝ticker ＋ `when:7d`，locale 優先 `zh-HK`。大市用財經 topic／市場 search。只解析標題、出版社、連結、時間。唔爬 HTML，唔跟 Google 跳轉抓正文。唔加第二個新聞 API。
 
-Server 用 Postgres cache，按 symbol／category，TTL ≥ 15 分，單飛。429／無 key／非北美：空列表，唔崩潰，唔轉第二個來源。
+靜音咗嘅代碼唔拉、唔回個股新聞。
+
+Server 用 Postgres `news_cache`，按 symbol／類別，TTL ≥ 15 分，單飛。RSS 失敗／被擋／空 feed：空列表，唔崩潰、唔換源、唔造假標題。
+
+無 key 時列表標「公開新聞」同出版社，唔冒充 Finnhub。
 
 **唔會**打 Finnhub quote；新聞價唔會改 quotes／ohlcv／NAV。Yahoo／Twelve Data 唔做新聞。
-
-`FINNHUB_API_KEY` 可留空：新聞欄全部係空，app 照開。
 
 ## 認領 + 再匯入（M5）
 
