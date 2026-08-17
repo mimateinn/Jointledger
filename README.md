@@ -14,7 +14,16 @@ M5 做到：收益率用期間淨值 $ + Modified Dietz %（短過一年唔年�
 
 M7 做到：無 `FINNHUB_API_KEY` 時伺服器改拉 Google News 公開 RSS；有 key 仍只打 Finnhub 新聞，失敗唔改行 RSS。
 
-## 本機（Docker Postgres）
+## 本機試用
+
+要 **Docker Desktop**（開住）同本機 **Node／pnpm**。API key 可空。唔會連接券商。
+
+- Windows：`start.bat`
+- Mac／Linux：`./start.sh`
+
+腳本會起現有 `docker-compose.yml` 嘅 Postgres、`pnpm db:migrate`，未 build 就 `pnpm build`，再 `pnpm start`。瀏覽器開 [http://localhost:3000](http://localhost:3000)。Release 說明見 [RELEASE.md](RELEASE.md)。
+
+## 本機（手動）
 
 ```bash
 cp .env.example .env
