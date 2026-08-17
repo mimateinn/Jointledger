@@ -6,3 +6,5 @@ export type NewsItem = {
 };
 
 export type NewsCategory = "general" | "forex" | "crypto";
+
+export type NewsVia = "finnhub" | "rss";

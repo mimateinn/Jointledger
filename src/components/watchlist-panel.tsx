@@ -60,7 +60,8 @@ export function WatchlistPanel({
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WatchSearchHit[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
-  const [news, setNews] = useState<Record<string, { headline: string }[]>>({});
+  const [news, setNews] = useState<Record<string, { headline: string; source?: string; url?: string }[]>>({});
+  const [newsVia, setNewsVia] = useState<"finnhub" | "rss" | null>(null);
   const [pendingSearch, startSearch] = useTransition();
   const [addState, addAction, addPending] = useActionState(addWatchAction, initial);
   const [, removeAction, removePending] = useActionState(removeWatchAction, initial);
@@ -88,9 +89,10 @@ export function WatchlistPanel({
     let cancelled = false;
     fetch(`/api/news?symbols=${encodeURIComponent(symbols)}`)
       .then((res) => (res.ok ? res.json() : { items: {} }))
-      .then((body: { items?: Record<string, { headline: string }[]> }) => {
+      .then((body: { items?: Record<string, { headline: string; source?: string; url?: string }[]>; via?: "finnhub" | "rss" }) => {
         if (!cancelled) {
           setNews(body.items ?? {});
+          setNewsVia(body.via ?? null);
         }
       })
       .catch(() => undefined);
@@ -108,6 +110,7 @@ export function WatchlistPanel({
           {items.length} / {WATCH_CAP}
         </div>
         <div className="chip chip-delay">{delayLabel}</div>
+        {newsVia === "rss" ? <div className="chip">公開新聞</div> : null}
       </div>
       <div className="chip-row">
         {FILTERS.map((item) => (
@@ -168,7 +171,9 @@ export function WatchlistPanel({
             </tr>
           </thead>
           <tbody>
-            {visible.map((row) => (
+            {visible.map((row) => {
+              const item = news[row.displayCode]?.[0];
+              return (
               <tr key={row.id}>
                 <td>{row.displayCode}</td>
                 <td>{row.marketLabel}</td>
@@ -176,7 +181,26 @@ export function WatchlistPanel({
                 <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
                   {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
                 </td>
-                <td className="meta">{row.muted ? "—" : (news[row.displayCode]?.[0]?.headline ?? "—")}</td>
+                <td className="meta">
+                  {row.muted || !item ? (
+                    "—"
+                  ) : (
+                    <div>
+                      {item.url ? (
+                        <a href={item.url} target="_blank" rel="noopener noreferrer">
+                          {item.headline}
+                        </a>
+                      ) : (
+                        item.headline
+                      )}
+                      {newsVia === "rss" ? (
+                        <div className="muted">公開新聞{item.source ? ` · ${item.source}` : ""}</div>
+                      ) : item.source ? (
+                        <div className="muted">{item.source}</div>
+                      ) : null}
+                    </div>
+                  )}
+                </td>
                 <td className="meta muted">{row.muted ? "已靜音" : "僅關注"}</td>
                 <td>
                   <div className="submit-row">
@@ -196,7 +220,8 @@ export function WatchlistPanel({
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       )}

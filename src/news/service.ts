@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { newsCache } from "@/db/schema";
-import { isNorthAmericaWatch, resolveWatchSymbol } from "@/quotes/symbol-map";
-import { fetchCompanyNews, fetchMarketNews, finnhubKey } from "./finnhub";
+import { resolveWatchSymbol } from "@/quotes/symbol-map";
+import { categoryCacheKey, loadCategoryNews, loadSymbolNews, symbolCacheKey } from "./source";
 import type { NewsCategory, NewsItem } from "./types";
 
 const TTL_MS = 15 * 60 * 1000;
@@ -56,7 +56,7 @@ async function singleFlight(cacheKey: string, load: () => Promise<NewsItem[]>): 
   const pending = (async () => {
     try {
       const items = await load();
-      await saveCache(cacheKey, items, finnhubKey() ? "ok" : "no_key").catch(() => undefined);
+      await saveCache(cacheKey, items, "ok").catch(() => undefined);
       return items;
     } catch {
       await saveCache(cacheKey, [], "upstream").catch(() => undefined);
@@ -77,20 +77,11 @@ export async function newsForSymbol(display: string, muted: boolean): Promise<Ne
   if (!resolved) {
     return [];
   }
-  if (resolved.assetClass === "crypto") {
-    return singleFlight("category:crypto", () => fetchMarketNews("crypto"));
-  }
-  if (resolved.assetClass === "fx") {
-    return singleFlight("category:forex", () => fetchMarketNews("forex"));
-  }
-  if (!isNorthAmericaWatch(resolved)) {
-    return [];
-  }
-  return singleFlight(`symbol:${resolved.display}`, () => fetchCompanyNews(resolved.display));
+  return singleFlight(symbolCacheKey(resolved), () => loadSymbolNews(resolved));
 }
 
 export async function newsForCategory(category: NewsCategory): Promise<NewsItem[]> {
-  return singleFlight(`category:${category}`, () => fetchMarketNews(category));
+  return singleFlight(categoryCacheKey(category), () => loadCategoryNews(category));
 }
 
 export async function newsMapForWatch(

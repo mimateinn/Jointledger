@@ -28,6 +28,7 @@ describe("Finnhub news boundary", () => {
       if (/^\s*["']use client["']/.test(text)) {
         expect(text, file).not.toMatch(/FINNHUB_API_KEY/);
         expect(text, file).not.toMatch(/finnhub\.io/);
+        expect(text, file).not.toMatch(/news\.google\.com/);
       }
     }
     const news = walk(join(process.cwd(), "src/news")).map((file) => readFileSync(file, "utf8")).join("\n");
@@ -35,6 +36,9 @@ describe("Finnhub news boundary", () => {
     expect(news).toContain("api/v1/news");
     expect(news).toContain("?category=");
     expect(news).not.toMatch(/\/quote\b/);
+    expect(news).not.toMatch(/NEXT_PUBLIC_/);
+    expect(news).not.toMatch(/newsapi|gnews|yahoo\.com|twelvedata|massive\.com|api\.tdameritrade/i);
+    expect(news).not.toMatch(/cheerio|jsdom|linkedom/);
   });
 
   it("empty key → empty list, no throw", async () => {

@@ -223,7 +223,7 @@ export const watchItems = pgTable(
   (table) => [unique("watch_items_book_code").on(table.bookId, table.displayCode)],
 );
 
-/** Finnhub news last-good. Key = symbol:AAPL or category:general. Never stores quotes. */
+/** News last-good (Finnhub or Google News RSS). Key = symbol:AAPL, rss:symbol:AAPL, or category:general. Never stores quotes. */
 export const newsCache = pgTable("news_cache", {
   cacheKey: text("cache_key").primaryKey(),
   payload: jsonb("payload").notNull(),
