@@ -16,12 +16,12 @@ M7 做到：無 `FINNHUB_API_KEY` 時伺服器改拉 Google News 公開 RSS；�
 
 ## 本機試用
 
-要 **Docker Desktop**（開住）同本機 **Node／pnpm**。API key 可空。唔會連接券商。
+要本機 **Node／pnpm**。localhost:5432 已通就 skip Docker；未通先先要 **Docker Desktop**。API key 可空。唔會連接券商。
 
 - Windows：`start.bat`
 - Mac／Linux：`./start.sh`
 
-腳本會起現有 `docker-compose.yml` 嘅 Postgres、`pnpm db:migrate`，未 build 就 `pnpm build`，再 `pnpm start`。瀏覽器開 [http://localhost:3000](http://localhost:3000)。Release 說明見 [RELEASE.md](RELEASE.md)。
+腳本探測 5432：通就唔跑 compose；未通先 `docker compose up -d --wait` 起現有 Postgres。然後 `pnpm db:migrate`，未 build 就 `pnpm build`，再 `pnpm start`。等 :3000 listen 先開 [http://localhost:3000](http://localhost:3000)。Release 說明見 [RELEASE.md](RELEASE.md)。
 
 ## 本機（手動）
 
