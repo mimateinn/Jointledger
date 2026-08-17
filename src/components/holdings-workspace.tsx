@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/format";
+import { lotRowKey } from "@/lib/lot-row-key";
 import { InstrumentKline } from "./instrument-kline";
 import { WatchlistPanel, type WatchRow } from "./watchlist-panel";
 
 export type HoldingRow = {
   tradeId: string;
+  memberId: string;
   symbol: string;
   quantity: string;
   lastDisplay: string | null;
@@ -45,9 +47,9 @@ export function HoldingsWorkspace({
   delayLabel: string;
 }) {
   const [tab, setTab] = useState<"holdings" | "watch">("holdings");
-  const [selectedId, setSelectedId] = useState(lots[0]?.tradeId ?? null);
+  const [selectedId, setSelectedId] = useState(lots[0] ? lotRowKey(lots[0]) : null);
   const selected = useMemo(
-    () => lots.find((lot) => lot.tradeId === selectedId) ?? lots[0] ?? null,
+    () => lots.find((lot) => lotRowKey(lot) === selectedId) ?? lots[0] ?? null,
     [lots, selectedId],
   );
 
@@ -92,9 +94,9 @@ export function HoldingsWorkspace({
           <tbody>
             {lots.map((lot) => (
               <tr
-                key={lot.tradeId}
-                className={selected?.tradeId === lot.tradeId ? "selected" : undefined}
-                onClick={() => setSelectedId(lot.tradeId)}
+                key={lotRowKey(lot)}
+                className={selected && lotRowKey(selected) === lotRowKey(lot) ? "selected" : undefined}
+                onClick={() => setSelectedId(lotRowKey(lot))}
               >
                 <td>
                   <Link href={`/instrument/${encodeURIComponent(lot.symbol)}`}>{lot.symbol}</Link>

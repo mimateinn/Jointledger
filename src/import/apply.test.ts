@@ -57,6 +57,22 @@ describe("M4 import apply", () => {
     expect(firstTrade.symbol).toBe("NVDA");
   });
 
+  it("adds extra members without a userId so the account invite button can mint", async () => {
+    const plan = samplePlan();
+    const store = createMemoryStore();
+    const result = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      decisions: importAll(plan),
+    });
+    const rows = await store.listMembers(result.bookId);
+    const hey = rows.find((row) => row.displayName === "Hey");
+    const extras = rows.filter((row) => row.displayName !== "Hey");
+    expect(hey?.userId).toBe("user-1");
+    expect(extras.length).toBeGreaterThan(0);
+    expect(extras.every((row) => row.userId == null)).toBe(true);
+  });
+
   it("keeps cash at 500 after deposit 1000 and buy cost 500", async () => {
     const plan = samplePlan();
     const store = createMemoryStore();

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { DelayBadge } from "@/components/delay-badge";
 import { formatMoney } from "@/lib/format";
+import { lotRowKey } from "@/lib/lot-row-key";
 
 type Filter = "me" | "all" | string;
 
@@ -180,7 +181,7 @@ export function OverviewClient({
                 </thead>
                 <tbody>
                   {shown.lots.map((lot) => (
-                    <tr key={lot.tradeId}>
+                    <tr key={lotRowKey(lot)}>
                       <td>
                         <Link href={`/instrument/${encodeURIComponent(lot.symbol)}`}>{lot.symbol}</Link>
                       </td>

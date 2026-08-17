@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { logoutAction } from "@/app/actions/auth";
 import { addMemberAction, issueInviteAction, type MemberState } from "@/app/actions/members";
 import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
+import { formatSchedulePercent } from "@/lib/format";
 
 const initial: MemberState = {};
 
@@ -108,14 +109,14 @@ export function AccountClient({
           </div>
           <p className="body">
             自 {current.effectiveOn.replaceAll("-", "/")} ·{" "}
-            {current.legs.map((leg) => `${leg.displayName} ${Number(leg.percent).toFixed(1)}%`).join(" / ")}
+            {current.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
           </p>
           <p className="meta muted">按買入日比例·改完只影響新單</p>
           <ul className="muted" style={{ marginTop: 12 }}>
             {schedules.map((row) => (
               <li key={row.effectiveOn}>
                 {row.effectiveOn.replaceAll("-", "/")}{" "}
-                {row.legs.map((leg) => `${leg.displayName} ${Number(leg.percent).toFixed(1)}%`).join(" / ")}
+                {row.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
                 {row.current ? " · 而家" : ""}
               </li>
             ))}
