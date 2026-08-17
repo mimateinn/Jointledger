@@ -20,6 +20,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|icon|apple-icon|manifest.webmanifest|sw.js|swe-worker).*)",
+    "/((?!_next/static|_next/image|icon|apple-icon|favicon.ico|manifest.webmanifest|sw.js|swe-worker).*)",
   ],
 };
