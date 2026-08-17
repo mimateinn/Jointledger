@@ -2,7 +2,14 @@ import { eq, inArray } from "drizzle-orm";
 import { getDb, type Database } from "@/db/client";
 import { instruments, quoteRefreshState, quotes } from "@/db/schema";
 import { TAPE_CANON } from "./symbol-map";
-import type { CanonInstrument, QuoteRow, QuoteStatus } from "./types";
+import type { CanonInstrument, QuoteRow, QuoteSource, QuoteStatus } from "./types";
+
+function asQuoteSource(value: string): QuoteSource {
+  if (value === "binance" || value === "coingecko" || value === "yahoo" || value === "twelve_data") {
+    return value;
+  }
+  return "twelve_data";
+}
 
 export type QuoteExecutor = Pick<Database, "insert" | "select" | "update">;
 
@@ -98,7 +105,7 @@ export async function loadQuoteRows(
       fetchedAt: row.fetchedAt,
       delaySeconds: row.delaySeconds,
       status: row.status as QuoteStatus,
-      source: "twelve_data",
+      source: asQuoteSource(row.source),
     });
   }
   return out;
@@ -113,9 +120,11 @@ export async function saveQuoteRow(
     quotedAt: Date | null;
     fetchedAt: Date;
     status: QuoteStatus;
+    source?: QuoteSource;
   },
   db: QuoteExecutor = getDb(),
 ): Promise<void> {
+  const source = row.source ?? "twelve_data";
   await db
     .insert(quotes)
     .values({
@@ -127,7 +136,7 @@ export async function saveQuoteRow(
       fetchedAt: row.fetchedAt,
       delaySeconds: 900,
       status: row.status,
-      source: "twelve_data",
+      source,
     })
     .onConflictDoUpdate({
       target: quotes.instrumentId,
@@ -139,7 +148,7 @@ export async function saveQuoteRow(
         fetchedAt: row.fetchedAt,
         delaySeconds: 900,
         status: row.status,
-        source: "twelve_data",
+        source,
       },
     });
 }
