@@ -88,7 +88,7 @@ export function ImportWizard({
             </div>
             {state.error ? <p className="alert">{state.error}</p> : null}
             <div className="submit-row">
-              <SubmitButton pendingLabel="預覽緊…">預覽</SubmitButton>
+              <SubmitButton pendingLabel="儲存中">預覽</SubmitButton>
               {onBack ? (
                 <button className="btn btn-ghost" type="button" onClick={onBack}>
                   返回
@@ -167,7 +167,7 @@ export function ImportWizard({
               </tbody>
             </table>
             {state.error ? <p className="alert">{state.error}</p> : null}
-            <SubmitButton pendingLabel="確認緊…">確認欄位</SubmitButton>
+            <SubmitButton pendingLabel="儲存中">確認欄位</SubmitButton>
           </form>
         </section>
       ) : null}
@@ -283,7 +283,7 @@ export function ImportWizard({
             ) : null}
             {state.error ? <p className="alert">{state.error}</p> : null}
             <div className="submit-row">
-              <SubmitButton pendingLabel="寫入緊…">確認寫入</SubmitButton>
+              <SubmitButton pendingLabel="儲存中">確認寫入</SubmitButton>
               {onBack ? (
                 <button className="btn btn-ghost" type="button" onClick={onBack}>
                   取消

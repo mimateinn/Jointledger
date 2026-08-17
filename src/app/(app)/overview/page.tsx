@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { loadBookView } from "@/lib/book-view";
 import { ensureCurrentBook } from "@/lib/ensure-book";
-import { DELAY_15 } from "@/quotes";
+import { formatAsOfClock } from "@/lib/format";
+import { DELAY_15, resolveInstrument } from "@/quotes";
 import { OverviewClient } from "./overview-client";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,8 @@ export default async function OverviewPage() {
         kind: a.kind,
       }))}
       all={view.all}
+      joint={view.joint}
+      asOfLabel={formatAsOfClock()}
       byMember={view.byMember.map((row) => ({
         memberId: row.member.id,
         displayName: row.member.displayName,
@@ -45,6 +48,7 @@ export default async function OverviewPage() {
         memberId: lot.memberId,
         ledgerAccountId: lot.ledgerAccountId,
         symbol: lot.symbol,
+        name: view.quoteViews[lot.symbol]?.name ?? resolveInstrument(lot.symbol)?.displayName ?? null,
         quantity: lot.quantity,
         costUsd: lot.costUsd,
         lastDisplay: lot.lastDisplay,

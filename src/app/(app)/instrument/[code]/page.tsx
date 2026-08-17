@@ -8,7 +8,9 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  return { title: decodeURIComponent(code).toUpperCase() };
+  const display = decodeURIComponent(code).trim().toUpperCase();
+  const name = resolveInstrument(display)?.displayName;
+  return { title: name ? `${name} ${display}` : display };
 }
 
 export default async function InstrumentPage({ params }: { params: Promise<{ code: string }> }) {

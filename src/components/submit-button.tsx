@@ -4,11 +4,11 @@ import { useFormStatus } from "react-dom";
 
 export function SubmitButton({
   children,
-  pendingLabel,
+  pendingLabel = "儲存中",
   className = "btn btn-primary",
 }: {
   children: React.ReactNode;
-  pendingLabel: string;
+  pendingLabel?: string;
   className?: string;
 }) {
   const { pending } = useFormStatus();

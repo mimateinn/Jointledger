@@ -6,6 +6,7 @@ describe("immediate click feedback", () => {
     const button = readFileSync("src/components/submit-button.tsx", "utf8");
     expect(button).toMatch(/useFormStatus/);
     expect(button).toMatch(/disabled=\{pending\}/);
+    expect(button).toContain('pendingLabel = "儲存中"');
   });
 
   it("create account, entry, and nav use instant feedback", () => {

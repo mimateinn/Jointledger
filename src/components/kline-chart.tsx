@@ -170,9 +170,8 @@ export function KlineChart({
 
   if (bars.length === 0) {
     return (
-      <div className="kline-empty" role="img" aria-label="未有日線">
-        <div className="display">—</div>
-        <p className="muted">未有日線</p>
+      <div className="kline-empty" role="img" aria-label="這檔還沒有可畫的區間">
+        <p className="body">這檔還沒有可畫的區間</p>
       </div>
     );
   }

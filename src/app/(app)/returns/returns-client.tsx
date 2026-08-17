@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { EmptyPanel } from "@/components/empty-panel";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatSignedUsd } from "@/lib/format";
 import { formatDietzPercent, type MemberReturn, type PeriodKey, type ReturnsReport } from "@/returns/report";
 
 const PERIODS: { key: PeriodKey; label: string }[] = [
@@ -15,15 +15,7 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
 const COLORS = ["var(--up)", "var(--text)", "var(--muted)", "var(--ink)"];
 
 function signedMoney(value: string): string {
-  const n = Number(value);
-  const body = formatMoney(value);
-  if (n > 0) {
-    return `+US$ ${body}`;
-  }
-  if (n < 0) {
-    return `-US$ ${body.replace("-", "")}`;
-  }
-  return `US$ ${body}`;
+  return formatSignedUsd(value);
 }
 
 function memberColor(index: number): string {

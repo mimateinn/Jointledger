@@ -42,7 +42,7 @@ export default async function HoldingsPage() {
       isEtfProxy: false,
       delayLabel,
       lastUpdateLabel: null,
-      name: null,
+      name: resolveInstrument(lot.symbol)?.displayName ?? null,
       tags: [] as string[],
       closed: true,
     }));
@@ -85,6 +85,7 @@ export default async function HoldingsPage() {
       marketLabel: resolved?.marketLabel ?? "—",
       lastDisplay: quote?.last ?? null,
       percentChange: quote?.percentChange ?? null,
+      name: quote?.name ?? resolved?.displayName ?? null,
     };
   });
 

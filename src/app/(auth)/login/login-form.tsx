@@ -85,10 +85,7 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
 
         {state.error ? <p className="alert">{state.error}</p> : null}
 
-        <SubmitButton
-          className="btn btn-primary btn-block"
-          pendingLabel={emptySystem ? "建立緊…" : mode === "claim" ? "認領緊…" : "登入緊…"}
-        >
+        <SubmitButton className="btn btn-primary btn-block" pendingLabel="儲存中">
           {emptySystem ? "建立帳戶" : mode === "claim" ? "認領並設密碼" : "登入"}
         </SubmitButton>
         {emptySystem ? null : mode === "claim" ? (

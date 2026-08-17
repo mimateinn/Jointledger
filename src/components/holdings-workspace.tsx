@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatUsd } from "@/lib/format";
 import { lotRowKey } from "@/lib/lot-row-key";
 import { EmptyPanel } from "./empty-panel";
 import { HoldingDelete } from "./holding-delete";
 import { InstrumentKline } from "./instrument-kline";
+import { InstrumentLabel } from "./instrument-label";
 import { WatchlistPanel, type WatchRow } from "./watchlist-panel";
 
 export type HoldingRow = {
@@ -87,7 +88,7 @@ export function HoldingsWorkspace({
             <table className="table">
               <thead>
                 <tr>
-                  <th>代碼</th>
+                  <th>標的</th>
                   <th>數量</th>
                   <th>現價</th>
                   <th>今日</th>
@@ -104,15 +105,17 @@ export function HoldingsWorkspace({
                     onClick={() => setSelectedId(lotRowKey(lot))}
                   >
                     <td>
-                      <Link href={`/instrument/${encodeURIComponent(lot.symbol)}`}>{lot.symbol}</Link>
+                      <Link href={`/instrument/${encodeURIComponent(lot.symbol)}`}>
+                        <InstrumentLabel ticker={lot.symbol} name={lot.name} />
+                      </Link>
                     </td>
                     <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                    <td className="tabular">{lot.lastDisplay ?? "未有報價"}</td>
+                    <td className="tabular">{lot.lastDisplay ?? "—"}</td>
                     <td className={`tabular ${changeClass(lot.percentChange)}`}>
                       {lot.lastDisplay ? (lot.percentChange ?? "—") : "—"}
                     </td>
-                    <td className="tabular">{lot.marketValueUsd ? formatMoney(lot.marketValueUsd) : "—"}</td>
-                    <td className="tabular">{formatMoney(lot.costUsd)}</td>
+                    <td className="tabular">{lot.marketValueUsd ? formatUsd(lot.marketValueUsd) : "—"}</td>
+                    <td className="tabular">{formatUsd(lot.costUsd)}</td>
                     <td>
                       <HoldingDelete tradeId={lot.tradeId} memberId={lot.memberId} symbol={lot.symbol} />
                     </td>
@@ -142,7 +145,7 @@ export function HoldingsWorkspace({
           <table className="table">
             <thead>
               <tr>
-                <th>代碼</th>
+                <th>標的</th>
                 <th>數量</th>
                 <th>成本</th>
                 <th />
@@ -151,9 +154,11 @@ export function HoldingsWorkspace({
             <tbody>
               {closedLots.map((lot) => (
                 <tr key={lotRowKey(lot)}>
-                  <td>{lot.symbol}</td>
+                  <td>
+                    <InstrumentLabel ticker={lot.symbol} name={lot.name} />
+                  </td>
                   <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                  <td className="tabular">{formatMoney(lot.costUsd)}</td>
+                  <td className="tabular">{formatUsd(lot.costUsd)}</td>
                   <td>
                     <HoldingDelete
                       tradeId={lot.tradeId}

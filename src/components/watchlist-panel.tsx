@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { EmptyPanel } from "./empty-panel";
+import { FailurePanel } from "./failure-panel";
+import { InstrumentLabel } from "./instrument-label";
 import {
   addWatchAction,
   muteWatchAction,
@@ -20,6 +22,7 @@ export type WatchRow = {
   marketLabel: string;
   lastDisplay: string | null;
   percentChange: string | null;
+  name: string | null;
 };
 
 const initial: WatchState = {};
@@ -63,6 +66,8 @@ export function WatchlistPanel({
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
   const [news, setNews] = useState<Record<string, { headline: string; source?: string; url?: string }[]>>({});
   const [newsVia, setNewsVia] = useState<"finnhub" | "rss" | null>(null);
+  const [newsFailed, setNewsFailed] = useState(false);
+  const [newsReload, setNewsReload] = useState(0);
   const [pendingSearch, startSearch] = useTransition();
   const [addState, addAction, addPending] = useActionState(addWatchAction, initial);
   const [, removeAction, removePending] = useActionState(removeWatchAction, initial);
@@ -88,19 +93,29 @@ export function WatchlistPanel({
       return;
     }
     let cancelled = false;
+    setNewsFailed(false);
     fetch(`/api/news?symbols=${encodeURIComponent(symbols)}`)
-      .then((res) => (res.ok ? res.json() : { items: {} }))
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("news");
+        }
+        return res.json();
+      })
       .then((body: { items?: Record<string, { headline: string; source?: string; url?: string }[]>; via?: "finnhub" | "rss" }) => {
         if (!cancelled) {
           setNews(body.items ?? {});
           setNewsVia(body.via ?? null);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) {
+          setNewsFailed(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [items]);
+  }, [items, newsReload]);
 
   const visible = items.filter((row) => filter === "all" || row.market === filter);
 
@@ -147,7 +162,7 @@ export function WatchlistPanel({
               {pendingSearch ? <span className="muted"> · …</span> : null}
             </div>
             <button className="btn btn-secondary" type="submit" disabled={addPending}>
-              +關注
+              {addPending ? "儲存中" : "+關注"}
             </button>
           </div>
         ) : query.trim() ? (
@@ -156,6 +171,9 @@ export function WatchlistPanel({
         {addState.error ? <p className="alert">{addState.error}</p> : null}
         {addState.ok ? <p className="ok">{addState.ok}</p> : null}
       </form>
+      {newsFailed ? (
+        <FailurePanel sentence="新聞暫時載唔到，唔好緊，再試一次就得。" onRetry={() => setNewsReload((n) => n + 1)} />
+      ) : null}
       {items.length === 0 ? (
         <EmptyPanel sentence="未有關注，加入代碼或先去加持倉。" actionLabel="加持倉" />
       ) : visible.length === 0 ? (
@@ -164,7 +182,7 @@ export function WatchlistPanel({
         <table className="table">
           <thead>
             <tr>
-              <th>代碼</th>
+              <th>標的</th>
               <th>市場</th>
               <th>現價</th>
               <th>今日</th>
@@ -178,9 +196,11 @@ export function WatchlistPanel({
               const item = news[row.displayCode]?.[0];
               return (
               <tr key={row.id}>
-                <td>{row.displayCode}</td>
+                <td>
+                  <InstrumentLabel ticker={row.displayCode} name={row.name} />
+                </td>
                 <td>{row.marketLabel}</td>
-                <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
+                <td className="tabular">{row.lastDisplay ?? "—"}</td>
                 <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
                   {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
                 </td>

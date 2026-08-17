@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
 export type TapeItem = {
   display: string;
   name: string | null;
@@ -58,6 +57,8 @@ export function TickerTape({
   delayLabel: string;
 }) {
   const [tape, setTape] = useState({ items, fx, delayLabel });
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setTape({ items, fx, delayLabel });
@@ -65,8 +66,14 @@ export function TickerTape({
 
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     void fetch("/api/quotes")
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("quotes");
+        }
+        return res.json();
+      })
       .then((data: { items?: TapeItem[]; fx?: TapeItem | null; delayLabel?: string } | null) => {
         if (!cancelled && data?.items) {
           setTape({
@@ -76,11 +83,15 @@ export function TickerTape({
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) {
+          setFailed(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [delayLabel]);
+  }, [delayLabel, reloadKey]);
 
   const loop = [...tape.items, ...tape.items];
   return (
@@ -99,9 +110,15 @@ export function TickerTape({
             <span className="tabular">{tape.fx.last ?? "—"}</span>
           </Link>
         ) : null}
-        <span className="chip chip-delay" title={tape.fx?.lastUpdateLabel ?? undefined}>
-          {tape.delayLabel}
-        </span>
+        {failed ? (
+          <button type="button" className="btn btn-ghost" onClick={() => setReloadKey((n) => n + 1)}>
+            行情暫時載唔到，再試
+          </button>
+        ) : (
+          <span className="chip chip-delay" title={tape.fx?.lastUpdateLabel ?? undefined}>
+            {tape.delayLabel}
+          </span>
+        )}
       </div>
     </div>
   );

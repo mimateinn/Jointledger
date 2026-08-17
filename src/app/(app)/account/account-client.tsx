@@ -7,7 +7,7 @@ import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
 import { EmptyPanel } from "@/components/empty-panel";
 import { MemberDelete } from "@/components/member-delete";
 import { SubmitButton } from "@/components/submit-button";
-import { formatSchedulePercent } from "@/lib/format";
+import { formatRelativeDate, formatSchedulePercent } from "@/lib/format";
 
 const initial: MemberState = {};
 
@@ -22,6 +22,41 @@ function InviteOnce({ state }: { state: MemberState }) {
         {state.inviteSecret}
       </p>
       <p className="meta muted">7 日內有效，只用一次。抄低之後離線交俾對方。呢頁再入就唔會再顯示。</p>
+    </div>
+  );
+}
+
+function MemberRow({
+  member,
+  you,
+  lastUser,
+  inviteAction,
+}: {
+  member: { id: string; displayName: string; email: string | null; userId: string | null };
+  you: boolean;
+  lastUser: boolean;
+  inviteAction: (formData: FormData) => void | Promise<void>;
+}) {
+  return (
+    <div className="member-row">
+      <div className={you ? "avatar" : "avatar avatar-muted"}>{member.displayName.slice(0, 1)}</div>
+      <div style={{ flex: 1 }}>
+        <div>
+          {member.displayName}
+          {you ? <span className="meta muted"> · 你</span> : null}
+        </div>
+        {member.email ? <div className="meta muted">{member.email}</div> : null}
+      </div>
+      <div className="meta muted">{member.userId ? "已登入" : "未設密碼"}</div>
+      <MemberDelete memberId={member.id} displayName={member.displayName} lastUser={lastUser} />
+      {!member.userId ? (
+        <form action={inviteAction}>
+          <input type="hidden" name="memberId" value={member.id} />
+          <SubmitButton className="btn btn-ghost" pendingLabel="發緊…">
+            發邀請密鑰
+          </SubmitButton>
+        </form>
+      ) : null}
     </div>
   );
 }
@@ -46,6 +81,9 @@ export function AccountClient({
   const [reimport, setReimport] = useState(false);
   const current = schedules.find((row) => row.current) ?? schedules.at(-1) ?? null;
   const shown = inviteState.inviteSecret ? inviteState : addState;
+  const me = members.find((member) => member.userId === currentUserId) ?? null;
+  const others = members.filter((member) => member.userId !== currentUserId);
+  const lastUser = members.filter((row) => row.userId).length <= 1;
 
   if (reimport) {
     return <ImportWizard reimport onBack={() => setReimport(false)} />;
@@ -57,41 +95,28 @@ export function AccountClient({
       {emptyLedger ? (
         <EmptyPanel sentence="未有持倉或流水，記一筆就可以開始。" actionLabel="記一筆" />
       ) : null}
+
       <section className="card">
-        <div className="row" style={{ marginBottom: 8 }}>
-          <h2 className="title">成員</h2>
-        </div>
-        {members.map((member) => {
-          const you = member.userId === currentUserId;
-          return (
-            <div className="member-row" key={member.id}>
-              <div className={you ? "avatar" : "avatar avatar-muted"}>
-                {member.displayName.slice(0, 1)}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div>
-                  {member.displayName}
-                  {you ? <span className="meta muted"> · 你</span> : null}
-                </div>
-                {member.email ? <div className="meta muted">{member.email}</div> : null}
-              </div>
-              <div className="meta muted">{member.userId ? "已登入" : "未設密碼"}</div>
-              <MemberDelete
-                memberId={member.id}
-                displayName={member.displayName}
-                lastUser={members.filter((row) => row.userId).length <= 1 && Boolean(member.userId)}
-              />
-              {!member.userId ? (
-                <form action={inviteAction}>
-                  <input type="hidden" name="memberId" value={member.id} />
-                  <SubmitButton className="btn btn-ghost" pendingLabel="發緊…">
-                    發邀請密鑰
-                  </SubmitButton>
-                </form>
-              ) : null}
-            </div>
-          );
-        })}
+        <h2 className="title">我是誰</h2>
+        {me ? (
+          <MemberRow member={me} you lastUser={lastUser && Boolean(me.userId)} inviteAction={inviteAction} />
+        ) : (
+          <p className="muted">未對上而家呢個帳戶。</p>
+        )}
+      </section>
+
+      <section className="card">
+        <h2 className="title">其他人</h2>
+        {others.length === 0 ? <p className="muted">未有其他人。</p> : null}
+        {others.map((member) => (
+          <MemberRow
+            key={member.id}
+            member={member}
+            you={false}
+            lastUser={lastUser && Boolean(member.userId)}
+            inviteAction={inviteAction}
+          />
+        ))}
         <p className="meta muted" style={{ marginTop: 16 }}>
           加成員會發一次性邀請密鑰。對方要用顯示名或電郵 + 密鑰 + 自己設嘅密碼認領。認領只綁呢個成員，唔會開新表。
         </p>
@@ -121,14 +146,14 @@ export function AccountClient({
             <span className="meta muted">{current.legs.map((leg) => leg.displayName).join(" + ")}</span>
           </div>
           <p className="body">
-            自 {current.effectiveOn.replaceAll("-", "/")} ·{" "}
+            自 {formatRelativeDate(current.effectiveOn)} ·{" "}
             {current.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
           </p>
           <p className="meta muted">按買入日比例·改完只影響新單</p>
           <ul className="muted" style={{ marginTop: 12 }}>
             {schedules.map((row) => (
               <li key={row.effectiveOn}>
-                {row.effectiveOn.replaceAll("-", "/")}{" "}
+                {formatRelativeDate(row.effectiveOn)}{" "}
                 {row.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
                 {row.current ? " · 而家" : ""}
               </li>
@@ -145,11 +170,14 @@ export function AccountClient({
         </button>
       </section>
 
-      <form action={logoutAction}>
-        <SubmitButton className="btn btn-secondary" pendingLabel="登出緊…">
-          登出
-        </SubmitButton>
-      </form>
+      <section className="card stack">
+        <h2 className="title">登出</h2>
+        <form action={logoutAction}>
+          <SubmitButton className="btn btn-secondary" pendingLabel="登出緊…">
+            登出
+          </SubmitButton>
+        </form>
+      </section>
     </div>
   );
 }

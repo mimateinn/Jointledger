@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CANON_SCHEDULES, normalizeScheduleLegs } from "@/import/canon";
-import { formatSchedulePercent, todayIso } from "./format";
+import { formatAsOfClock, formatRelativeDate, formatSchedulePercent, formatUsd, todayIso } from "./format";
 
 describe("formatSchedulePercent", () => {
   it("multiplies stored unit fractions by 100; does not treat 0.49 as 0.5%", () => {
@@ -10,6 +10,29 @@ describe("formatSchedulePercent", () => {
     expect(Number(legs[0].percent).toFixed(1)).toBe("0.5");
     expect(formatSchedulePercent(legs[0].percent)).toBe("49.5%");
     expect(formatSchedulePercent(legs[1].percent)).toBe("50.5%");
+  });
+});
+
+describe("formatUsd", () => {
+  it("uses one currency system with thousands and decimals", () => {
+    expect(formatUsd("1234.5")).toBe("US$ 1,234.50");
+    expect(formatUsd("0")).toBe("US$ 0.00");
+    expect(formatUsd("-50")).toBe("-US$ 50.00");
+  });
+});
+
+describe("formatRelativeDate", () => {
+  it("uses 今天／昨天 when recent in HKT", () => {
+    const now = new Date("2026-08-17T16:00:00+08:00");
+    expect(formatRelativeDate("2026-08-17", now)).toBe("今天");
+    expect(formatRelativeDate("2026-08-16", now)).toBe("昨天");
+    expect(formatRelativeDate("2026-08-01", now)).toBe("2026-08-01");
+  });
+});
+
+describe("formatAsOfClock", () => {
+  it("labels NAV as-of with 截至", () => {
+    expect(formatAsOfClock(new Date("2026-08-17T21:04:00+08:00"))).toBe("截至 21:04");
   });
 });
 

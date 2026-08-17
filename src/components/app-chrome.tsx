@@ -65,6 +65,7 @@ export function AppChrome({
                       href={item.href}
                       prefetch
                       className={active || pending ? "nav-item nav-item-active" : "nav-item"}
+                      aria-current={active ? "page" : undefined}
                       aria-busy={pending}
                       onClick={() => {
                         if (!active) {
@@ -97,6 +98,7 @@ export function AppChrome({
                 href={item.href}
                 prefetch
                 className={active || pending ? "active" : undefined}
+                aria-current={active ? "page" : undefined}
                 aria-busy={pending}
                 onClick={() => {
                   if (!active) {

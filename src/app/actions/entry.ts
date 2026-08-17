@@ -6,6 +6,7 @@ import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
 import { createCashFlow, createTrade, deleteLot } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
+import { humanFormError } from "@/lib/human-error";
 
 export type EntryState = { error?: string; ok?: string };
 
@@ -37,7 +38,7 @@ export async function createDepositAction(
       occurredOn: String(formData.get("occurredOn") ?? ""),
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "入金失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : "入金失敗") };
   }
 
   revalidatePath("/overview");
@@ -76,7 +77,7 @@ export async function createBuyAction(
       }),
     );
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "記帳失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : "記帳失敗") };
   }
 
   revalidatePath("/overview");
