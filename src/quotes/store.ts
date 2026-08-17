@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { getDb, type Database } from "@/db/client";
-import { instruments, quoteRefreshState, quotes } from "@/db/schema";
+import { instruments, quoteRefreshState, quotes } from "@/db/tables";
 import { TAPE_CANON } from "./symbol-map";
 import type { CanonInstrument, QuoteRow, QuoteSource, QuoteStatus } from "./types";
 

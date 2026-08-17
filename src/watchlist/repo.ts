@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { watchItems } from "@/db/schema";
+import { watchItems } from "@/db/tables";
 import { WATCH_CAP } from "./constants";
 
 export type WatchItem = {

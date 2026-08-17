@@ -5,6 +5,9 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
+    env: {
+      DATABASE_URL: process.env.DATABASE_URL ?? "file:./data/test-ledger.sqlite",
+    },
   },
   resolve: {
     alias: {

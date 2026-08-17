@@ -7,7 +7,7 @@ import { inviteExpiry, mintInviteSecret } from "@/auth/invite";
 import { requireUser } from "@/auth/session";
 import { getDb } from "@/db/client";
 import { createDrizzleStore } from "@/db/drizzle-store";
-import { members } from "@/db/schema";
+import { members } from "@/db/tables";
 import { addMember } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
 

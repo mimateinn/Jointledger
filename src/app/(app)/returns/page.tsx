@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { getDb } from "@/db/client";
 import { createDrizzleStore } from "@/db/drizzle-store";
-import { importBatches } from "@/db/schema";
+import { importBatches } from "@/db/tables";
 import { sumSheetPnl } from "@/import/old-sheet";
 import type { ImportPlan } from "@/import/types";
 import { loadBookView } from "@/lib/book-view";

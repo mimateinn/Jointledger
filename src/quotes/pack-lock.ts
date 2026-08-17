@@ -1,5 +1,6 @@
-import { sql, type SQLWrapper } from "drizzle-orm";
+import { type SQLWrapper } from "drizzle-orm";
 import { getDb, type Database } from "@/db/client";
+import { tryXactLockSql } from "@/db/xact-lock";
 import type { QuoteExecutor } from "./store";
 
 export const PACK_LOCK = 2_026_081_602;
@@ -40,11 +41,11 @@ function asRows(result: unknown): Record<string, unknown>[] {
 }
 
 function isTruthyFlag(value: unknown): boolean {
-  return value === true || value === "t" || value === "true";
+  return value === true || value === "t" || value === "true" || value === 1 || value === "1" || value === BigInt(1);
 }
 
 export async function tryAdvisoryXactLock(tx: PackLockTx): Promise<boolean> {
-  const result = await tx.execute(sql`select pg_try_advisory_xact_lock(${PACK_LOCK}) as locked`);
+  const result = await tx.execute(tryXactLockSql(PACK_LOCK));
   return isTruthyFlag(asRows(result)[0]?.locked);
 }
 
