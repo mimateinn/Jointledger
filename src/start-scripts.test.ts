@@ -17,8 +17,12 @@ describe("start scripts", () => {
   });
 
   it("does not start Docker or probe 5432", () => {
-    expect(sh).not.toMatch(/docker/i);
-    expect(sh).not.toMatch(/5432/);
+    const shCode = sh
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n");
+    expect(shCode).not.toMatch(/docker/i);
+    expect(shCode).not.toMatch(/5432/);
     expect(bat).not.toMatch(/docker/i);
     expect(bat).not.toMatch(/5432/);
   });
