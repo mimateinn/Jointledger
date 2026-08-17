@@ -203,7 +203,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
                   <InstrumentLabel ticker={row.displayCode} name={row.name} />
                 </td>
                 <td>{row.marketLabel}</td>
-                <td className="tabular">{row.lastDisplay ?? "—"}</td>
+                <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
                 <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
                   {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
                 </td>

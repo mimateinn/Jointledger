@@ -172,6 +172,7 @@ export function KlineChart({
     return (
       <div className="kline-empty" role="img" aria-label="未有日線">
         <p className="body">未有日線</p>
+        <p className="meta muted">這檔還沒有可畫的區間</p>
       </div>
     );
   }

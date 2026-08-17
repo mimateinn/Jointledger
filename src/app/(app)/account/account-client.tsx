@@ -173,7 +173,13 @@ export function AccountClient({
 
       <section className="card stack">
         <h2 className="title">設定</h2>
-        <ThemeToggle />
+        <div className="row">
+          <div>
+            <div className="body">外觀</div>
+            <p className="meta muted">暖紙白／炭橄欖。唔同六個導覽項搶位。</p>
+          </div>
+          <ThemeToggle />
+        </div>
       </section>
 
       <section className="card stack">

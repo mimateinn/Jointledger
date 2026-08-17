@@ -96,6 +96,7 @@ export function InstrumentKline({
   const loaded = bars !== null && !failed;
   const chartBars = useMemo(() => bars ?? [], [bars]);
   const noBars = loaded && chartBars.length === 0;
+  const canChart = loaded && !noBars && !failed;
 
   useEffect(() => {
     if (!enlarged) {
@@ -123,52 +124,56 @@ export function InstrumentKline({
     <section className={enlarged ? "card stack instrument-kline kline-stage-open" : "card stack instrument-kline"}>
       {showHeader ? (
         <div className="instrument-quote">
-          <div className="page-head">
-            <div>
-              <h2 className="title">
-                <InstrumentLabel ticker={display} name={name} />
-              </h2>
-              {tags.length > 0 || isEtfProxy || planLimited ? (
-                <div className="chip-row">
-                  {tags.map((tag) => (
-                    <span key={tag} className="chip">
-                      {tag}
-                    </span>
-                  ))}
-                  {isEtfProxy ? <span className="chip">代理</span> : null}
-                </div>
-              ) : null}
-            </div>
-            <div className="instrument-last">
-              <div className="display tabular">{last ?? "—"}</div>
-              {last && percentChange ? (
-                <div className={changeClass(percentChange)}>{percentChange}</div>
-              ) : null}
-            </div>
+          <p className="meta muted">
+            <InstrumentLabel ticker={display} name={name} />
+            {isEtfProxy ? " · 代理" : ""}
+            {planLimited ? " · 延遲／升級" : ""}
+          </p>
+          <div className="instrument-last">
+            <div className="display tabular">{last ?? "未有報價"}</div>
+            {last && percentChange ? (
+              <div className={`title ${changeClass(percentChange)}`}>{percentChange}</div>
+            ) : null}
           </div>
+          {tags.length > 0 ? (
+            <div className="chip-row">
+              {tags.map((tag) => (
+                <span key={tag} className="chip">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
-      <div className="kline-toolbar">
-        <button type="button" className="btn btn-ghost" onClick={toggleSize}>
-          {enlarged ? "還原" : "放大"}
-        </button>
-      </div>
-      <IndicatorPicker active={active} onToggle={onToggle} disabled={noBars || failed} />
+      {canChart ? (
+        <div className="kline-toolbar">
+          <button type="button" className="btn btn-ghost" onClick={toggleSize}>
+            {enlarged ? "還原" : "放大"}
+          </button>
+        </div>
+      ) : null}
       <div
-        className={enlarged ? "kline-frame kline-frame-open" : "kline-frame"}
-        onClick={enlarged || failed || noBars ? undefined : toggleSize}
-        role={enlarged || failed || noBars ? undefined : "button"}
-        tabIndex={enlarged || failed || noBars ? undefined : 0}
-        aria-label={enlarged ? "陰陽燭" : "放大陰陽燭"}
+        className={
+          enlarged
+            ? "kline-frame kline-frame-open"
+            : noBars || failed
+              ? "kline-frame kline-frame-empty"
+              : "kline-frame"
+        }
+        onClick={canChart && !enlarged ? toggleSize : undefined}
+        role={canChart && !enlarged ? "button" : undefined}
+        tabIndex={canChart && !enlarged ? 0 : undefined}
+        aria-label={enlarged ? "陰陽燭" : canChart ? "放大陰陽燭" : "日線"}
         onKeyDown={
-          enlarged || failed || noBars
-            ? undefined
-            : (event) => {
+          canChart && !enlarged
+            ? (event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   toggleSize();
                 }
               }
+            : undefined
         }
       >
         {failed ? (
@@ -179,6 +184,7 @@ export function InstrumentKline({
           <KlineChart bars={chartBars} active={active} expanded={enlarged} />
         )}
       </div>
+      {canChart ? <IndicatorPicker active={active} onToggle={onToggle} /> : null}
     </section>
   );
 }

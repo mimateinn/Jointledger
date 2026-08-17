@@ -3,7 +3,6 @@
 import { useActionState, useState } from "react";
 import { claimAction, loginAction, registerAction, type AuthState } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/submit-button";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 const initial: AuthState = {};
 
@@ -16,8 +15,7 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
     <div className="page-center">
       <form className="card login-card" action={formAction} key={emptySystem ? "register" : mode}>
         <div className="row">
-          <div className="display">聯倉</div>
-          <ThemeToggle />
+          <div className="title">聯倉</div>
         </div>
         <p className="muted">密碼只保護呢本記帳。唔會連接任何券商或股票戶口。</p>
 

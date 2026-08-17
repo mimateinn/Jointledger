@@ -141,8 +141,10 @@ export function OverviewClient({
               ) : (
                 <div className="display tabular metric-value">{formatUsd(shown.nav)}</div>
               )}
-              <p className="meta muted metric-sub">{asOfLabel}</p>
-              {shown.partial ? <div className="metric-sub">部分市值</div> : null}
+              <p className="meta muted metric-sub">
+                {asOfLabel}
+                {shown.partial ? " · 部分市值" : ""}
+              </p>
             </section>
             <section className="card metric-card">
               <div className="meta muted">可用資金</div>

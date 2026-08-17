@@ -11,8 +11,8 @@ describe("product copy", () => {
     expect(overview).toContain("可用資金");
     expect(overview).toContain("暫時用買入價，未有市場價");
     expect(holdings).toContain("暫時用買入價，未有市場價");
-    expect(watch).toContain('lastDisplay ?? "—"');
-    expect(kline).toContain('last ?? "—"');
+    expect(watch).toContain("未有報價");
+    expect(kline).toContain("未有報價");
     expect(overview).not.toContain("未有現價");
     expect(holdings).not.toContain("未有現價");
     expect(watch).not.toContain("未有現價");
@@ -96,6 +96,7 @@ describe("product copy", () => {
     const errorPage = readFileSync("src/app/(app)/error.tsx", "utf8");
     expect(overview).toContain("asOfLabel");
     expect(kline).toContain("未有日線");
+    expect(kline).toContain("這檔還沒有可畫的區間");
     expect(chrome).toContain('aria-current={active ? "page"');
     expect(css).toContain("nav-item-active");
     expect(css).toContain("skeleton");
@@ -132,6 +133,9 @@ describe("product copy", () => {
     expect(kline).not.toContain("都當 Instrument");
     expect(kline).toContain("instrument-last");
     expect(kline).not.toContain("DelayBadge");
+    expect(kline).toContain("canChart ? <IndicatorPicker");
+    expect(readFileSync("src/components/kline-chart.tsx", "utf8")).toContain("這檔還沒有可畫的區間");
+    expect(readFileSync("next.config.ts", "utf8")).toContain("devIndicators: false");
     expect(chrome).not.toContain("ThemeToggle");
     expect(chrome).not.toContain("暖紙白");
     expect(account).toContain("設定");
