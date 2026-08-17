@@ -21,7 +21,7 @@ const YAHOO_INDEX: Record<string, string> = {
 };
 
 const YAHOO_COMMODITY: Record<string, string> = {
-  "XAU/USD": "XAUUSD=X",
+  "XAU/USD": "GC=F",
   "XAG/USD": "XAGUSD=X",
   "XCU/USD": "HG=F",
 };

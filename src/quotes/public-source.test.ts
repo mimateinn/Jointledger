@@ -142,7 +142,7 @@ describe("public quote mapping", () => {
     expect(yahooChartSymbol(instrument("NVDA"))).toBe("NVDA");
     expect(yahooChartSymbol(instrument("EUR/USD"))).toBe("EURUSD=X");
     expect(yahooChartSymbol(instrument("HSI"))).toBe("^HSI");
-    expect(yahooChartSymbol(instrument("XAU/USD"))).toBe("XAUUSD=X");
+    expect(yahooChartSymbol(instrument("XAU/USD"))).toBe("GC=F");
   });
 });
 
@@ -242,6 +242,77 @@ describe("quote source exclusivity", () => {
     expect(urls.some((url) => url.includes("data-api.binance.vision"))).toBe(true);
     expect(urls.some((url) => url.includes("api.coingecko.com"))).toBe(true);
     expect(urls.every((url) => !url.includes("twelvedata.com"))).toBe(true);
+  });
+
+  it("無 key：XAU 行 Yahoo GC=F，標 delayed", async () => {
+    process.env.TWELVE_DATA_API_KEY = "";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("twelvedata.com") || url.includes("binance") || url.includes("coingecko")) {
+        throw new Error("XAU must not hit Twelve Data or crypto publics");
+      }
+      expect(url).toContain(`${YAHOO_CHART_BASE}/${encodeURIComponent("GC=F")}`);
+      expect(url).not.toContain("XAUUSD=X");
+      return new Response(
+        JSON.stringify({
+          chart: {
+            result: [
+              {
+                meta: {
+                  regularMarketPrice: 4452.3,
+                  regularMarketTime: 1_692_230_400,
+                  previousClose: 4440,
+                },
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const pub = await fetchPublicQuote(instrument("XAU/USD"));
+    expect(pub.outcome).toMatchObject({ kind: "ok", last: "4452.3" });
+    expect(pub.source).toBe("yahoo");
+    expect(pub.delayed).toBe(true);
+  });
+
+  it("有 key：XAU 公開接駁唔打 Yahoo", async () => {
+    process.env.TWELVE_DATA_API_KEY = "test-key";
+    const fetchMock = vi.fn(async () => {
+      throw new Error("must not call public sources when Twelve Data key is set");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const pub = await fetchPublicQuote(instrument("XAU/USD"));
+    expect(pub.outcome.kind).toBe("empty");
+    expect(pub.source).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("無 key：XAU Yahoo 失敗 → last-good 或 —，唔造假價", async () => {
+    process.env.TWELVE_DATA_API_KEY = "";
+    const now = new Date("2026-08-16T00:00:00Z");
+    const lastGood = { last: "2400", percentChange: "0.4", fetchedAt: new Date("2026-08-14T00:00:00Z") };
+
+    const notFoundFetch = vi.fn(async () => new Response(null, { status: 404 }));
+    vi.stubGlobal("fetch", notFoundFetch);
+    const missing = await fetchPublicQuote(instrument("XAU/USD"));
+    expect(missing.outcome.kind).toBe("not_found");
+    expect(missing.source).toBe("yahoo");
+    expect(missing.delayed).toBe(true);
+    const dash = resolveDisplayedMark(missing.outcome, lastGood, now);
+    expect(dash.last).toBeNull();
+    expect(dash.usedLastGood).toBe(false);
+
+    const upstreamFetch = vi.fn(async () => new Response(null, { status: 502 }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const broken = await fetchPublicQuote(instrument("XAU/USD"));
+    expect(broken.outcome.kind).toBe("upstream");
+    const reused = resolveDisplayedMark(broken.outcome, lastGood, now);
+    expect(reused.last).toBe("2400");
+    expect(reused.usedLastGood).toBe(true);
+    expect(broken.outcome.kind === "ok" ? broken.outcome.last : null).toBeNull();
   });
 
   it("無 key：股票行 Yahoo unofficial chart，標 delayed", async () => {
