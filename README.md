@@ -1,6 +1,6 @@
 # 聯倉
 
-<img src="docs/liancang-icon.png" width="96" alt="聯倉" />
+<img src="docs/icon.png" width="96" alt="聯倉" />
 
 多人股票記帳。純粹記帳，唔會連接券商、不下單。認領用一次性成員密鑰，唔係通用證。
 
