@@ -32,8 +32,6 @@ export function InstrumentKline({
   name,
   last,
   percentChange,
-  delayLabel: _delayLabel,
-  lastUpdateLabel: _lastUpdateLabel,
   isEtfProxy,
   planLimited,
   tags = [],
