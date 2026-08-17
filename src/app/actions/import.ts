@@ -57,14 +57,22 @@ function asPreview(plan: ImportPlan): ImportPlan {
   return plan;
 }
 
+function isReimport(formData: FormData): boolean {
+  return String(formData.get("reimport") ?? "") === "1";
+}
+
 export async function parseImportAction(
   _prev: ImportActionState,
   formData: FormData,
 ): Promise<ImportActionState> {
   const user = await requireUser();
   const existing = await getCurrentMembership(user);
-  if (existing) {
+  const reimport = isReimport(formData);
+  if (existing && !reimport) {
     redirect("/overview");
+  }
+  if (reimport && !existing) {
+    return { error: "再匯入只限現有記帳表" };
   }
 
   try {
@@ -181,8 +189,12 @@ export async function commitImportAction(
 ): Promise<ImportActionState> {
   const user = await requireUser();
   const membership = await getCurrentMembership(user);
-  if (membership) {
+  const reimport = isReimport(formData);
+  if (membership && !reimport) {
     redirect("/overview");
+  }
+  if (reimport && !membership) {
+    return { error: "再匯入只限現有記帳表" };
   }
 
   const draftId = String(formData.get("draftId") ?? "");
@@ -225,7 +237,17 @@ export async function commitImportAction(
         ),
       )
       .limit(1);
-    if (prior && reimportMode !== "append" && reimportMode !== "replace") {
+    if (reimport && reimportMode !== "append" && reimportMode !== "replace") {
+      return {
+        draftId,
+        filename: payload.filename,
+        fileHash: payload.fileHash,
+        needsReimport: true,
+        preview: payload.plan,
+        error: "再匯入要明示追加或取代。",
+      };
+    }
+    if (prior && !reimport && reimportMode !== "append" && reimportMode !== "replace") {
       return {
         draftId,
         filename: payload.filename,
@@ -238,7 +260,8 @@ export async function commitImportAction(
 
     const decisions: ImportDecisions = {
       pending: {},
-      reimportMode: reimportMode || "initial",
+      reimportMode:
+        reimportMode === "append" || reimportMode === "replace" ? reimportMode : "initial",
       bookName,
     };
     for (const issue of payload.plan.issues.filter((item) => item.pending)) {
@@ -266,6 +289,7 @@ export async function commitImportAction(
           creatorEmail: user.email,
           bookName,
           decisions,
+          existingBookId: reimport ? membership?.book.id : undefined,
         }),
       );
       const status = result.warningCount > 0 ? "warning" : result.cashFlowCount + result.tradeCount === 0 ? "skipped" : "success";

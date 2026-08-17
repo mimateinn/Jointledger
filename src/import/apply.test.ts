@@ -126,6 +126,69 @@ describe("M4 import apply", () => {
     expect(plan.issues.some((issue) => issue.kind === "missing_fx")).toBe(true);
   });
 
+  it("re-imports onto an existing book without createBook", async () => {
+    const plan = samplePlan();
+    const store = createMemoryStore();
+    const first = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      decisions: importAll(plan),
+    });
+    const createBookMock = vi.fn();
+    const beforeFlows = (await store.listCashFlows(first.bookId)).length;
+    await applyImport(
+      store,
+      plan,
+      {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        existingBookId: first.bookId,
+        decisions: { ...importAll(plan), reimportMode: "append" },
+      },
+      { createBook: createBookMock },
+    );
+    expect(createBookMock).not.toHaveBeenCalled();
+    expect(store.books).toHaveLength(1);
+    expect((await store.listCashFlows(first.bookId)).length).toBeGreaterThan(beforeFlows);
+  });
+
+  it("replace on an existing book clears then writes via createCashFlow / createTrade", async () => {
+    const plan = samplePlan();
+    const store = createMemoryStore();
+    const first = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      decisions: importAll(plan),
+    });
+    const afterFirst = (await store.listCashFlows(first.bookId)).length;
+    await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: first.bookId,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+    expect(store.books).toHaveLength(1);
+    expect((await store.listCashFlows(first.bookId)).length).toBe(afterFirst);
+  });
+
+  it("refuses existing-book import without an explicit append/replace", async () => {
+    const plan = samplePlan();
+    const store = createMemoryStore();
+    const first = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      decisions: importAll(plan),
+    });
+    await expect(
+      applyImport(store, plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        existingBookId: first.bookId,
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow("再匯入要明示追加或取代");
+  });
+
   it("blocks writes when a header is unrecognized", () => {
     const transinfo = {
       kind: "transinfo" as const,

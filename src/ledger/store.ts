@@ -32,6 +32,8 @@ export type LedgerStore = {
   listTrades(bookId: string): Promise<Trade[]>;
   listTradeAllocations(bookId: string): Promise<TradeAllocation[]>;
   listAllocationSchedules(bookId: string): Promise<AllocationScheduleView[]>;
+  listMembers(bookId: string): Promise<Member[]>;
+  listLedgerAccounts(bookId: string): Promise<LedgerAccount[]>;
   getLedgerAccount(id: string): Promise<LedgerAccount | null>;
   clearBookEntries(bookId: string): Promise<void>;
 };

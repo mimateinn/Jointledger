@@ -176,6 +176,14 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
         .where(eq(ledgerAccounts.id, id));
       return row ? asAccount(row) : null;
     },
+    async listMembers(bookId: string) {
+      const rows = await db.select().from(members).where(eq(members.bookId, bookId));
+      return rows.map(asMember);
+    },
+    async listLedgerAccounts(bookId: string) {
+      const rows = await db.select().from(ledgerAccounts).where(eq(ledgerAccounts.bookId, bookId));
+      return rows.map(asAccount);
+    },
     async listAllocationSchedules(bookId: string) {
       const scheduleRows = await db
         .select()

@@ -29,6 +29,20 @@
       "when": 1786945000000,
       "tag": "0003_m4_import",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786960000000,
+      "tag": "0004_m5_watch_news",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786961000000,
+      "tag": "0005_m5_member_invite",
+      "breakpoints": true
     }
   ]
 }

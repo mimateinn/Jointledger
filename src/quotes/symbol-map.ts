@@ -330,3 +330,185 @@ export function buildUniverse(openLotSymbols: readonly string[]): CanonInstrumen
 export function flightKey(tdSymbol: string, exchange: string | null): string {
   return `${tdSymbol}\0${exchange ?? ""}`;
 }
+
+export type WatchMarket = "US" | "HK" | "JP" | "KR" | "CN" | "EU" | "UK" | "COM" | "CRYPTO" | "FX";
+
+export type WatchResolve = {
+  display: string;
+  displayName: string | null;
+  market: WatchMarket;
+  marketLabel: string;
+  assetClass: AssetClass;
+  quoteable: boolean;
+};
+
+export const WATCH_MARKET_LABEL: Record<WatchMarket, string> = {
+  US: "美股",
+  HK: "港股",
+  JP: "日本",
+  KR: "韓國",
+  CN: "中",
+  EU: "歐",
+  UK: "英",
+  COM: "商品",
+  CRYPTO: "加密",
+  FX: "外匯",
+};
+
+const SUFFIX_MARKET: Record<string, WatchMarket> = {
+  HK: "HK",
+  T: "JP",
+  KS: "KR",
+  KQ: "KR",
+  SS: "CN",
+  SZ: "CN",
+  L: "UK",
+  PA: "EU",
+  DE: "EU",
+  AS: "EU",
+  MI: "EU",
+  MC: "EU",
+};
+
+const WATCH_ALIASES: Record<string, { display: string; displayName: string; market: WatchMarket; assetClass: AssetClass }> =
+  {
+    XAU: { display: "XAU/USD", displayName: "黃金", market: "COM", assetClass: "commodity" },
+    GOLD: { display: "XAU/USD", displayName: "黃金", market: "COM", assetClass: "commodity" },
+    黃金: { display: "XAU/USD", displayName: "黃金", market: "COM", assetClass: "commodity" },
+    XAG: { display: "XAG/USD", displayName: "白銀", market: "COM", assetClass: "commodity" },
+    SILVER: { display: "XAG/USD", displayName: "白銀", market: "COM", assetClass: "commodity" },
+    白銀: { display: "XAG/USD", displayName: "白銀", market: "COM", assetClass: "commodity" },
+    XCU: { display: "XCU/USD", displayName: "銅", market: "COM", assetClass: "commodity" },
+    HG: { display: "XCU/USD", displayName: "銅", market: "COM", assetClass: "commodity" },
+    COPPER: { display: "XCU/USD", displayName: "銅", market: "COM", assetClass: "commodity" },
+    銅: { display: "XCU/USD", displayName: "銅", market: "COM", assetClass: "commodity" },
+    BTC: { display: "BTC/USD", displayName: "比特幣", market: "CRYPTO", assetClass: "crypto" },
+    ETH: { display: "ETH/USD", displayName: "以太幣", market: "CRYPTO", assetClass: "crypto" },
+    "0700.HK": { display: "0700.HK", displayName: "騰訊", market: "HK", assetClass: "equity" },
+    "7203.T": { display: "7203.T", displayName: "豐田", market: "JP", assetClass: "equity" },
+    "005930.KS": { display: "005930.KS", displayName: "三星", market: "KR", assetClass: "equity" },
+    "600519.SS": { display: "600519.SS", displayName: "茅台", market: "CN", assetClass: "equity" },
+  };
+
+function marketOfCanon(row: CanonInstrument): WatchMarket {
+  if (row.assetClass === "commodity") {
+    return "COM";
+  }
+  if (row.assetClass === "crypto") {
+    return "CRYPTO";
+  }
+  if (row.assetClass === "fx") {
+    return "FX";
+  }
+  const raw = row.market.toUpperCase();
+  if (raw in WATCH_MARKET_LABEL) {
+    return raw as WatchMarket;
+  }
+  return "US";
+}
+
+function asWatch(row: {
+  display: string;
+  displayName: string | null;
+  market: WatchMarket;
+  assetClass: AssetClass;
+}): WatchResolve {
+  return {
+    ...row,
+    marketLabel: WATCH_MARKET_LABEL[row.market],
+    quoteable: Boolean(resolveInstrument(row.display)),
+  };
+}
+
+/**
+ * Watchlist resolve: deny-list first, then M2 canon, then aliases / suffix / FX pair.
+ * Unknown → null (cannot add). Yahoo suffixes are display-only; never sent to Twelve Data.
+ */
+export function resolveWatchSymbol(raw: string): WatchResolve | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (isDeniedSymbol(trimmed)) {
+    return null;
+  }
+  const key = normalizeDisplay(trimmed);
+  const alias = WATCH_ALIASES[key] ?? WATCH_ALIASES[trimmed];
+  if (alias) {
+    return asWatch(alias);
+  }
+  const canon = resolveInstrument(key);
+  if (canon) {
+    return asWatch({
+      display: canon.display,
+      displayName: canon.displayName,
+      market: marketOfCanon(canon),
+      assetClass: canon.assetClass,
+    });
+  }
+  const suffix = key.match(/^([A-Z0-9]+)[./]([A-Z]{1,2})$/);
+  if (suffix && SUFFIX_MARKET[suffix[2]]) {
+    const market = SUFFIX_MARKET[suffix[2]];
+    return asWatch({
+      display: `${suffix[1]}.${suffix[2]}`,
+      displayName: null,
+      market,
+      assetClass: "equity",
+    });
+  }
+  if (/^[A-Z]{3}\/[A-Z]{3}$/.test(key)) {
+    return asWatch({
+      display: key,
+      displayName: null,
+      market: "FX",
+      assetClass: "fx",
+    });
+  }
+  return null;
+}
+
+export function searchWatchSymbols(query: string, limit = 8): WatchResolve[] {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return [];
+  }
+  if (isDeniedSymbol(trimmed)) {
+    return [];
+  }
+  const key = normalizeDisplay(trimmed);
+  const hits: WatchResolve[] = [];
+  const seen = new Set<string>();
+  const push = (row: WatchResolve | null) => {
+    if (!row || seen.has(row.display)) {
+      return;
+    }
+    seen.add(row.display);
+    hits.push(row);
+  };
+  push(resolveWatchSymbol(trimmed));
+  for (const row of [...TAPE_CANON, ...HOLDING_CANON]) {
+    if (hits.length >= limit) {
+      break;
+    }
+    if (isDeniedSymbol(row.display)) {
+      continue;
+    }
+    const name = row.displayName ?? "";
+    if (row.display.startsWith(key) || name.includes(trimmed)) {
+      push(resolveWatchSymbol(row.display));
+    }
+  }
+  for (const alias of Object.values(WATCH_ALIASES)) {
+    if (hits.length >= limit) {
+      break;
+    }
+    if (alias.display.startsWith(key) || alias.displayName.includes(trimmed) || normalizeDisplay(alias.displayName) === key) {
+      push(resolveWatchSymbol(alias.display));
+    }
+  }
+  return hits.slice(0, limit);
+}
+
+export function isNorthAmericaWatch(row: WatchResolve): boolean {
+  return row.market === "US";
+}

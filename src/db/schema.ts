@@ -8,6 +8,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -50,6 +51,9 @@ export const members = pgTable("members", {
   userId: uuid("user_id").references(() => users.id),
   displayName: text("display_name").notNull(),
   email: text("email"),
+  /** argon2id of a single-use invite secret. Never store plaintext. */
+  inviteSecretHash: text("invite_secret_hash"),
+  inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -203,6 +207,28 @@ export const importBatches = pgTable("import_batches", {
   mode: text("mode").notNull().default("initial"),
   plan: jsonb("plan"),
   rowLog: jsonb("row_log"),
+});
+
+export const watchItems = pgTable(
+  "watch_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    bookId: uuid("book_id")
+      .notNull()
+      .references(() => books.id),
+    displayCode: text("display_code").notNull(),
+    muted: boolean("muted").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [unique("watch_items_book_code").on(table.bookId, table.displayCode)],
+);
+
+/** Finnhub news last-good. Key = symbol:AAPL or category:general. Never stores quotes. */
+export const newsCache = pgTable("news_cache", {
+  cacheKey: text("cache_key").primaryKey(),
+  payload: jsonb("payload").notNull(),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  status: text("status").notNull(),
 });
 
 /** One upstream /time_series attempt per (td_symbol, exchange) per UTC calendar day. */

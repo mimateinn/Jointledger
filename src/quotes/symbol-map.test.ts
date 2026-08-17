@@ -5,6 +5,8 @@ import {
   buildUniverse,
   isDeniedSymbol,
   resolveInstrument,
+  resolveWatchSymbol,
+  searchWatchSymbols,
   toTwelveDataQuery,
 } from "./symbol-map";
 
@@ -48,6 +50,18 @@ describe("symbol map", () => {
       expect(query.symbol.includes(".")).toBe(false);
       expect(TD_DENY_LIST).not.toContain(query.symbol);
     }
+  });
+
+  it("resolves watch symbols via map + suffix; deny-list and unknown cannot add", () => {
+    expect(resolveWatchSymbol("SPX")).toBeNull();
+    expect(resolveWatchSymbol("ZZZZ")).toBeNull();
+    expect(resolveWatchSymbol("TSLA")?.market).toBe("US");
+    expect(resolveWatchSymbol("XAU")?.display).toBe("XAU/USD");
+    expect(resolveWatchSymbol("0700.HK")?.market).toBe("HK");
+    expect(resolveWatchSymbol("0700.HK")?.quoteable).toBe(false);
+    expect(resolveWatchSymbol("7203.T")?.market).toBe("JP");
+    expect(searchWatchSymbols("SPX")).toEqual([]);
+    expect(searchWatchSymbols("XAU")[0]?.display).toBe("XAU/USD");
   });
 
   it("queries US tape three as bare symbol + exchange", () => {
