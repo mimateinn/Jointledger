@@ -51,6 +51,9 @@ export const members = pgTable("members", {
   userId: uuid("user_id").references(() => users.id),
   displayName: text("display_name").notNull(),
   email: text("email"),
+  /** argon2id of a single-use invite secret. Never store plaintext. */
+  inviteSecretHash: text("invite_secret_hash"),
+  inviteExpiresAt: timestamp("invite_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

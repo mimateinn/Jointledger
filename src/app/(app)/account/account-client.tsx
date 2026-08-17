@@ -2,10 +2,25 @@
 
 import { useActionState, useState } from "react";
 import { logoutAction } from "@/app/actions/auth";
-import { addMemberAction, type MemberState } from "@/app/actions/members";
+import { addMemberAction, issueInviteAction, type MemberState } from "@/app/actions/members";
 import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
 
 const initial: MemberState = {};
+
+function InviteOnce({ state }: { state: MemberState }) {
+  if (!state.inviteSecret) {
+    return null;
+  }
+  return (
+    <div className="card" style={{ marginTop: 16, background: "var(--bg)" }}>
+      <p className="meta muted">{state.inviteFor} 嘅邀請密鑰 · 只顯示呢一次</p>
+      <p className="body tabular" style={{ wordBreak: "break-all", margin: "8px 0" }}>
+        {state.inviteSecret}
+      </p>
+      <p className="meta muted">7 日內有效，只用一次。抄低之後離線交俾對方。呢頁再入就唔會再顯示。</p>
+    </div>
+  );
+}
 
 export function AccountClient({
   currentUserId,
@@ -20,9 +35,11 @@ export function AccountClient({
     legs: { memberId: string; displayName: string; percent: string }[];
   }[];
 }) {
-  const [state, formAction, pending] = useActionState(addMemberAction, initial);
+  const [addState, addAction, addPending] = useActionState(addMemberAction, initial);
+  const [inviteState, inviteAction, invitePending] = useActionState(issueInviteAction, initial);
   const [reimport, setReimport] = useState(false);
   const current = schedules.find((row) => row.current) ?? schedules.at(-1) ?? null;
+  const shown = inviteState.inviteSecret ? inviteState : addState;
 
   if (reimport) {
     return <ImportWizard reimport onBack={() => setReimport(false)} />;
@@ -50,13 +67,22 @@ export function AccountClient({
                 {member.email ? <div className="meta muted">{member.email}</div> : null}
               </div>
               <div className="meta muted">{member.userId ? "已登入" : "未設密碼"}</div>
+              {!member.userId ? (
+                <form action={inviteAction}>
+                  <input type="hidden" name="memberId" value={member.id} />
+                  <button className="btn btn-ghost" type="submit" disabled={invitePending}>
+                    發邀請密鑰
+                  </button>
+                </form>
+              ) : null}
             </div>
           );
         })}
         <p className="meta muted" style={{ marginTop: 16 }}>
-          對方用顯示名或電郵自己設密碼。唔使邀請碼。認領只綁現有成員，唔會開新表。
+          加成員會發一次性邀請密鑰。對方要用顯示名或電郵 + 密鑰 + 自己設嘅密碼認領。認領只綁呢個成員，唔會開新表。
         </p>
-        <form className="form-grid" action={formAction} style={{ marginTop: 16 }}>
+        <InviteOnce state={shown} />
+        <form className="form-grid" action={addAction} style={{ marginTop: 16 }}>
           <div className="field">
             <label htmlFor="displayName">顯示名</label>
             <input className="input" id="displayName" name="displayName" required />
@@ -65,9 +91,10 @@ export function AccountClient({
             <label htmlFor="email">電郵（可選）</label>
             <input className="input" id="email" name="email" type="email" />
           </div>
-          {state.error ? <p className="alert">{state.error}</p> : null}
-          {state.ok ? <p className="ok">{state.ok}</p> : null}
-          <button className="btn btn-secondary" type="submit" disabled={pending}>
+          {addState.error ? <p className="alert">{addState.error}</p> : null}
+          {inviteState.error ? <p className="alert">{inviteState.error}</p> : null}
+          {shown.ok ? <p className="ok">{shown.ok}</p> : null}
+          <button className="btn btn-secondary" type="submit" disabled={addPending}>
             加成員
           </button>
         </form>

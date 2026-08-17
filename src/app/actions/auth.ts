@@ -2,7 +2,7 @@
 
 import { count, eq, isNull, or, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { matchClaimableMember } from "@/auth/claim";
+import { claimErrorMessage, evaluateClaim } from "@/auth/claim";
 import { createSession, destroySession } from "@/auth/session";
 import { hashPassword, verifyPassword } from "@/auth/password";
 import { getDb } from "@/db/client";
@@ -93,12 +93,13 @@ export async function logoutAction(): Promise<void> {
   redirect("/login");
 }
 
-/** Bind a password to an existing Member. Does not open a Book or copy positions. */
+/** Bind a password to an existing Member. Requires that member's invite secret. */
 export async function claimAction(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
   const identifier = String(formData.get("identifier") ?? "").trim();
+  const inviteSecret = String(formData.get("inviteSecret") ?? "");
   const password = String(formData.get("password") ?? "");
   if (!identifier || !password) {
     return { error: "要寫顯示名或電郵，同密碼" };
@@ -111,15 +112,20 @@ export async function claimAction(
   const result = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(87241002)`);
     const unclaimed = await tx.select().from(members).where(isNull(members.userId));
-    const member = matchClaimableMember(unclaimed, identifier);
-    if (!member) {
-      return { ok: false as const, error: "搵唔到未設密碼嘅成員。請而家用緊嘅人先加你嘅顯示名。" };
+    const decision = await evaluateClaim({
+      members: unclaimed,
+      identifier,
+      inviteSecret,
+      verify: verifyPassword,
+    });
+    if (!decision.ok) {
+      return { ok: false as const, error: claimErrorMessage(decision.reason) };
     }
-    const lowered = identifier.toLowerCase();
+    const member = decision.member;
     const [existingUser] = await tx
       .select()
       .from(users)
-      .where(or(eq(users.displayName, member.displayName), sql`lower(${users.email}) = ${lowered}`))
+      .where(eq(users.displayName, member.displayName))
       .limit(1);
     if (existingUser) {
       return { ok: false as const, error: "呢個名已有帳戶。請登入。" };
@@ -132,7 +138,14 @@ export async function claimAction(
         passwordHash: await hashPassword(password),
       })
       .returning();
-    await tx.update(members).set({ userId: created.id }).where(eq(members.id, member.id));
+    await tx
+      .update(members)
+      .set({
+        userId: created.id,
+        inviteSecretHash: null,
+        inviteExpiresAt: null,
+      })
+      .where(eq(members.id, member.id));
     return { ok: true as const, user: created };
   });
 

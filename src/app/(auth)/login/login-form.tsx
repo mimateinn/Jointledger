@@ -53,6 +53,19 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
               <label htmlFor="identifier">{mode === "claim" ? "顯示名或電郵" : "電郵或顯示名"}</label>
               <input className="input" id="identifier" name="identifier" required autoComplete="username" />
             </div>
+            {mode === "claim" ? (
+              <div className="field">
+                <label htmlFor="inviteSecret">邀請密鑰</label>
+                <input
+                  className="input"
+                  id="inviteSecret"
+                  name="inviteSecret"
+                  required
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+            ) : null}
           </>
         )}
 
@@ -75,7 +88,7 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
           {emptySystem ? "建立帳戶" : mode === "claim" ? "認領並設密碼" : "登入"}
         </button>
         {emptySystem ? null : mode === "claim" ? (
-          <p className="footer-note">用已加入嘅顯示名或電郵自己設密碼。唔會開新表，亦唔使邀請碼。</p>
+          <p className="footer-note">顯示名或電郵只係認人。一定要有對方抄俾你嘅一次性邀請密鑰。唔會開新表。</p>
         ) : (
           <p className="footer-note">呢度唔能夠自己註冊。要等而家用緊嘅人加你，再嚟認領。</p>
         )}
