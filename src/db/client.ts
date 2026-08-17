@@ -16,6 +16,16 @@ function createPgDb() {
 
 type PgDatabase = ReturnType<typeof createPgDb>;
 
+type SqliteLike = {
+  all: (query: unknown) => Promise<unknown>;
+  run: (query: unknown) => Promise<unknown>;
+  execute?: (query: unknown) => Promise<unknown>;
+  transaction: (
+    fn: (tx: SqliteLike) => unknown,
+    config?: unknown,
+  ) => Promise<unknown>;
+};
+
 const globalForDb = globalThis as unknown as {
   sql?: ReturnType<typeof postgres>;
   sqlite?: Client;
@@ -33,36 +43,33 @@ export function getSql() {
   return globalForDb.sql;
 }
 
-function withSqliteExecute(db: object): PgDatabase {
-  return new Proxy(db, {
-    get(target, prop, receiver) {
-      const source = target as Record<PropertyKey, unknown>;
-      if (prop === "execute" && typeof source.execute !== "function") {
-        return async (query: unknown) => {
-          const all = source.all as (q: unknown) => Promise<unknown>;
-          const run = source.run as (q: unknown) => Promise<unknown>;
-          try {
-            return await all(query);
-          } catch {
-            await run(query);
-            return [];
-          }
-        };
-      }
-      if (prop === "transaction") {
-        const transaction = source.transaction as (
-          fn: (tx: object) => unknown,
-        ) => Promise<unknown>;
-        return (fn: (tx: PgDatabase) => unknown) =>
-          transaction((tx) => fn(withSqliteExecute(tx)));
-      }
-      const value = Reflect.get(target, prop, receiver);
-      if (typeof value === "function") {
-        return (...args: unknown[]) => value.apply(target, args);
-      }
-      return value;
-    },
-  }) as PgDatabase;
+const sqlitePatched = new WeakSet<object>();
+
+/** libsql 無 pg 嘅 execute；transaction 一定要 bind 返 Drizzle instance（要有 session）。 */
+function withSqliteExecute(db: SqliteLike): PgDatabase {
+  if (sqlitePatched.has(db)) {
+    return db as unknown as PgDatabase;
+  }
+  sqlitePatched.add(db);
+
+  if (typeof db.transaction !== "function") {
+    throw new Error("SQLite db.transaction is undefined");
+  }
+
+  db.execute = async (query: unknown) => {
+    try {
+      return await db.all(query);
+    } catch {
+      await db.run(query);
+      return [];
+    }
+  };
+
+  const transaction = db.transaction.bind(db);
+  db.transaction = (fn, config) =>
+    transaction((tx) => fn(withSqliteExecute(tx) as unknown as SqliteLike), config);
+
+  return db as unknown as PgDatabase;
 }
 
 function getSqliteClient() {
