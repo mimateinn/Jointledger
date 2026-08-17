@@ -42,7 +42,6 @@ export async function createDepositAction(
 
   revalidatePath("/overview");
   revalidatePath("/ledger");
-  revalidatePath("/entry");
   return { ok: "已記入入金" };
 }
 
@@ -83,7 +82,6 @@ export async function createBuyAction(
   revalidatePath("/overview");
   revalidatePath("/holdings");
   revalidatePath("/ledger");
-  revalidatePath("/entry");
   return { ok: "已記入加倉" };
 }
 

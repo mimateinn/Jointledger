@@ -28,5 +28,6 @@ describe("empty book nav unlock", () => {
     expect(returns).toContain("EmptyPanel");
     expect(ledger).toContain("EmptyPanel");
     expect(account).toContain("EmptyPanel");
+    expect(holdings).toContain("sentence=");
   });
 });

@@ -55,11 +55,7 @@ export function AccountClient({
     <div className="stack">
       <h1 className="display">帳戶</h1>
       {emptyLedger ? (
-        <EmptyPanel
-          title="未有持倉或流水"
-          body="空表都可以管理成員。要記帳就去記一筆。"
-          actionLabel="記一筆"
-        />
+        <EmptyPanel sentence="未有持倉或流水，記一筆就可以開始。" actionLabel="記一筆" />
       ) : null}
       <section className="card">
         <div className="row" style={{ marginBottom: 8 }}>

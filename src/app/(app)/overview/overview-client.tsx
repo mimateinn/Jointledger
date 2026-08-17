@@ -106,33 +106,16 @@ export function OverviewClient({
       </div>
 
       {emptyBook ? (
-        <>
-          <div className="grid grid-metrics">
-            <section className="card">
-              <div className="meta muted">資產淨值</div>
-              <div className="display tabular" style={{ marginTop: 8 }}>
-                US$ 0.00
-              </div>
-              <div className="metric-sub">今日 —</div>
-            </section>
-            <section className="card">
-              <div className="meta muted">可用資金</div>
-              <div className="display tabular" style={{ marginTop: 8 }}>
-                0
-              </div>
-              <div className="metric-sub">現金，未計持股</div>
-            </section>
+        <section className="card stack">
+          <div className="meta muted">資產淨值</div>
+          <div className="display tabular">US$ 0.00</div>
+          <p className="body">未有入金，記一筆就可以開始。</p>
+          <div>
+            <Link href="/entry" prefetch className="btn btn-primary">
+              入金
+            </Link>
           </div>
-          <section className="card stack">
-            <h2 className="title">未有入金</h2>
-            <p className="muted">下一步：記一筆入金。記帳唔係下單。</p>
-            <div>
-              <Link href="/entry" prefetch className="btn btn-primary">
-                記一筆入金
-              </Link>
-            </div>
-          </section>
-        </>
+        </section>
       ) : (
         <>
           <div className="grid grid-metrics">
@@ -189,7 +172,7 @@ export function OverviewClient({
                         <span className="chip">{accountName(lot.ledgerAccountId)}</span>
                       </td>
                       <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                      <td className="tabular">{lot.lastDisplay ?? "—"}</td>
+                      <td className="tabular">{lot.lastDisplay ?? "未有報價"}</td>
                       <td className={`tabular ${changeClass(lot.percentChange)}`}>
                         {lot.lastDisplay ? (lot.percentChange ?? "—") : "—"}
                       </td>

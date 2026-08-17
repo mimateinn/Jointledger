@@ -79,11 +79,7 @@ export function HoldingsWorkspace({
       </div>
       {tab === "watch" ? <WatchlistPanel items={watchItems} delayLabel={delayLabel} /> : null}
       {tab === "holdings" && openLots.length === 0 && closedLots.length === 0 ? (
-        <EmptyPanel
-          title="未有持倉"
-          body="空表都可以用。記一筆加倉，或先入金。"
-          actionLabel="加持倉"
-        />
+        <EmptyPanel sentence="未有持倉，記一筆就可以加倉。" actionLabel="加持倉" />
       ) : null}
       {tab === "holdings" && openLots.length > 0 ? (
         <div className="holdings-split">
@@ -111,7 +107,7 @@ export function HoldingsWorkspace({
                       <Link href={`/instrument/${encodeURIComponent(lot.symbol)}`}>{lot.symbol}</Link>
                     </td>
                     <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                    <td className="tabular">{lot.lastDisplay ?? "—"}</td>
+                    <td className="tabular">{lot.lastDisplay ?? "未有報價"}</td>
                     <td className={`tabular ${changeClass(lot.percentChange)}`}>
                       {lot.lastDisplay ? (lot.percentChange ?? "—") : "—"}
                     </td>

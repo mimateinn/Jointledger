@@ -592,14 +592,16 @@ button {
 
 .kline {
   width: 100%;
-  min-height: 360px;
+  height: 100%;
+  min-height: 0;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--card-radius);
 }
 
 .kline-empty {
-  min-height: 280px;
+  min-height: 10rem;
+  height: 100%;
   display: grid;
   place-items: center;
   align-content: center;
@@ -610,6 +612,40 @@ button {
   border-radius: var(--card-radius);
 }
 
+.kline-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.kline-frame {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 10rem;
+  cursor: zoom-in;
+}
+
+.kline-stage-open {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  margin: 0;
+  border-radius: 0;
+  overflow: auto;
+  padding: var(--page-pad);
+  padding-bottom: calc(var(--page-pad) + 72px);
+}
+
+.kline-frame-open {
+  aspect-ratio: auto;
+  min-height: 16rem;
+  height: calc(100dvh - 14rem);
+  cursor: default;
+}
+
+.confirm-dialog {
+  border-color: var(--ink);
+}
+
 .instrument-quote .display {
   margin: 0;
 }
@@ -617,6 +653,14 @@ button {
 @media (max-width: 960px) {
   .holdings-split {
     grid-template-columns: 1fr;
+  }
+
+  .kline-stage-open {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
+  .kline-frame-open {
+    height: calc(100dvh - 16rem);
   }
 }
 

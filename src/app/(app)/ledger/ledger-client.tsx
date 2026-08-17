@@ -47,11 +47,7 @@ export function LedgerClient({
         </button>
       </div>
       {cashFlows.length === 0 && trades.length === 0 ? (
-        <EmptyPanel
-          title="未有流水"
-          body="未有出入金或買賣。空表都可以用，記一筆就有得睇。"
-          actionLabel="記一筆"
-        />
+        <EmptyPanel sentence="未有出入金或買賣。" actionLabel="記一筆" />
       ) : (
       <section className="card">
         {tab === "cash" ? (

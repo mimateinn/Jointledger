@@ -51,6 +51,7 @@ export function InstrumentKline({
 }) {
   const [bars, setBars] = useState<Bar[] | null>(null);
   const [active, setActive] = useState<Set<string>>(() => defaultActiveIds());
+  const [enlarged, setEnlarged] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,8 +88,30 @@ export function InstrumentKline({
   const loaded = bars !== null;
   const chartBars = useMemo(() => bars ?? [], [bars]);
 
+  useEffect(() => {
+    if (!enlarged) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setEnlarged(false);
+      }
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [enlarged]);
+
+  const toggleSize = useCallback(() => {
+    setEnlarged((value) => !value);
+  }, []);
+
   return (
-    <section className="card stack instrument-kline">
+    <section className={enlarged ? "card stack instrument-kline kline-stage-open" : "card stack instrument-kline"}>
       {showHeader ? (
         <div className="instrument-quote">
           <div className="page-head">
@@ -110,12 +133,39 @@ export function InstrumentKline({
               <span className="chip chip-delay">延遲／升級</span>
             ) : null}
           </div>
-          <div className="display tabular">{last ?? "—"}</div>
+          <div className="display tabular">{last ?? "未有報價"}</div>
           <div className={changeClass(last ? percentChange : null)}>{last ? (percentChange ?? "—") : "—"}</div>
         </div>
       ) : null}
+      <div className="kline-toolbar">
+        <button type="button" className="btn btn-ghost" onClick={toggleSize}>
+          {enlarged ? "還原" : "放大"}
+        </button>
+      </div>
       <IndicatorPicker active={active} onToggle={onToggle} />
-      {!loaded ? <div className="kline-empty muted">載入日線…</div> : <KlineChart bars={chartBars} active={active} />}
+      <div
+        className={enlarged ? "kline-frame kline-frame-open" : "kline-frame"}
+        onClick={enlarged ? undefined : toggleSize}
+        role={enlarged ? undefined : "button"}
+        tabIndex={enlarged ? undefined : 0}
+        aria-label={enlarged ? "陰陽燭" : "放大陰陽燭"}
+        onKeyDown={
+          enlarged
+            ? undefined
+            : (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  toggleSize();
+                }
+              }
+        }
+      >
+        {!loaded ? (
+          <div className="kline-empty muted">載入日線…</div>
+        ) : (
+          <KlineChart bars={chartBars} active={active} expanded={enlarged} />
+        )}
+      </div>
       <p className="muted">
         指數／商品／幣／匯都當 Instrument：K 線。無加倉、減倉、入金。呢啲唔係投資建議，只係整理帳簿同公開資料。
       </p>

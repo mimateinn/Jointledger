@@ -44,7 +44,13 @@ export function EntryForm({
   return (
     <div className="stack">
       <h1 className="display">記一筆</h1>
-      <p className="muted">空表都可以用。可以先入金，或者直接加持倉。</p>
+      {depositState.ok || buyState.ok ? (
+        <p className="ok" role="status">
+          {depositState.ok ?? buyState.ok}
+        </p>
+      ) : (
+        <p className="muted">空表都可以用。可以先入金，或者直接加持倉。</p>
+      )}
 
       <div className="tabs-line">
         {TABS.map((item) => (

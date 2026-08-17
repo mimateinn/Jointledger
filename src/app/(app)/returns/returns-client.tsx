@@ -67,11 +67,7 @@ export function ReturnsClient({
       </div>
 
       {emptyBook ? (
-        <EmptyPanel
-          title="未有流水"
-          body="未有入金或買賣，收益率暫時無得計。空表都可以用。"
-          actionLabel="記一筆"
-        />
+        <EmptyPanel sentence="未有流水，收益率暫時無得計。" actionLabel="記一筆" />
       ) : (
       <>
       <form className="chip-row" method="get">

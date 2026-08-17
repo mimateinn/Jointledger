@@ -27,9 +27,16 @@ export function MemberDelete({
   }
 
   return (
-    <form action={action} className="stack" style={{ minWidth: 220 }}>
+    <form
+      action={action}
+      className="card stack confirm-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="確認刪成員"
+      style={{ minWidth: 220 }}
+    >
       <input type="hidden" name="memberId" value={memberId} />
-      <p className="meta muted">
+      <p className="body">
         {lastUser
           ? "刪最後一個用戶之後會返去建立帳戶。打齊顯示名確認。"
           : "打齊顯示名確認刪除。唔會靜默刪。"}
@@ -50,7 +57,7 @@ export function MemberDelete({
         <SubmitButton className="btn btn-danger" pendingLabel="刪緊…">
           確認刪除
         </SubmitButton>
-        <button className="btn btn-ghost" type="button" onClick={() => setOpen(false)}>
+        <button className="btn btn-secondary" type="button" onClick={() => setOpen(false)}>
           取消
         </button>
       </div>

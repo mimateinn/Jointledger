@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import { EmptyPanel } from "./empty-panel";
 import {
   addWatchAction,
   muteWatchAction,
@@ -155,8 +156,10 @@ export function WatchlistPanel({
         {addState.error ? <p className="alert">{addState.error}</p> : null}
         {addState.ok ? <p className="ok">{addState.ok}</p> : null}
       </form>
-      {visible.length === 0 ? (
-        <p className="empty">未有關注。持股唔會自動加入。</p>
+      {items.length === 0 ? (
+        <EmptyPanel sentence="未有關注，加入代碼或先去加持倉。" actionLabel="加持倉" />
+      ) : visible.length === 0 ? (
+        <p className="empty">呢個市場未有關注。</p>
       ) : (
         <table className="table">
           <thead>
@@ -177,7 +180,7 @@ export function WatchlistPanel({
               <tr key={row.id}>
                 <td>{row.displayCode}</td>
                 <td>{row.marketLabel}</td>
-                <td className="tabular">{row.lastDisplay ?? "—"}</td>
+                <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
                 <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
                   {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
                 </td>

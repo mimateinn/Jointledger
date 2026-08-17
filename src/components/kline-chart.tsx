@@ -28,9 +28,11 @@ function asTime(time: string): UTCTimestamp {
 export function KlineChart({
   bars,
   active,
+  expanded = false,
 }: {
   bars: Bar[];
   active: ReadonlySet<string>;
+  expanded?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -48,7 +50,18 @@ export function KlineChart({
     const down = readToken("--down", "#e06b63");
     const format = priceFormatFromBars(bars);
     const paneCount = computePanes(bars, active).length;
-    host.style.height = `${Math.max(360, 300 + paneCount * 88)}px`;
+    const frame = host.parentElement;
+    if (expanded) {
+      host.style.height = "100%";
+      if (frame) {
+        frame.style.aspectRatio = "auto";
+      }
+    } else {
+      host.style.height = "100%";
+      if (frame) {
+        frame.style.aspectRatio = `16 / ${10 + paneCount * 2}`;
+      }
+    }
 
     const chart = createChart(host, {
       autoSize: true,
@@ -153,7 +166,7 @@ export function KlineChart({
       chart.remove();
       chartRef.current = null;
     };
-  }, [bars, active]);
+  }, [bars, active, expanded]);
 
   if (bars.length === 0) {
     return (
