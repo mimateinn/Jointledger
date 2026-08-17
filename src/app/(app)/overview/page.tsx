@@ -3,7 +3,7 @@ import { getSessionUser } from "@/auth/session";
 import { loadBookView } from "@/lib/book-view";
 import { ensureCurrentBook } from "@/lib/ensure-book";
 import { formatAsOfClock } from "@/lib/format";
-import { DELAY_15, resolveInstrument } from "@/quotes";
+import { resolveInstrument } from "@/quotes";
 import { OverviewClient } from "./overview-client";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +19,6 @@ export default async function OverviewPage() {
   if (!view) {
     redirect("/first-use");
   }
-
-  const anyPrice = view.lots.some((lot) => lot.lastDisplay);
-  const delayLabel = anyPrice ? DELAY_15 : view.lots.some((lot) => lot.planLimited) ? "延遲／升級" : DELAY_15;
 
   return (
     <OverviewClient
@@ -55,7 +52,6 @@ export default async function OverviewPage() {
         percentChange: lot.percentChange,
         marketValueUsd: lot.marketValueUsd,
       }))}
-      delayLabel={delayLabel}
     />
   );
 }

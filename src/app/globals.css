@@ -225,6 +225,16 @@ button {
   animation-play-state: paused;
 }
 
+.tape-lead {
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.tape-lead .tape-cell {
+  border-right: none;
+}
+
 .tape-cell {
   display: inline-flex;
   align-items: center;
@@ -237,6 +247,7 @@ button {
 }
 
 .tape-symbol {
+  flex-shrink: 0;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -270,6 +281,7 @@ button {
 .tape-chg {
   font-size: var(--meta-size);
   font-weight: 500;
+  border-color: transparent;
 }
 
 .tape-pin {
@@ -410,6 +422,23 @@ button {
 .grid-metrics {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   margin-bottom: var(--gap);
+}
+
+.grid-metrics-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+  margin-bottom: var(--gap);
+  align-items: stretch;
+}
+
+.metric-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-value {
+  margin-top: 8px;
 }
 
 .metric-sub {
@@ -580,6 +609,11 @@ button {
   gap: 8px;
 }
 
+.indicator-groups-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .indicator-group {
   display: flex;
   flex-wrap: wrap;
@@ -656,6 +690,10 @@ button {
 
 .instrument-quote .display {
   margin: 0;
+}
+
+.instrument-last {
+  text-align: right;
 }
 
 .instrument-label {

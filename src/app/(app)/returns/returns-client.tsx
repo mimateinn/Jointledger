@@ -35,7 +35,7 @@ export function ReturnsClient({
   return (
     <div className="stack">
       <div className="page-head">
-        <h1 className="display">收益率</h1>
+        <h1 className="title">收益率</h1>
         <div className="submit-row">
           {!emptyBook ? (
             <button

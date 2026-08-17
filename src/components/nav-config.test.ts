@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { desktopNav, mobileNav } from "./nav-config";
+import { desktopNav, isNavActive, mobileNav } from "./nav-config";
 
 const six = ["總覽", "持倉", "記一筆", "收益率", "流水", "帳戶"];
 
@@ -14,6 +14,12 @@ describe("sidebar", () => {
   it("bottom nav has the same six enterable items", () => {
     expect(mobileNav.map((item) => item.label)).toEqual(six);
     expect(mobileNav).toHaveLength(6);
+  });
+
+  it("keeps 持倉 current on a stock page", () => {
+    expect(isNavActive("/instrument/NVDA", "/holdings")).toBe(true);
+    expect(isNavActive("/instrument/NVDA", "/overview")).toBe(false);
+    expect(isNavActive("/holdings", "/holdings")).toBe(true);
   });
 
   it("does not disable nav when holdings are empty", () => {

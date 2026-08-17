@@ -43,7 +43,7 @@ export function EntryForm({
 
   return (
     <div className="stack">
-      <h1 className="display">記一筆</h1>
+      <h1 className="title">記一筆</h1>
       {depositState.ok || buyState.ok ? (
         <p className="ok" role="status">
           {depositState.ok ?? buyState.ok}
@@ -68,7 +68,7 @@ export function EntryForm({
       {tab === "入金" ? (
         <form key="deposit" className="card form-grid" action={depositAction}>
           <div className="field">
-            <label htmlFor="memberId">記落邊個人</label>
+            <label htmlFor="memberId">邊個倉</label>
             <select className="select" id="memberId" name="memberId" defaultValue={defaultMemberId}>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
@@ -126,7 +126,7 @@ export function EntryForm({
       {tab === "買入" ? (
         <form key="buy" className="card form-grid" action={buyAction}>
           <div className="field">
-            <label htmlFor="ledgerAccountId">記落邊個人</label>
+            <label htmlFor="ledgerAccountId">邊個倉</label>
             <select
               className="select"
               id="ledgerAccountId"

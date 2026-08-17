@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CANON_SCHEDULES, normalizeScheduleLegs } from "@/import/canon";
-import { formatAsOfClock, formatRelativeDate, formatSchedulePercent, formatUsd, todayIso } from "./format";
+import { formatAsOfClock, formatQty, formatRelativeDate, formatSchedulePercent, formatUsd, todayIso } from "./format";
 
 describe("formatSchedulePercent", () => {
   it("multiplies stored unit fractions by 100; does not treat 0.49 as 0.5%", () => {
@@ -10,6 +10,14 @@ describe("formatSchedulePercent", () => {
     expect(Number(legs[0].percent).toFixed(1)).toBe("0.5");
     expect(formatSchedulePercent(legs[0].percent)).toBe("49.5%");
     expect(formatSchedulePercent(legs[1].percent)).toBe("50.5%");
+  });
+});
+
+describe("formatQty", () => {
+  it("shows 10 not 10.0000", () => {
+    expect(formatQty("10")).toBe("10");
+    expect(formatQty("10.5")).toBe("10.5");
+    expect(formatQty("1000")).toBe("1,000");
   });
 });
 

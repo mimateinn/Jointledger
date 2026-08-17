@@ -7,6 +7,7 @@ import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
 import { EmptyPanel } from "@/components/empty-panel";
 import { MemberDelete } from "@/components/member-delete";
 import { SubmitButton } from "@/components/submit-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { formatRelativeDate, formatSchedulePercent } from "@/lib/format";
 
 const initial: MemberState = {};
@@ -91,7 +92,7 @@ export function AccountClient({
 
   return (
     <div className="stack">
-      <h1 className="display">帳戶</h1>
+      <h1 className="title">帳戶</h1>
       {emptyLedger ? (
         <EmptyPanel sentence="未有持倉或流水，記一筆就可以開始。" actionLabel="記一筆" />
       ) : null}
@@ -168,6 +169,11 @@ export function AccountClient({
         <button className="btn btn-secondary" type="button" onClick={() => setReimport(true)}>
           再匯入試算表
         </button>
+      </section>
+
+      <section className="card stack">
+        <h2 className="title">設定</h2>
+        <ThemeToggle />
       </section>
 
       <section className="card stack">

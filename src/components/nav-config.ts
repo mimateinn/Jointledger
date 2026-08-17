@@ -1,3 +1,10 @@
+export function isNavActive(pathname: string, href: string): boolean {
+  if (href === "/holdings" && (pathname === "/instrument" || pathname.startsWith("/instrument/"))) {
+    return true;
+  }
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export const desktopNav = [
   { href: "/overview", label: "總覽", key: "overview" },
   { href: "/holdings", label: "持倉", key: "holdings" },

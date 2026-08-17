@@ -16,6 +16,17 @@ export function formatMoney(value: string | Decimal, scale = 2): string {
   return negative ? `-${body}` : body;
 }
 
+/** Quantity: 10 not 10.0000. Keeps significant decimals only. */
+export function formatQty(value: string | Decimal): string {
+  const trimmed = money(value).toFixed(4).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
+  const negative = trimmed.startsWith("-");
+  const unsigned = negative ? trimmed.slice(1) : trimmed;
+  const [int, frac] = unsigned.split(".");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const body = frac !== undefined ? `${grouped}.${frac}` : grouped;
+  return negative ? `-${body}` : body;
+}
+
 /** Site-wide USD figures: currency + thousands + decimals. */
 export function formatUsd(value: string | Decimal, scale = 2): string {
   const n = money(value);

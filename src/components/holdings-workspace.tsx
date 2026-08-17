@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatMoney, formatUsd } from "@/lib/format";
+import { formatQty, formatUsd } from "@/lib/format";
 import { lotRowKey } from "@/lib/lot-row-key";
 import { EmptyPanel } from "./empty-panel";
 import { HoldingDelete } from "./holding-delete";
@@ -41,16 +41,20 @@ function changeClass(change: string | null): string | undefined {
   return "muted";
 }
 
+const NO_MARK = "暫時用買入價，未有市場價";
+
 export function HoldingsWorkspace({
   lots,
   closedLots,
   watchItems,
   delayLabel,
+  partialNav = false,
 }: {
   lots: HoldingRow[];
   closedLots: HoldingRow[];
   watchItems: WatchRow[];
   delayLabel: string;
+  partialNav?: boolean;
 }) {
   const [tab, setTab] = useState<"holdings" | "watch">("holdings");
   const openLots = lots.filter((lot) => !lot.closed);
@@ -78,9 +82,12 @@ export function HoldingsWorkspace({
           關注
         </button>
       </div>
-      {tab === "watch" ? <WatchlistPanel items={watchItems} delayLabel={delayLabel} /> : null}
+      {tab === "watch" ? <WatchlistPanel items={watchItems} /> : null}
       {tab === "holdings" && openLots.length === 0 && closedLots.length === 0 ? (
         <EmptyPanel sentence="未有持倉，記一筆就可以加倉。" actionLabel="加持倉" />
+      ) : null}
+      {tab === "holdings" && partialNav && openLots.length > 0 ? (
+        <p className="meta muted">部分市值 · 未有標記嘅持股唔計入 NAV</p>
       ) : null}
       {tab === "holdings" && openLots.length > 0 ? (
         <div className="holdings-split">
@@ -109,12 +116,18 @@ export function HoldingsWorkspace({
                         <InstrumentLabel ticker={lot.symbol} name={lot.name} />
                       </Link>
                     </td>
-                    <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                    <td className="tabular">{lot.lastDisplay ?? "—"}</td>
-                    <td className={`tabular ${changeClass(lot.percentChange)}`}>
-                      {lot.lastDisplay ? (lot.percentChange ?? "—") : "—"}
+                    <td className="tabular">{formatQty(lot.quantity)}</td>
+                    <td className="tabular">{lot.lastDisplay ?? NO_MARK}</td>
+                    <td className={`tabular ${lot.lastDisplay ? changeClass(lot.percentChange) : "muted"}`}>
+                      {lot.lastDisplay ? (lot.percentChange ?? "—") : ""}
                     </td>
-                    <td className="tabular">{lot.marketValueUsd ? formatUsd(lot.marketValueUsd) : "—"}</td>
+                    <td className="tabular">
+                      {lot.lastDisplay
+                        ? lot.marketValueUsd
+                          ? formatUsd(lot.marketValueUsd)
+                          : "—"
+                        : formatUsd(lot.costUsd)}
+                    </td>
                     <td className="tabular">{formatUsd(lot.costUsd)}</td>
                     <td>
                       <HoldingDelete tradeId={lot.tradeId} memberId={lot.memberId} symbol={lot.symbol} />
@@ -157,7 +170,7 @@ export function HoldingsWorkspace({
                   <td>
                     <InstrumentLabel ticker={lot.symbol} name={lot.name} />
                   </td>
-                  <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
+                  <td className="tabular">{formatQty(lot.quantity)}</td>
                   <td className="tabular">{formatUsd(lot.costUsd)}</td>
                   <td>
                     <HoldingDelete

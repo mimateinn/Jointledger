@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { EmptyPanel } from "@/components/empty-panel";
 import { InstrumentLabel } from "@/components/instrument-label";
-import { formatHkd, formatMoney, formatRelativeDate, formatUsd } from "@/lib/format";
+import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd } from "@/lib/format";
 
 export function LedgerClient({
   cashFlows,
@@ -31,7 +31,7 @@ export function LedgerClient({
 
   return (
     <div className="stack">
-      <h1 className="display">流水</h1>
+      <h1 className="title">流水</h1>
       <div className="tabs">
         <button
           type="button"
@@ -99,7 +99,7 @@ export function LedgerClient({
                     <td>
                       <InstrumentLabel ticker={row.symbol} name={row.name} />
                     </td>
-                    <td className="tabular">{formatMoney(row.quantity, 4)}</td>
+                    <td className="tabular">{formatQty(row.quantity)}</td>
                     <td className="tabular">{formatUsd(row.price)}</td>
                   <td className="muted">{row.note ?? "—"}</td>
                 </tr>

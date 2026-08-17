@@ -2,14 +2,15 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("product copy", () => {
-  it("uses 資產淨值 and never 未有現價; no quote is —", () => {
+  it("uses 資產淨值 and never 未有現價; no market price uses buy cost", () => {
     const overview = readFileSync("src/app/(app)/overview/overview-client.tsx", "utf8");
     const holdings = readFileSync("src/components/holdings-workspace.tsx", "utf8");
     const watch = readFileSync("src/components/watchlist-panel.tsx", "utf8");
     const kline = readFileSync("src/components/instrument-kline.tsx", "utf8");
     expect(overview).toContain("資產淨值");
-    expect(overview).toContain('lastDisplay ?? "—"');
-    expect(holdings).toContain('lastDisplay ?? "—"');
+    expect(overview).toContain("可用資金");
+    expect(overview).toContain("暫時用買入價，未有市場價");
+    expect(holdings).toContain("暫時用買入價，未有市場價");
     expect(watch).toContain('lastDisplay ?? "—"');
     expect(kline).toContain('last ?? "—"');
     expect(overview).not.toContain("未有現價");
@@ -94,7 +95,7 @@ describe("product copy", () => {
     const loading = readFileSync("src/app/(app)/loading.tsx", "utf8");
     const errorPage = readFileSync("src/app/(app)/error.tsx", "utf8");
     expect(overview).toContain("asOfLabel");
-    expect(kline).toContain("這檔還沒有可畫的區間");
+    expect(kline).toContain("未有日線");
     expect(chrome).toContain('aria-current={active ? "page"');
     expect(css).toContain("nav-item-active");
     expect(css).toContain("skeleton");
@@ -102,5 +103,44 @@ describe("product copy", () => {
     expect(loading).toContain("skeleton");
     expect(errorPage).toContain("再試");
     expect(errorPage).not.toContain("error.message");
+  });
+
+  it("applies the screen copy and chrome fixes", () => {
+    const overview = readFileSync("src/app/(app)/overview/overview-client.tsx", "utf8");
+    const entry = readFileSync("src/app/(app)/entry/entry-form.tsx", "utf8");
+    const holdingsPage = readFileSync("src/app/(app)/holdings/page.tsx", "utf8");
+    const holdings = readFileSync("src/components/holdings-workspace.tsx", "utf8");
+    const watch = readFileSync("src/components/watchlist-panel.tsx", "utf8");
+    const kline = readFileSync("src/components/instrument-kline.tsx", "utf8");
+    const chrome = readFileSync("src/components/app-chrome.tsx", "utf8");
+    const account = readFileSync("src/app/(app)/account/account-client.tsx", "utf8");
+    const tape = readFileSync("src/components/ticker-tape.tsx", "utf8");
+    expect(overview).toContain('h1 className="title"');
+    expect(overview).not.toContain('h1 className="display"');
+    expect(overview).toContain("邊個倉");
+    expect(overview).toContain("未計持股");
+    expect(overview).not.toContain("記落邊個人");
+    expect(overview).not.toContain("未計持倉");
+    expect(overview).toContain("formatQty");
+    expect(overview).not.toContain("byMember.map");
+    expect(entry).toContain("邊個倉");
+    expect(entry).not.toContain("記落邊個人");
+    expect(holdingsPage).not.toContain("部分市值");
+    expect(holdings).toContain("tab === \"holdings\" && partialNav");
+    expect(watch).toContain("未有關注，加入代碼或先去加持倉。");
+    expect(watch).not.toContain("chip-delay");
+    expect(kline).not.toContain("都當 Instrument");
+    expect(kline).toContain("instrument-last");
+    expect(kline).not.toContain("DelayBadge");
+    expect(chrome).not.toContain("ThemeToggle");
+    expect(chrome).not.toContain("暖紙白");
+    expect(account).toContain("設定");
+    expect(account).toContain("ThemeToggle");
+    expect(tape).toContain("tape-symbol");
+    expect(tape).toContain("tape-lead");
+    expect(overview).not.toContain("延遲 15 分");
+    expect(holdings).not.toContain("延遲 15 分");
+    expect(watch).not.toContain("延遲 15 分");
+    expect(kline).not.toContain("延遲 15 分");
   });
 });

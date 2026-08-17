@@ -34,15 +34,11 @@ function TapeCell({ item }: { item: TapeItem }) {
       {item.name ? <span className="tape-name">{item.name}</span> : null}
       {item.isEtfProxy ? <span className="tape-proxy">代理</span> : null}
       <span className="tape-last tabular">{item.last ?? "—"}</span>
-      {item.last ? (
-        <span className={`tape-chg tabular ${changeClass(item.percentChange)}`}>
-          {item.percentChange ?? "—"}
+      {item.last && item.percentChange ? (
+        <span className={`chip tape-chg tabular ${changeClass(item.percentChange)}`}>
+          {item.percentChange}
         </span>
-      ) : item.planLimited ? (
-        <span className="tape-proxy">延遲／升級</span>
-      ) : (
-        <span className="muted">—</span>
-      )}
+      ) : null}
     </Link>
   );
 }
@@ -93,9 +89,16 @@ export function TickerTape({
     };
   }, [delayLabel, reloadKey]);
 
-  const loop = [...tape.items, ...tape.items];
+  const lead = tape.items[0];
+  const rest = tape.items.slice(1);
+  const loop = [...rest, ...rest];
   return (
     <div className="tape" aria-label="市場行情">
+      {lead ? (
+        <div className="tape-lead">
+          <TapeCell item={lead} />
+        </div>
+      ) : null}
       <div className="tape-viewport">
         <div className="tape-track">
           {loop.map((item, index) => (

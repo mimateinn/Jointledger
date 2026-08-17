@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { EmptyPanel } from "./empty-panel";
+import Link from "next/link";
 import { FailurePanel } from "./failure-panel";
 import { InstrumentLabel } from "./instrument-label";
 import {
@@ -54,13 +54,7 @@ function changeClass(change: string | null): string | undefined {
   return "muted";
 }
 
-export function WatchlistPanel({
-  items,
-  delayLabel,
-}: {
-  items: WatchRow[];
-  delayLabel: string;
-}) {
+export function WatchlistPanel({ items }: { items: WatchRow[] }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WatchSearchHit[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
@@ -121,25 +115,28 @@ export function WatchlistPanel({
 
   return (
     <section className="card stack">
-      <div className="row">
-        <div className="meta muted">
-          {items.length} / {WATCH_CAP}
+      {items.length > 0 ? (
+        <div className="row">
+          <div className="meta muted">
+            {items.length} / {WATCH_CAP}
+          </div>
+          {newsVia === "rss" ? <div className="chip">公開新聞</div> : null}
         </div>
-        <div className="chip chip-delay">{delayLabel}</div>
-        {newsVia === "rss" ? <div className="chip">公開新聞</div> : null}
-      </div>
-      <div className="chip-row">
-        {FILTERS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={filter === item.key ? "chip chip-active" : "chip"}
-            onClick={() => setFilter(item.key)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      ) : null}
+      {items.length > 0 ? (
+        <div className="chip-row">
+          {FILTERS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={filter === item.key ? "chip chip-active" : "chip"}
+              onClick={() => setFilter(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <form className="form-grid" action={addAction}>
         <div className="field">
           <label htmlFor="symbol">顯示碼</label>
@@ -171,12 +168,18 @@ export function WatchlistPanel({
         {addState.error ? <p className="alert">{addState.error}</p> : null}
         {addState.ok ? <p className="ok">{addState.ok}</p> : null}
       </form>
+      {items.length === 0 ? (
+        <p className="body">
+          未有關注，加入代碼或先去加持倉。{" "}
+          <Link href="/entry" prefetch className="btn btn-primary">
+            加持倉
+          </Link>
+        </p>
+      ) : null}
       {newsFailed ? (
         <FailurePanel sentence="新聞暫時載唔到，唔好緊，再試一次就得。" onRetry={() => setNewsReload((n) => n + 1)} />
       ) : null}
-      {items.length === 0 ? (
-        <EmptyPanel sentence="未有關注，加入代碼或先去加持倉。" actionLabel="加持倉" />
-      ) : visible.length === 0 ? (
+      {items.length === 0 ? null : visible.length === 0 ? (
         <p className="empty">呢個市場未有關注。</p>
       ) : (
         <table className="table">

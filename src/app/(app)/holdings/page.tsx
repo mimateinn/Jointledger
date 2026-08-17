@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
-import { DelayBadge } from "@/components/delay-badge";
 import { HoldingsWorkspace } from "@/components/holdings-workspace";
 import { positionLotsFromTrades } from "@/ledger";
 import { loadBookView } from "@/lib/book-view";
@@ -92,17 +91,14 @@ export default async function HoldingsPage() {
   return (
     <div className="stack">
       <div className="page-head">
-        <h1 className="display">持倉</h1>
-        {view.lots.length > 0 || watchItems.length > 0 ? <DelayBadge label={delayLabel} /> : null}
+        <h1 className="title">持倉</h1>
       </div>
-      {view.all.partial && view.lots.length > 0 ? (
-        <p className="meta muted">部分市值 · 未有標記嘅持股唔計入 NAV</p>
-      ) : null}
       <HoldingsWorkspace
         lots={lots}
         closedLots={closedLots}
         watchItems={watchItems}
         delayLabel={delayLabel}
+        partialNav={view.all.partial && view.lots.length > 0}
       />
     </div>
   );

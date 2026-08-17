@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { DelayBadge } from "@/components/delay-badge";
 import { InstrumentLabel } from "@/components/instrument-label";
-import { formatMoney, formatUsd } from "@/lib/format";
+import { formatQty, formatUsd } from "@/lib/format";
 import { lotRowKey } from "@/lib/lot-row-key";
 
 type Filter = "me" | "all" | "joint" | string;
+
+const NO_MARK = "暫時用買入價，未有市場價";
 
 function holdingsMeta(count: number): string {
   const words = ["零", "一", "兩", "三", "四", "五", "六", "七", "八", "九", "十"];
@@ -38,7 +39,6 @@ export function OverviewClient({
   joint,
   byMember,
   lots,
-  delayLabel,
   asOfLabel,
 }: {
   currentMemberId: string;
@@ -59,7 +59,6 @@ export function OverviewClient({
     percentChange: string | null;
     marketValueUsd: string | null;
   }[];
-  delayLabel: string;
   asOfLabel: string;
 }) {
   const [filter, setFilter] = useState<Filter>("me");
@@ -99,13 +98,12 @@ export function OverviewClient({
 
   const emptyBook = lots.length === 0 && Number(all.navUsd) === 0 && Number(all.cashUsd) === 0;
   const accountName = (id: string) => accounts.find((a) => a.id === id)?.name ?? "—";
-  const showPrices = !emptyBook && (lots.some((lot) => lot.lastDisplay) || lots.length > 0);
 
   return (
     <div>
       <div className="page-head">
         <div>
-          <h1 className="display">總覽</h1>
+          <h1 className="title">總覽</h1>
           <div className="chip-row">
             {chips.map((chip) => (
               <button
@@ -119,7 +117,6 @@ export function OverviewClient({
             ))}
           </div>
         </div>
-        {showPrices ? <DelayBadge label={delayLabel} /> : null}
       </div>
 
       {emptyBook ? (
@@ -136,31 +133,26 @@ export function OverviewClient({
         </section>
       ) : (
         <>
-          <div className="grid grid-metrics">
-            <section className="card">
+          <div className="grid-metrics-pair">
+            <section className="card metric-card">
               <div className="meta muted">資產淨值</div>
               {shown.nav == null ? (
-                <div className="skeleton skeleton-nav" style={{ marginTop: 8 }} />
+                <div className="skeleton skeleton-nav metric-value" />
               ) : (
-                <div className="display tabular" style={{ marginTop: 8 }}>
-                  {formatUsd(shown.nav)}
-                </div>
+                <div className="display tabular metric-value">{formatUsd(shown.nav)}</div>
               )}
-              <p className="meta muted">{asOfLabel}</p>
+              <p className="meta muted metric-sub">{asOfLabel}</p>
               {shown.partial ? <div className="metric-sub">部分市值</div> : null}
             </section>
-            {byMember.map((row) => (
-              <section className="card" key={row.memberId}>
-                <div className="meta muted">{row.displayName}</div>
-                <div className="display tabular" style={{ marginTop: 8 }}>
-                  {formatUsd(row.navUsd)}
-                </div>
-                <div className="metric-sub">
-                  可用 {formatUsd(row.cashUsd)} · 現金，未計持倉
-                  {row.partial ? " · 部分市值" : ""}
-                </div>
-              </section>
-            ))}
+            <section className="card metric-card">
+              <div className="meta muted">可用資金</div>
+              {shown.cash == null ? (
+                <div className="skeleton skeleton-nav metric-value" />
+              ) : (
+                <div className="display tabular metric-value">{formatUsd(shown.cash)}</div>
+              )}
+              <p className="meta muted metric-sub">現金，未計持股</p>
+            </section>
           </div>
 
           <section className="card">
@@ -177,7 +169,7 @@ export function OverviewClient({
                 <thead>
                   <tr>
                     <th>標的</th>
-                    <th>記落邊個人</th>
+                    <th>邊個倉</th>
                     <th>數量</th>
                     <th>現價</th>
                     <th>今日</th>
@@ -196,13 +188,17 @@ export function OverviewClient({
                       <td>
                         <span className="chip">{accountName(lot.ledgerAccountId)}</span>
                       </td>
-                      <td className="tabular">{formatMoney(lot.quantity, 4)}</td>
-                      <td className="tabular">{lot.lastDisplay ?? "—"}</td>
-                      <td className={`tabular ${changeClass(lot.percentChange)}`}>
-                        {lot.lastDisplay ? (lot.percentChange ?? "—") : "—"}
+                      <td className="tabular">{formatQty(lot.quantity)}</td>
+                      <td className="tabular">{lot.lastDisplay ?? NO_MARK}</td>
+                      <td className={`tabular ${lot.lastDisplay ? changeClass(lot.percentChange) : "muted"}`}>
+                        {lot.lastDisplay ? (lot.percentChange ?? "—") : ""}
                       </td>
                       <td className="tabular">
-                        {lot.marketValueUsd ? formatUsd(lot.marketValueUsd) : "—"}
+                        {lot.lastDisplay
+                          ? lot.marketValueUsd
+                            ? formatUsd(lot.marketValueUsd)
+                            : "—"
+                          : formatUsd(lot.costUsd)}
                       </td>
                       <td className="tabular">{formatUsd(lot.costUsd)}</td>
                     </tr>

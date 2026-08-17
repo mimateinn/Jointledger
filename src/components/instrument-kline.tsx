@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { defaultActiveIds, type Bar } from "@/indicators";
-import { DelayBadge } from "./delay-badge";
 import { FailurePanel } from "./failure-panel";
 import { IndicatorPicker } from "./indicator-picker";
 import { InstrumentLabel } from "./instrument-label";
@@ -33,8 +32,8 @@ export function InstrumentKline({
   name,
   last,
   percentChange,
-  delayLabel,
-  lastUpdateLabel,
+  delayLabel: _delayLabel,
+  lastUpdateLabel: _lastUpdateLabel,
   isEtfProxy,
   planLimited,
   tags = [],
@@ -98,6 +97,7 @@ export function InstrumentKline({
 
   const loaded = bars !== null && !failed;
   const chartBars = useMemo(() => bars ?? [], [bars]);
+  const noBars = loaded && chartBars.length === 0;
 
   useEffect(() => {
     if (!enlarged) {
@@ -127,10 +127,10 @@ export function InstrumentKline({
         <div className="instrument-quote">
           <div className="page-head">
             <div>
-              <h2 className="display">
+              <h2 className="title">
                 <InstrumentLabel ticker={display} name={name} />
               </h2>
-              {tags.length > 0 || isEtfProxy ? (
+              {tags.length > 0 || isEtfProxy || planLimited ? (
                 <div className="chip-row">
                   {tags.map((tag) => (
                     <span key={tag} className="chip">
@@ -141,12 +141,13 @@ export function InstrumentKline({
                 </div>
               ) : null}
             </div>
-            {last ? <DelayBadge label={delayLabel} lastUpdate={lastUpdateLabel} /> : planLimited ? (
-              <span className="chip chip-delay">延遲／升級</span>
-            ) : null}
+            <div className="instrument-last">
+              <div className="display tabular">{last ?? "—"}</div>
+              {last && percentChange ? (
+                <div className={changeClass(percentChange)}>{percentChange}</div>
+              ) : null}
+            </div>
           </div>
-          <div className="display tabular">{last ?? "—"}</div>
-          <div className={changeClass(last ? percentChange : null)}>{last ? (percentChange ?? "—") : "—"}</div>
         </div>
       ) : null}
       <div className="kline-toolbar">
@@ -154,15 +155,15 @@ export function InstrumentKline({
           {enlarged ? "還原" : "放大"}
         </button>
       </div>
-      <IndicatorPicker active={active} onToggle={onToggle} />
+      <IndicatorPicker active={active} onToggle={onToggle} disabled={noBars || failed} />
       <div
         className={enlarged ? "kline-frame kline-frame-open" : "kline-frame"}
-        onClick={enlarged || failed ? undefined : toggleSize}
-        role={enlarged || failed ? undefined : "button"}
-        tabIndex={enlarged || failed ? undefined : 0}
+        onClick={enlarged || failed || noBars ? undefined : toggleSize}
+        role={enlarged || failed || noBars ? undefined : "button"}
+        tabIndex={enlarged || failed || noBars ? undefined : 0}
         aria-label={enlarged ? "陰陽燭" : "放大陰陽燭"}
         onKeyDown={
-          enlarged || failed
+          enlarged || failed || noBars
             ? undefined
             : (event) => {
                 if (event.key === "Enter" || event.key === " ") {
@@ -180,9 +181,6 @@ export function InstrumentKline({
           <KlineChart bars={chartBars} active={active} expanded={enlarged} />
         )}
       </div>
-      <p className="muted">
-        指數／商品／幣／匯都當 Instrument：K 線。無加倉、減倉、入金。呢啲唔係投資建議，只係整理帳簿同公開資料。
-      </p>
     </section>
   );
 }
