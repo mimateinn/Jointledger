@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { formatMoney } from "@/lib/format";
 import { InstrumentKline } from "./instrument-kline";
+import { WatchlistPanel, type WatchRow } from "./watchlist-panel";
 
 export type HoldingRow = {
   tradeId: string;
@@ -36,11 +37,14 @@ function changeClass(change: string | null): string | undefined {
 
 export function HoldingsWorkspace({
   lots,
+  watchItems,
   delayLabel,
 }: {
   lots: HoldingRow[];
+  watchItems: WatchRow[];
   delayLabel: string;
 }) {
+  const [tab, setTab] = useState<"holdings" | "watch">("holdings");
   const [selectedId, setSelectedId] = useState(lots[0]?.tradeId ?? null);
   const selected = useMemo(
     () => lots.find((lot) => lot.tradeId === selectedId) ?? lots[0] ?? null,
@@ -48,6 +52,30 @@ export function HoldingsWorkspace({
   );
 
   return (
+    <div className="stack">
+      <div className="tabs-line">
+        <button
+          type="button"
+          className={tab === "holdings" ? "tab tab-active" : "tab"}
+          onClick={() => setTab("holdings")}
+        >
+          持倉
+        </button>
+        <button
+          type="button"
+          className={tab === "watch" ? "tab tab-active" : "tab"}
+          onClick={() => setTab("watch")}
+        >
+          關注
+        </button>
+      </div>
+      {tab === "watch" ? <WatchlistPanel items={watchItems} delayLabel={delayLabel} /> : null}
+      {tab === "holdings" && lots.length === 0 ? (
+        <section className="card">
+          <p className="empty">未有持倉</p>
+        </section>
+      ) : null}
+      {tab === "holdings" && lots.length > 0 ? (
     <div className="holdings-split">
       <section className="card">
         <table className="table">
@@ -95,6 +123,8 @@ export function HoldingsWorkspace({
           planLimited={selected.planLimited}
           tags={selected.tags}
         />
+      ) : null}
+    </div>
       ) : null}
     </div>
   );

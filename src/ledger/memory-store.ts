@@ -111,6 +111,12 @@ export function createMemoryStore(): LedgerStore & {
           legs: scheduleLegs.filter((leg) => leg.scheduleId === schedule.id),
         }));
     },
+    async listMembers(bookId: string) {
+      return members.filter((row) => row.bookId === bookId);
+    },
+    async listLedgerAccounts(bookId: string) {
+      return accounts.filter((row) => row.bookId === bookId);
+    },
     async clearBookEntries(bookId: string) {
       const tradeIds = new Set(trades.filter((row) => row.bookId === bookId).map((row) => row.id));
       for (let i = allocations.length - 1; i >= 0; i -= 1) {

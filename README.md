@@ -10,6 +10,8 @@ M3 做到：由持倉或 11 格跑馬燈打開標的頁，用 TradingView Lightw
 
 M4 做到：第一次用可以上傳而家用緊嘅 兩頁 xlsx（xlsx / csv），預覽之後經現有 domain 寫入。唔會連接 Google 試算表。
 
+M5 做到：收益率用期間淨值 $ + Modified Dietz %（短過一年唔年化）；持倉頁「關注」手動名單；Finnhub 新聞只經自己嘅 API；成員認領綁現有 Member；帳戶頁「再匯入」追加／取代現有 Book。
+
 ## 本機（Docker Postgres）
 
 ```bash
@@ -62,7 +64,7 @@ SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` /
 | 指令 | 作用 |
 | --- | --- |
 | `pnpm dev` | 開發伺服器 |
-| `pnpm test` | 現金不變式、NAV 標記、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用、匯入行經 createCashFlow／createTrade |
+| `pnpm test` | 現金不變式、NAV 標記、Dietz、關注解析、Finnhub 唔打 quote、認領唔開新表、再匯入現有 Book、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用、匯入行經 createCashFlow／createTrade |
 | `pnpm lint` | ESLint |
 | `pnpm db:migrate` | 套用 Drizzle migrations |
 | `pnpm build` | 生產建置（含 Serwist app-shell precache） |
@@ -78,7 +80,7 @@ SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` /
    - 無市場價：現價 `—`，NAV = 500 + 已標記市值；呢筆未標記就標「部分市值」（唔會用買入價估 NAV，唔會變成 1000 或 1500）
    - 有市場價：NAV = 500 + 數量 × last（例如 last 60 → NAV 1100）
 
-之後可用顯示名或電郵 + 密碼再登入。帳戶頁可加成員顯示名（電郵可選）；對方自行設密碼嘅完整流程唔係 M1。
+之後可用顯示名或電郵 + 密碼再登入。帳戶頁可加成員顯示名（電郵可選）；對方用同一個顯示名或電郵 + 自己設嘅密碼認領，綁去現有成員，唔會開新表。
 
 ## 現金不變式
 
@@ -102,7 +104,10 @@ NAV = cash_usd + 已標記市值
 - `GET /api/quotes`：已登入先讀得到；只回傳顯示用欄位，無 API key。
 - `GET /api/ohlcv`：已登入先讀得到；只回傳 `{time,open,high,low,close,volume}`，無 API key、無指標線。
 - `src/ohlcv/`：日線 cache 同 calendar-day single-flight。`src/indicators/`：純函數，無 fetch／env。
-- 登入：電郵或顯示名 + 密碼；argon2id；HttpOnly / SameSite=Lax cookie（生產加 Secure）。只有系統零用戶先可以註冊。
+- 登入：電郵或顯示名 + 密碼；argon2id；HttpOnly / SameSite=Lax cookie（生產加 Secure）。只有系統零用戶先可以註冊。之後用認領綁現有 Member。
+- `GET /api/news`：已登入先讀得到；只回新聞標題，無 API key、無報價。`FINNHUB_API_KEY` 可空。
+- `src/returns/`：期間 $ + Modified Dietz，只讀帳簿 + last-good。
+- `src/watchlist/`：每個 Book 一份關注名單；寫入唔經 ledger write API。
 - PWA：`@serwist/next` 只 precache app shell。寫入必須有網絡，無離線寫入隊列。
 
 ## 匯入試算表（M4）
@@ -125,6 +130,79 @@ Account Detail 係現金真相（H／S／W 入金）。TransInfo 一列＝一對
 
 匯入後總覽仍係鎖定 NAV：現金不變式 + 已標記市值。未標記持股係 `—`，NAV 標「部分市值」。入金 1000 再買成本 500，現金仍係 **500**，唔會變 1500。行情唔會寫 CashFlow／Trade。
 
-## 範圍外（M5 不做）
+## 收益率（M5）
 
-Modified Dietz、新聞、AI、完整關注名單流程、券商連接、Finnhub／Yahoo／未付費 Massive 行情、完整成員認領設密碼。
+主數字只有兩個：
+
+- **期間 $** = 期末 NAV − 期初 NAV − 期間外部 CashFlow（入金 +、出金 −）。買賣唔算外部流（已喺現金不變式入面）。
+- **%** = Modified Dietz。分母 = 期初 NAV + 按時間加權嘅外部 CashFlow。短過一年**唔年化**。M5 無 TWR。
+
+NAV 仍係鎖定規則：現金不變式 + 已標記市值。未標記持股唔計入市值，亦**唔會用成本當期初／期末市價**。期初或期末缺標記：仍用已有標記計 $，**% 顯示 —**。平均資本 ≈ 0：只顯示 $，% 係 —。
+
+曲線按 Hey / Sze / Wah 各一條。聯名倉用**該筆買入日生效**嘅 AllocationSchedule 拆入各人（Wah 永遠唔入聯名）。舊表淨盈虧只係可關對照，唔會寫入 CashFlow／Trade。
+
+行情用 last-good，只讀帳簿。無新嘅帳簿寫入表。
+
+### 示範 Dietz
+
+1. 「記一筆」入金 `1000`（匯率 1）。
+2. 同一頁加倉，例如 `NVDA` 數量 `10` 價格 `50`（成本 500）。
+3. 再喺窗口中段入一筆金（例如再入 500）。
+4. 去「收益率」揀近 1 月：
+   - 有 last：期間 $ = 期末 NAV − 0 − 兩筆入金；% 係 Dietz，唔會把 30 日年化。
+   - 無 last：期間 $ 仍用已標記部分計，% 係 —（唔會用 50 當現價）。
+
+## 關注（M5）
+
+喺「持倉」頁第二個分頁，**唔係**側欄項目（側欄仍係六項）。每個 Book 一份名單，上限 30。只可以手動加；持股唔會自動變成關注。兩邊可以同時存在。
+
+搜尋市場：美／港／日／韓／中／歐／英股票、金／銀／銅、加密、外匯。經 M2 `src/quotes/symbol-map.ts` + deny-list 解析。唔識嘅代碼加唔到。永遠唔查 `SPX`。
+
+寫入只係 WatchItem 加／刪／靜音。唔會改 CashFlow／Trade／NAV。
+
+### 示範加關注同靜音新聞
+
+1. 去「持倉」→「關注」。
+2. 輸入 `XAU` 或 `0700.HK`，確認之後撳「+關注」。
+3. 行內「靜音新聞」：靜音咗嘅名唔會再推公司新聞；市場欄仍在。
+4. 「取消關注」只刪名單，唔動帳簿。
+
+## 新聞（M5）
+
+只打 Finnhub **新聞**。`FINNHUB_API_KEY` 放 server env，唔會 `NEXT_PUBLIC_*`。瀏覽器只打自己嘅 `GET /api/news`。
+
+- 美股名：`company-news`（免費層北美）。其他市場：公司新聞空白，保留市場欄。
+- 市場：`/news?category=general|forex|crypto`。
+- 靜音咗嘅名唔推公司新聞。
+
+Server 用 Postgres cache，按 symbol／category，TTL ≥ 15 分，單飛。429／無 key／非北美：空列表，唔崩潰，唔轉第二個來源。
+
+**唔會**打 Finnhub quote；新聞價唔會改 quotes／ohlcv／NAV。Yahoo／Twelve Data 唔做新聞。
+
+`FINNHUB_API_KEY` 可留空：新聞欄全部係空，app 照開。
+
+## 認領 + 再匯入（M5）
+
+第一個用戶係唯一公開註冊。之後：現有成員加顯示名；對方用嗰個名（或電郵）+ 自己設嘅密碼認領，User 綁去**現有 Member**。認領唔會開新 Book，亦唔會複製倉位。
+
+**認領唔係匯入解鎖。** 有 membership 之後，唔會因為認領再開一本書或繞過成員。
+
+帳戶頁「再匯入」只寫**現有 Book**。仍行 ImportBatch + 現有 `createCashFlow`／`createTrade`。一定要明示揀「追加」或「取代」。
+
+無改密碼。
+
+### 示範認領
+
+1. 已登入嘅人去「帳戶」加成員，顯示名例如 `Sze`（電郵可選）。
+2. 登出。登入頁揀「認領成員」，輸入 `Sze` + 至少 8 個字嘅新密碼。
+3. 登入後見到同一本記帳表，倉位唔會被複製或重開。
+
+### 示範再匯入
+
+1. 已係呢本 Book 嘅成員，去「帳戶」→「再匯入試算表」。
+2. 上傳 xlsx／csv，預覽之後**一定要揀追加或取代**。
+3. 確認寫入仍行現有 domain 寫入；唔會另開一本空表。
+
+## 範圍外（M5 之後）
+
+券商連接、股息、拆股、匯出、改密碼、AI 摘要、Finnhub／Yahoo 行情、完整市場終端。

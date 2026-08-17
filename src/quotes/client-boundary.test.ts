@@ -24,6 +24,7 @@ describe("quote client boundary", () => {
         continue;
       }
       expect(text, file).not.toMatch(/TWELVE_DATA_API_KEY/);
+      expect(text, file).not.toMatch(/FINNHUB_API_KEY/);
       expect(text, file).not.toMatch(/NEXT_PUBLIC_.*API_KEY/);
       expect(text, file).not.toMatch(/from ["']@\/quotes\/symbol-map["']/);
       expect(text, file).not.toMatch(/from ["']@\/ohlcv(\/|["'])/);

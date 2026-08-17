@@ -406,6 +406,7 @@ function planTransInfoRow(
     sellPrice: parseMoney(cell(row, map, "sell_price")),
     sellFee: parseMoney(cell(row, map, "sell_fee")),
     sellTotal: parseMoney(cell(row, map, "sell_total")),
+    sheetPnl: parseMoney(cell(row, map, "pnl")),
     skip: false,
     pending,
     warningIds,

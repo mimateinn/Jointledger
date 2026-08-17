@@ -112,6 +112,8 @@ export type PlannedTrade = {
   sellPrice: string | null;
   sellFee: string | null;
   sellTotal: string | null;
+  /** Old-sheet Net P/L. Comparison only — never written to CashFlow/Trade. */
+  sheetPnl: string | null;
   skip: boolean;
   pending: boolean;
   warningIds: string[];

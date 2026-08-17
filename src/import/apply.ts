@@ -78,6 +78,8 @@ export async function applyImport(
     creatorEmail?: string | null;
     bookName?: string;
     decisions: ImportDecisions;
+    /** Re-import onto this Book. Claim is not an unlock — membership must already exist. */
+    existingBookId?: string;
   },
   writers: Partial<ImportWriters> = {},
 ): Promise<ApplyResult> {
@@ -94,18 +96,43 @@ export async function applyImport(
     throw new Error("待確認列未揀 一併匯入／略過。");
   }
 
-  const created = await w.createBook(store, {
-    name: (input.bookName ?? "聯倉").trim() || "聯倉",
-    createdByUserId: input.createdByUserId,
-    creatorDisplayName: input.creatorDisplayName,
-    creatorEmail: input.creatorEmail,
-  });
+  if (
+    input.existingBookId &&
+    input.decisions.reimportMode !== "append" &&
+    input.decisions.reimportMode !== "replace"
+  ) {
+    throw new Error("再匯入要明示追加或取代");
+  }
 
   const members = new Map<string, { memberId: string; accountId: string }>();
-  members.set(created.member.displayName.trim().toLowerCase(), {
-    memberId: created.member.id,
-    accountId: created.account.id,
-  });
+  let bookId: string;
+
+  if (input.existingBookId) {
+    bookId = input.existingBookId;
+    const existingMembers = await store.listMembers(bookId);
+    const existingAccounts = await store.listLedgerAccounts(bookId);
+    for (const member of existingMembers) {
+      const personal = existingAccounts.find((row) => row.memberId === member.id && row.kind === "personal");
+      if (personal) {
+        members.set(member.displayName.trim().toLowerCase(), {
+          memberId: member.id,
+          accountId: personal.id,
+        });
+      }
+    }
+  } else {
+    const created = await w.createBook(store, {
+      name: (input.bookName ?? "聯倉").trim() || "聯倉",
+      createdByUserId: input.createdByUserId,
+      creatorDisplayName: input.creatorDisplayName,
+      creatorEmail: input.creatorEmail,
+    });
+    bookId = created.book.id;
+    members.set(created.member.displayName.trim().toLowerCase(), {
+      memberId: created.member.id,
+      accountId: created.account.id,
+    });
+  }
 
   const needed = new Set<string>(plan.members);
   for (const name of [MEMBER_HEY, MEMBER_SZE]) {
@@ -118,7 +145,7 @@ export async function applyImport(
     if (members.has(key)) {
       continue;
     }
-    const added = await w.addMember(store, { bookId: created.book.id, displayName: name });
+    const added = await w.addMember(store, { bookId, displayName: name });
     members.set(key, { memberId: added.member.id, accountId: added.account.id });
   }
 
@@ -130,24 +157,38 @@ export async function applyImport(
     return row;
   };
 
-  const joint = await w.createJointAccount(store, { bookId: created.book.id, name: "聯名" });
+  const existingAccounts = await store.listLedgerAccounts(bookId);
+  const joint =
+    existingAccounts.find((row) => row.kind === "joint") ??
+    (await w.createJointAccount(store, { bookId, name: "聯名" }));
 
-  for (const schedule of CANON_SCHEDULES) {
-    const legs = normalizeScheduleLegs(schedule.legs).map((leg) => ({
-      memberId: lookup(leg.name).memberId,
-      percent: leg.percent,
-    }));
-    await w.setAllocationSchedule(store, {
-      bookId: created.book.id,
-      effectiveOn: schedule.effectiveOn,
-      legs,
-    });
+  const existingSchedules = await store.listAllocationSchedules(bookId);
+  if (existingSchedules.length === 0) {
+    for (const name of [MEMBER_HEY, MEMBER_SZE]) {
+      const key = name.trim().toLowerCase();
+      if (members.has(key)) {
+        continue;
+      }
+      const added = await w.addMember(store, { bookId, displayName: name });
+      members.set(key, { memberId: added.member.id, accountId: added.account.id });
+    }
+    for (const schedule of CANON_SCHEDULES) {
+      const legs = normalizeScheduleLegs(schedule.legs).map((leg) => ({
+        memberId: lookup(leg.name).memberId,
+        percent: leg.percent,
+      }));
+      await w.setAllocationSchedule(store, {
+        bookId,
+        effectiveOn: schedule.effectiveOn,
+        legs,
+      });
+    }
   }
 
-  const schedules = await store.listAllocationSchedules(created.book.id);
+  const schedules = await store.listAllocationSchedules(bookId);
 
   if (input.decisions.reimportMode === "replace") {
-    await store.clearBookEntries(created.book.id);
+    await store.clearBookEntries(bookId);
   }
 
   let cashFlowCount = 0;
@@ -162,7 +203,7 @@ export async function applyImport(
     }
     const member = lookup(flow.memberName);
     await w.createCashFlow(store, {
-      bookId: created.book.id,
+      bookId,
       memberId: member.memberId,
       ledgerAccountId: member.accountId,
       kind: flow.kind,
@@ -198,7 +239,7 @@ export async function applyImport(
         : undefined;
 
     await w.createTrade(store, {
-      bookId: created.book.id,
+      bookId,
       ledgerAccountId: accountId,
       memberId,
       symbol: trade.symbol,
@@ -226,7 +267,7 @@ export async function applyImport(
         const sellLegs =
           trade.book === "joint" ? jointLegs(schedule, sellQty, proceeds, lookup, "proceeds") : undefined;
         await w.createTrade(store, {
-          bookId: created.book.id,
+          bookId,
           ledgerAccountId: accountId,
           memberId,
           symbol: trade.symbol,
@@ -258,7 +299,7 @@ export async function applyImport(
   const warningCount = rowLog.filter((row) => row.status === "warning").length + plan.issues.filter((i) => i.pending && input.decisions.pending[i.id] === "import").length;
 
   return {
-    bookId: created.book.id,
+    bookId,
     cashFlowCount,
     tradeCount,
     warningCount,

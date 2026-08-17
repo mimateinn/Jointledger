@@ -40,7 +40,13 @@ const AD_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "in_out", label: "出入" },
 ];
 
-export function ImportWizard({ onBack }: { onBack: () => void }) {
+export function ImportWizard({
+  onBack,
+  reimport = false,
+}: {
+  onBack?: () => void;
+  reimport?: boolean;
+}) {
   const [parsed, parseAction, parsePending] = useActionState(parseImportAction, initial);
   const [mapped, mapAction, mapPending] = useActionState(confirmMapAction, initial);
   const [committed, commitAction, commitPending] = useActionState(commitImportAction, initial);
@@ -54,9 +60,11 @@ export function ImportWizard({ onBack }: { onBack: () => void }) {
   return (
     <div className="stack">
       <div>
-        <h1 className="display">匯入而家用緊嘅試算表</h1>
+        <h1 className="display">{reimport ? "再匯入" : "匯入而家用緊嘅試算表"}</h1>
         <p className="muted" style={{ marginTop: 12 }}>
-          把而家用緊嘅試算表搬過嚟。預覽成員、買賣、出入金；對唔上嘅列會單獨標出，確認持股先寫入。
+          {reimport
+            ? "寫入而家呢本記帳表。要明示追加或取代。認領唔會開新表，亦唔會當匯入解鎖。"
+            : "把而家用緊嘅試算表搬過嚟。預覽成員、買賣、出入金；對唔上嘅列會單獨標出，確認持股先寫入。"}
         </p>
       </div>
 
@@ -64,6 +72,7 @@ export function ImportWizard({ onBack }: { onBack: () => void }) {
         <section className="card stack">
           <p className="muted">上傳 xlsx（TransInfo + Account Detail 兩頁），或兩個 csv。唔會連接 Google 試算表。</p>
           <form className="form-grid" action={parseAction}>
+            {reimport ? <input type="hidden" name="reimport" value="1" /> : null}
             <div className="field">
               <label htmlFor="files">檔案</label>
               <input
@@ -81,9 +90,11 @@ export function ImportWizard({ onBack }: { onBack: () => void }) {
               <button className="btn btn-primary" type="submit" disabled={parsePending}>
                 預覽
               </button>
-              <button className="btn btn-ghost" type="button" onClick={onBack}>
-                返回
-              </button>
+              {onBack ? (
+                <button className="btn btn-ghost" type="button" onClick={onBack}>
+                  返回
+                </button>
+              ) : null}
             </div>
           </form>
         </section>
@@ -94,6 +105,7 @@ export function ImportWizard({ onBack }: { onBack: () => void }) {
           <h2 className="title">欄位未確認 · 零寫入</h2>
           <p className="muted">認唔到嘅欄或一欄對多個目標要你確認。唔會估「呢個一定係數量」。</p>
           <form className="form-grid" action={mapAction}>
+            {reimport ? <input type="hidden" name="reimport" value="1" /> : null}
             <input type="hidden" name="draftId" value={state.draftId} />
             <h3 className="meta">TransInfo</h3>
             <table className="table">
@@ -187,11 +199,24 @@ export function ImportWizard({ onBack }: { onBack: () => void }) {
             </div>
           ) : null}
           <form className="form-grid" action={commitAction}>
+            {reimport ? <input type="hidden" name="reimport" value="1" /> : null}
             <input type="hidden" name="draftId" value={state.draftId} />
-            <div className="field">
-              <label htmlFor="bookName">記帳表名稱</label>
-              <input className="input" id="bookName" name="bookName" defaultValue="聯倉" />
-            </div>
+            {reimport ? null : (
+              <div className="field">
+                <label htmlFor="bookName">記帳表名稱</label>
+                <input className="input" id="bookName" name="bookName" defaultValue="聯倉" />
+              </div>
+            )}
+            {reimport ? (
+              <div className="field">
+                <label htmlFor="reimportMode">寫入方式</label>
+                <select className="select" id="reimportMode" name="reimportMode" required defaultValue="">
+                  <option value="">揀追加或取代</option>
+                  <option value="append">追加</option>
+                  <option value="replace">取代</option>
+                </select>
+              </div>
+            ) : null}
             {preview.issues.filter((item) => item.pending).length > 0 ? (
               <>
                 <table className="table">
@@ -249,7 +274,7 @@ export function ImportWizard({ onBack }: { onBack: () => void }) {
                   ))}
               </ul>
             ) : null}
-            {state.needsReimport ? (
+            {!reimport && state.needsReimport ? (
               <div className="field">
                 <label htmlFor="reimportMode">呢份檔已匯入過</label>
                 <select className="select" id="reimportMode" name="reimportMode" required>
@@ -264,9 +289,11 @@ export function ImportWizard({ onBack }: { onBack: () => void }) {
               <button className="btn btn-primary" type="submit" disabled={commitPending}>
                 確認寫入
               </button>
-              <button className="btn btn-ghost" type="button" onClick={onBack}>
-                取消
-              </button>
+              {onBack ? (
+                <button className="btn btn-ghost" type="button" onClick={onBack}>
+                  取消
+                </button>
+              ) : null}
             </div>
           </form>
         </section>
