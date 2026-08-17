@@ -7,6 +7,7 @@ import {
   parseImportAction,
   type ImportActionState,
 } from "@/app/actions/import";
+import { SubmitButton } from "@/components/submit-button";
 import type { ColumnTarget } from "@/import/types";
 
 const initial: ImportActionState = {};
@@ -47,9 +48,9 @@ export function ImportWizard({
   onBack?: () => void;
   reimport?: boolean;
 }) {
-  const [parsed, parseAction, parsePending] = useActionState(parseImportAction, initial);
-  const [mapped, mapAction, mapPending] = useActionState(confirmMapAction, initial);
-  const [committed, commitAction, commitPending] = useActionState(commitImportAction, initial);
+  const [parsed, parseAction] = useActionState(parseImportAction, initial);
+  const [mapped, mapAction] = useActionState(confirmMapAction, initial);
+  const [committed, commitAction] = useActionState(commitImportAction, initial);
   const [bulk, setBulk] = useState<"import" | "skip" | "">("");
 
   const state = committed.draftId || committed.error ? committed : mapped.draftId ? mapped : parsed;
@@ -87,9 +88,7 @@ export function ImportWizard({
             </div>
             {state.error ? <p className="alert">{state.error}</p> : null}
             <div className="submit-row">
-              <button className="btn btn-primary" type="submit" disabled={parsePending}>
-                預覽
-              </button>
+              <SubmitButton pendingLabel="預覽緊…">預覽</SubmitButton>
               {onBack ? (
                 <button className="btn btn-ghost" type="button" onClick={onBack}>
                   返回
@@ -168,9 +167,7 @@ export function ImportWizard({
               </tbody>
             </table>
             {state.error ? <p className="alert">{state.error}</p> : null}
-            <button className="btn btn-primary" type="submit" disabled={mapPending}>
-              確認欄位
-            </button>
+            <SubmitButton pendingLabel="確認緊…">確認欄位</SubmitButton>
           </form>
         </section>
       ) : null}
@@ -286,9 +283,7 @@ export function ImportWizard({
             ) : null}
             {state.error ? <p className="alert">{state.error}</p> : null}
             <div className="submit-row">
-              <button className="btn btn-primary" type="submit" disabled={commitPending}>
-                確認寫入
-              </button>
+              <SubmitButton pendingLabel="寫入緊…">確認寫入</SubmitButton>
               {onBack ? (
                 <button className="btn btn-ghost" type="button" onClick={onBack}>
                   取消

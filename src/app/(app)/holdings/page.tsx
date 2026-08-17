@@ -46,7 +46,9 @@ export default async function HoldingsPage() {
   });
 
   const watched = await listWatchItems(view.book.id);
-  const watchQuotes = await loadMarksForLots(watched.map((row) => row.displayCode)).catch(() => ({
+  const watchQuotes = await loadMarksForLots(watched.map((row) => row.displayCode), {
+    refresh: "background",
+  }).catch(() => ({
     views: {} as typeof view.quoteViews,
   }));
   const watchItems = watched.map((item) => {

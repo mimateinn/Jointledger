@@ -17,8 +17,8 @@ function createPgDb() {
 type PgDatabase = ReturnType<typeof createPgDb>;
 
 type SqliteLike = {
-  all: (query: unknown) => Promise<unknown>;
-  run: (query: unknown) => Promise<unknown>;
+  all: (query: unknown) => unknown;
+  run: (query: unknown) => unknown;
   execute?: (query: unknown) => Promise<unknown>;
   transaction: (
     fn: (tx: SqliteLike) => unknown,
@@ -46,30 +46,31 @@ export function getSql() {
 const sqlitePatched = new WeakSet<object>();
 
 /** libsql 無 pg 嘅 execute；transaction 一定要 bind 返 Drizzle instance（要有 session）。 */
-function withSqliteExecute(db: SqliteLike): PgDatabase {
+function withSqliteExecute(db: object): PgDatabase {
   if (sqlitePatched.has(db)) {
     return db as unknown as PgDatabase;
   }
   sqlitePatched.add(db);
 
-  if (typeof db.transaction !== "function") {
+  const sqlite = db as SqliteLike;
+  if (typeof sqlite.transaction !== "function") {
     throw new Error("SQLite db.transaction is undefined");
   }
 
-  db.execute = async (query: unknown) => {
+  sqlite.execute = async (query: unknown) => {
     try {
-      return await db.all(query);
+      return await sqlite.all(query);
     } catch {
-      await db.run(query);
+      await sqlite.run(query);
       return [];
     }
   };
 
-  const transaction = db.transaction.bind(db);
-  db.transaction = (fn, config) =>
-    transaction((tx) => fn(withSqliteExecute(tx) as unknown as SqliteLike), config);
+  const transaction = sqlite.transaction.bind(sqlite);
+  sqlite.transaction = (fn, config) =>
+    transaction((tx) => fn(withSqliteExecute(tx as object) as unknown as SqliteLike), config);
 
-  return db as unknown as PgDatabase;
+  return sqlite as unknown as PgDatabase;
 }
 
 function getSqliteClient() {
@@ -80,7 +81,15 @@ function getSqliteClient() {
   globalForDb.sqlite?.close();
   ensureSqliteDir(url);
   const client = createClient({ url });
-  void client.execute("PRAGMA foreign_keys = ON");
+  const execute = client.execute.bind(client);
+  const ready = execute("PRAGMA journal_mode = WAL").then(() => execute("PRAGMA foreign_keys = ON"));
+  client.execute = ((stmt: Parameters<Client["execute"]>[0]) =>
+    ready.then(() => execute(stmt))) as Client["execute"];
+  if (typeof client.batch === "function") {
+    const batch = client.batch.bind(client);
+    client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
+      ready.then(() => batch(stmts, mode))) as Client["batch"];
+  }
   globalForDb.sqlite = client;
   globalForDb.sqliteUrl = url;
   return client;

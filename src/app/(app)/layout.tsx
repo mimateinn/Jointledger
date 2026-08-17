@@ -13,7 +13,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
   const lotSymbols = await listOpenLotSymbols(user).catch(() => []);
-  const tape = await refreshAndLoadTape(lotSymbols).catch(() => emptyTapeViews());
+  const tape = await refreshAndLoadTape(lotSymbols, { refresh: "background" }).catch(() =>
+    emptyTapeViews(),
+  );
 
   return (
     <AppChrome

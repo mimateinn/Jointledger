@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   IconAccount,
   IconEntry,
@@ -33,6 +34,18 @@ export function AppChrome({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  useEffect(() => {
+    for (const item of desktopNav) {
+      router.prefetch(item.href);
+    }
+  }, [router]);
 
   return (
     <div className="app-frame">
@@ -45,11 +58,19 @@ export function AppChrome({
               {desktopNav.map((item) => {
                 const Icon = icons[item.key];
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const pending = pendingHref === item.href && !active;
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className={active ? "nav-item nav-item-active" : "nav-item"}
+                      prefetch
+                      className={active || pending ? "nav-item nav-item-active" : "nav-item"}
+                      aria-busy={pending}
+                      onClick={() => {
+                        if (!active) {
+                          setPendingHref(item.href);
+                        }
+                      }}
                     >
                       <Icon />
                       <span>{item.label}</span>
@@ -69,8 +90,20 @@ export function AppChrome({
           {mobileNav.map((item) => {
             const Icon = icons[item.key];
             const active = pathname === item.href;
+            const pending = pendingHref === item.href && !active;
             return (
-              <Link key={item.href} href={item.href} className={active ? "active" : undefined}>
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch
+                className={active || pending ? "active" : undefined}
+                aria-busy={pending}
+                onClick={() => {
+                  if (!active) {
+                    setPendingHref(item.href);
+                  }
+                }}
+              >
                 <Icon />
                 <span>{item.label}</span>
               </Link>
