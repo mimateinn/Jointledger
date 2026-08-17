@@ -17,6 +17,7 @@
     "@serwist/next": "^9.2.1",
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.44.5",
+    "lightweight-charts": "^5.2.1",
     "next": "^15.5.2",
     "postgres": "^3.4.7",
     "react": "^19.1.1",
@@ -37,6 +38,10 @@
     "vitest": "^3.2.4"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "sharp", "unrs-resolver"]
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

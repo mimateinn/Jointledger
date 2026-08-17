@@ -6,6 +6,8 @@ M1 做到：自建登入、開空表、入金、加倉，以及總覽上的現�
 
 M2 做到：登入後頂欄行情跑馬燈、持倉按 Twelve Data 現價標記、NAV = 現金 + 已標記市值。
 
+M3 做到：由持倉或 11 格跑馬燈打開標的頁，用 TradingView Lightweight Charts 畫日線。預設只開 SMA20 + 成交量；其餘指標喺瀏覽器用已下載嘅 OHLCV 計。
+
 ## 本機（Docker Postgres）
 
 ```bash
@@ -38,12 +40,27 @@ pnpm dev
 
 行情只經自己嘅 Route Handler / server 讀 Postgres last-good。瀏覽器唔會打 twelvedata。開市最少 15 分鐘刷新一包（盤後／週末 60 分鐘），同一 `(td_symbol, exchange)` 喺 TTL 內單飛，唔會每頁、每人打上游。
 
+## K 線（M3）
+
+登入後可以咁開標的頁：
+
+1. 撳頂欄跑馬燈其中一格（SPY / QQQ / DIA / XAU/USD / HSI …），或
+2. 去「持倉」撳代碼（右邊會開同一張圖；代碼連結去完整標的頁）。
+
+預設圖：主圖 SMA20 + 成交量副圖。上面五組掣（均線／通道／動量／量能／波動）可再開 SMA50/200、EMA、VWMA、布林、Donchian、Keltner、Ichimoku、PSAR、Supertrend、RSI、MACD、Stoch、StochRSI、CCI、%R、MFI、OBV、ATR、ADX。無 VWAP / MOM / ROC / CMF。全部喺前端用當日已取嘅日線計，唔會再打 Twelve Data 指標接口。
+
+日線只經 `GET /api/ohlcv?symbol=`。Server 用同一把 `TWELVE_DATA_API_KEY` 打 Twelve Data 日線（`interval=1day`，`outputsize=300`），按 `(td_symbol, exchange, date)` 存 Postgres last-good。每個 symbol 每個 UTC 曆日最多一次上游；同 M2 共用 Basic 800/日額度。429／5xx／額度滿：有 last-good 就畫舊棒，否則空圖 + `—`。無 key、401、403、404、deny-list、未知代碼（例如未入表嘅 `0700.HK`）：空圖 + `—`，唔會用現價或成本砌假 K，亦唔會抄另一隻嘅軸。
+
+SPY / QQQ / DIA 頁畫嘅係 ETF 代理，並標「代理」。唔會查 `SPX` / `I:SPX` / `DJI` / `NDX` / `NI225`。
+
+無 key 一樣開到頁：現價同圖都係 `—`。
+
 ## 指令
 
 | 指令 | 作用 |
 | --- | --- |
 | `pnpm dev` | 開發伺服器 |
-| `pnpm test` | 現金不變式 + NAV 標記單元測試 |
+| `pnpm test` | 現金不變式、NAV 標記、SMA／RSI／MACD、空 key 唔造假 K、軸唔共用 |
 | `pnpm lint` | ESLint |
 | `pnpm db:migrate` | 套用 Drizzle migrations |
 | `pnpm build` | 生產建置（含 Serwist app-shell precache） |
@@ -80,9 +97,11 @@ NAV = cash_usd + 已標記市值
 - `src/db/drizzle-store.ts`：Postgres / Drizzle 實作 `LedgerStore`。金額欄位全部 `numeric`，運算用 `decimal.js`。
 - `src/app/actions/`：server actions 呼叫 domain 函數，唔複製寫入邏輯。
 - `GET /api/quotes`：已登入先讀得到；只回傳顯示用欄位，無 API key。
+- `GET /api/ohlcv`：已登入先讀得到；只回傳 `{time,open,high,low,close,volume}`，無 API key、無指標線。
+- `src/ohlcv/`：日線 cache 同 calendar-day single-flight。`src/indicators/`：純函數，無 fetch／env。
 - 登入：電郵或顯示名 + 密碼；argon2id；HttpOnly / SameSite=Lax cookie（生產加 Secure）。只有系統零用戶先可以註冊。
 - PWA：`@serwist/next` 只 precache app shell。寫入必須有網絡，無離線寫入隊列。
 
-## 範圍外（M2 不做）
+## 範圍外（M3 不做）
 
-K 線／指標、Sheet / xlsx 匯入、Modified Dietz、新聞、AI、關注名單、券商連接、Finnhub／Yahoo／未付費 Massive 行情、完整成員認領設密碼。
+Sheet / xlsx 匯入、Modified Dietz、新聞、AI、完整關注名單流程、券商連接、Finnhub／Yahoo／未付費 Massive 行情、完整成員認領設密碼。
