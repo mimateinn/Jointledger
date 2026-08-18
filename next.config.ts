@@ -9,6 +9,7 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
   experimental: {
     serverActions: {
       bodySizeLimit: "12mb",

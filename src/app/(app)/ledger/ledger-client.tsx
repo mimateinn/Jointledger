@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { formatMoney } from "@/lib/format";
+import { EmptyPanel } from "@/components/empty-panel";
+import { InstrumentLabel } from "@/components/instrument-label";
+import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd } from "@/lib/format";
 
 export function LedgerClient({
   cashFlows,
@@ -18,6 +20,7 @@ export function LedgerClient({
   trades: {
     id: string;
     symbol: string;
+    name: string | null;
     quantity: string;
     price: string;
     occurredOn: string;
@@ -28,7 +31,7 @@ export function LedgerClient({
 
   return (
     <div className="stack">
-      <h1 className="display">流水</h1>
+      <h1 className="title">流水</h1>
       <div className="tabs">
         <button
           type="button"
@@ -45,6 +48,9 @@ export function LedgerClient({
           買賣
         </button>
       </div>
+      {cashFlows.length === 0 && trades.length === 0 ? (
+        <EmptyPanel sentence="未有出入金或買賣。" actionLabel="記一筆" />
+      ) : (
       <section className="card">
         {tab === "cash" ? (
           cashFlows.length === 0 ? (
@@ -63,11 +69,11 @@ export function LedgerClient({
               <tbody>
                 {cashFlows.map((row) => (
                   <tr key={row.id}>
-                    <td>{row.occurredOn}</td>
+                    <td>{formatRelativeDate(row.occurredOn)}</td>
                     <td>{row.memberName}</td>
-                    <td className="tabular">{formatMoney(row.amountHkd)}</td>
+                    <td className="tabular">{formatHkd(row.amountHkd)}</td>
                     <td className="tabular">{formatMoney(row.fxRate, 4)}</td>
-                    <td className="tabular">{formatMoney(row.amountUsd)}</td>
+                    <td className="tabular">{formatUsd(row.amountUsd)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -80,7 +86,7 @@ export function LedgerClient({
             <thead>
               <tr>
                 <th>日期</th>
-                <th>代碼</th>
+                <th>標的</th>
                 <th>數量</th>
                 <th>價格</th>
                 <th>備註</th>
@@ -89,10 +95,12 @@ export function LedgerClient({
             <tbody>
               {trades.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.occurredOn}</td>
-                  <td>{row.symbol}</td>
-                  <td className="tabular">{formatMoney(row.quantity, 4)}</td>
-                  <td className="tabular">{formatMoney(row.price)}</td>
+                    <td>{formatRelativeDate(row.occurredOn)}</td>
+                    <td>
+                      <InstrumentLabel ticker={row.symbol} name={row.name} />
+                    </td>
+                    <td className="tabular">{formatQty(row.quantity)}</td>
+                    <td className="tabular">{formatUsd(row.price)}</td>
                   <td className="muted">{row.note ?? "—"}</td>
                 </tr>
               ))}
@@ -100,6 +108,7 @@ export function LedgerClient({
           </table>
         )}
       </section>
+      )}
     </div>
   );
 }

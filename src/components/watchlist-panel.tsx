@@ -1,6 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
+import Link from "next/link";
+import { FailurePanel } from "./failure-panel";
+import { InstrumentLabel } from "./instrument-label";
 import {
   addWatchAction,
   muteWatchAction,
@@ -19,6 +22,7 @@ export type WatchRow = {
   marketLabel: string;
   lastDisplay: string | null;
   percentChange: string | null;
+  name: string | null;
 };
 
 const initial: WatchState = {};
@@ -50,18 +54,14 @@ function changeClass(change: string | null): string | undefined {
   return "muted";
 }
 
-export function WatchlistPanel({
-  items,
-  delayLabel,
-}: {
-  items: WatchRow[];
-  delayLabel: string;
-}) {
+export function WatchlistPanel({ items }: { items: WatchRow[] }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WatchSearchHit[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
   const [news, setNews] = useState<Record<string, { headline: string; source?: string; url?: string }[]>>({});
   const [newsVia, setNewsVia] = useState<"finnhub" | "rss" | null>(null);
+  const [newsFailed, setNewsFailed] = useState(false);
+  const [newsReload, setNewsReload] = useState(0);
   const [pendingSearch, startSearch] = useTransition();
   const [addState, addAction, addPending] = useActionState(addWatchAction, initial);
   const [, removeAction, removePending] = useActionState(removeWatchAction, initial);
@@ -87,43 +87,56 @@ export function WatchlistPanel({
       return;
     }
     let cancelled = false;
+    setNewsFailed(false);
     fetch(`/api/news?symbols=${encodeURIComponent(symbols)}`)
-      .then((res) => (res.ok ? res.json() : { items: {} }))
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("news");
+        }
+        return res.json();
+      })
       .then((body: { items?: Record<string, { headline: string; source?: string; url?: string }[]>; via?: "finnhub" | "rss" }) => {
         if (!cancelled) {
           setNews(body.items ?? {});
           setNewsVia(body.via ?? null);
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) {
+          setNewsFailed(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [items]);
+  }, [items, newsReload]);
 
   const visible = items.filter((row) => filter === "all" || row.market === filter);
 
   return (
     <section className="card stack">
-      <div className="row">
-        <div className="meta muted">
-          {items.length} / {WATCH_CAP}
+      {items.length > 0 ? (
+        <div className="row">
+          <div className="meta muted">
+            {items.length} / {WATCH_CAP}
+          </div>
+          {newsVia === "rss" ? <div className="chip">公開新聞</div> : null}
         </div>
-        <div className="chip chip-delay">{delayLabel}</div>
-        {newsVia === "rss" ? <div className="chip">公開新聞</div> : null}
-      </div>
-      <div className="chip-row">
-        {FILTERS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={filter === item.key ? "chip chip-active" : "chip"}
-            onClick={() => setFilter(item.key)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+      ) : null}
+      {items.length > 0 ? (
+        <div className="chip-row">
+          {FILTERS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={filter === item.key ? "chip chip-active" : "chip"}
+              onClick={() => setFilter(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <form className="form-grid" action={addAction}>
         <div className="field">
           <label htmlFor="symbol">顯示碼</label>
@@ -146,7 +159,7 @@ export function WatchlistPanel({
               {pendingSearch ? <span className="muted"> · …</span> : null}
             </div>
             <button className="btn btn-secondary" type="submit" disabled={addPending}>
-              +關注
+              {addPending ? "儲存中" : "+關注"}
             </button>
           </div>
         ) : query.trim() ? (
@@ -155,13 +168,24 @@ export function WatchlistPanel({
         {addState.error ? <p className="alert">{addState.error}</p> : null}
         {addState.ok ? <p className="ok">{addState.ok}</p> : null}
       </form>
-      {visible.length === 0 ? (
-        <p className="empty">未有關注。持股唔會自動加入。</p>
+      {items.length === 0 ? (
+        <p className="body">
+          未有關注，加入代碼或先去加持倉。{" "}
+          <Link href="/entry" prefetch className="btn btn-primary">
+            加持倉
+          </Link>
+        </p>
+      ) : null}
+      {newsFailed ? (
+        <FailurePanel sentence="新聞暫時載唔到，唔好緊，再試一次就得。" onRetry={() => setNewsReload((n) => n + 1)} />
+      ) : null}
+      {items.length === 0 ? null : visible.length === 0 ? (
+        <p className="empty">呢個市場未有關注。</p>
       ) : (
         <table className="table">
           <thead>
             <tr>
-              <th>代碼</th>
+              <th>標的</th>
               <th>市場</th>
               <th>現價</th>
               <th>今日</th>
@@ -175,9 +199,11 @@ export function WatchlistPanel({
               const item = news[row.displayCode]?.[0];
               return (
               <tr key={row.id}>
-                <td>{row.displayCode}</td>
+                <td>
+                  <InstrumentLabel ticker={row.displayCode} name={row.name} />
+                </td>
                 <td>{row.marketLabel}</td>
-                <td className="tabular">{row.lastDisplay ?? "—"}</td>
+                <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
                 <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
                   {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
                 </td>

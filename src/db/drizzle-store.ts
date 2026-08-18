@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { LedgerStore } from "@/ledger";
 import type {
   AllocationLeg,
@@ -207,6 +207,27 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
       }
       await db.delete(trades).where(eq(trades.bookId, bookId));
       await db.delete(cashFlows).where(eq(cashFlows.bookId, bookId));
+    },
+    async deleteAllocations(ids: string[]) {
+      if (ids.length === 0) {
+        return;
+      }
+      await db.delete(tradeAllocations).where(inArray(tradeAllocations.id, ids));
+    },
+    async deleteTradesIfUnused(bookId: string, tradeIds: string[]) {
+      if (tradeIds.length === 0) {
+        return;
+      }
+      const leftover = await db
+        .select({ tradeId: tradeAllocations.tradeId })
+        .from(tradeAllocations)
+        .where(inArray(tradeAllocations.tradeId, tradeIds));
+      const stillUsed = new Set(leftover.map((row) => row.tradeId));
+      const unused = tradeIds.filter((id) => !stillUsed.has(id));
+      if (unused.length === 0) {
+        return;
+      }
+      await db.delete(trades).where(and(eq(trades.bookId, bookId), inArray(trades.id, unused)));
     },
   };
 }

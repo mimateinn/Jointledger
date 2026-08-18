@@ -36,7 +36,7 @@ export function FirstUseForm() {
             </div>
             <p className="meta muted">買賣貨幣 USD · 入金貨幣 HKD</p>
             {state.error ? <p className="alert">{state.error}</p> : null}
-            <SubmitButton className="btn btn-ghost" pendingLabel="開緊…">
+            <SubmitButton className="btn btn-primary" pendingLabel="儲存中">
               開新表
             </SubmitButton>
           </form>

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
 export type TapeItem = {
   display: string;
   name: string | null;
@@ -35,15 +34,11 @@ function TapeCell({ item }: { item: TapeItem }) {
       {item.name ? <span className="tape-name">{item.name}</span> : null}
       {item.isEtfProxy ? <span className="tape-proxy">代理</span> : null}
       <span className="tape-last tabular">{item.last ?? "—"}</span>
-      {item.last ? (
-        <span className={`tape-chg tabular ${changeClass(item.percentChange)}`}>
-          {item.percentChange ?? "—"}
+      {item.last && item.percentChange ? (
+        <span className={`chip tape-chg tabular ${changeClass(item.percentChange)}`}>
+          {item.percentChange}
         </span>
-      ) : item.planLimited ? (
-        <span className="tape-proxy">延遲／升級</span>
-      ) : (
-        <span className="muted">—</span>
-      )}
+      ) : null}
     </Link>
   );
 }
@@ -58,6 +53,8 @@ export function TickerTape({
   delayLabel: string;
 }) {
   const [tape, setTape] = useState({ items, fx, delayLabel });
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setTape({ items, fx, delayLabel });
@@ -65,8 +62,14 @@ export function TickerTape({
 
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     void fetch("/api/quotes")
-      .then((res) => (res.ok ? res.json() : null))
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("quotes");
+        }
+        return res.json();
+      })
       .then((data: { items?: TapeItem[]; fx?: TapeItem | null; delayLabel?: string } | null) => {
         if (!cancelled && data?.items) {
           setTape({
@@ -76,15 +79,26 @@ export function TickerTape({
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) {
+          setFailed(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [delayLabel]);
+  }, [delayLabel, reloadKey]);
 
-  const loop = [...tape.items, ...tape.items];
+  const lead = tape.items[0];
+  const rest = tape.items.slice(1);
+  const loop = [...rest, ...rest];
   return (
     <div className="tape" aria-label="市場行情">
+      {lead ? (
+        <div className="tape-lead">
+          <TapeCell item={lead} />
+        </div>
+      ) : null}
       <div className="tape-viewport">
         <div className="tape-track">
           {loop.map((item, index) => (
@@ -99,9 +113,15 @@ export function TickerTape({
             <span className="tabular">{tape.fx.last ?? "—"}</span>
           </Link>
         ) : null}
-        <span className="chip chip-delay" title={tape.fx?.lastUpdateLabel ?? undefined}>
-          {tape.delayLabel}
-        </span>
+        {failed ? (
+          <button type="button" className="btn btn-ghost" onClick={() => setReloadKey((n) => n + 1)}>
+            行情暫時載唔到，再試
+          </button>
+        ) : (
+          <span className="chip chip-delay" title={tape.fx?.lastUpdateLabel ?? undefined}>
+            {tape.delayLabel}
+          </span>
+        )}
       </div>
     </div>
   );

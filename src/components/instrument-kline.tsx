@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { todayChangeLabel } from "@/lib/format";
 import { defaultActiveIds, type Bar } from "@/indicators";
-import { DelayBadge } from "./delay-badge";
+import { FailurePanel } from "./failure-panel";
 import { IndicatorPicker } from "./indicator-picker";
+import { InstrumentLabel } from "./instrument-label";
 import { KlineChart } from "./kline-chart";
 
 type OhlcvResponse = {
@@ -31,12 +33,11 @@ export function InstrumentKline({
   name,
   last,
   percentChange,
-  delayLabel,
-  lastUpdateLabel,
   isEtfProxy,
   planLimited,
   tags = [],
   showHeader = true,
+  containInShell = false,
 }: {
   display: string;
   name?: string | null;
@@ -48,15 +49,25 @@ export function InstrumentKline({
   planLimited: boolean;
   tags?: string[];
   showHeader?: boolean;
+  containInShell?: boolean;
 }) {
   const [bars, setBars] = useState<Bar[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [active, setActive] = useState<Set<string>>(() => defaultActiveIds());
+  const [enlarged, setEnlarged] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setBars(null);
+    setFailed(false);
     fetch(`/api/ohlcv?symbol=${encodeURIComponent(display)}`, { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { bars: [] }))
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("ohlcv");
+        }
+        return res.json();
+      })
       .then((body: OhlcvResponse) => {
         if (!cancelled) {
           setBars(Array.isArray(body.bars) ? body.bars : []);
@@ -64,13 +75,14 @@ export function InstrumentKline({
       })
       .catch(() => {
         if (!cancelled) {
+          setFailed(true);
           setBars([]);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [display]);
+  }, [display, reloadKey]);
 
   const onToggle = useCallback((id: string) => {
     setActive((prev) => {
@@ -84,41 +96,105 @@ export function InstrumentKline({
     });
   }, []);
 
-  const loaded = bars !== null;
+  const loaded = bars !== null && !failed;
   const chartBars = useMemo(() => bars ?? [], [bars]);
+  const noBars = loaded && chartBars.length === 0;
+  const canChart = loaded && !noBars && !failed;
+
+  useEffect(() => {
+    if (!enlarged) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setEnlarged(false);
+      }
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [enlarged]);
+
+  const toggleSize = useCallback(() => {
+    setEnlarged((value) => !value);
+  }, []);
+
+  const today = todayChangeLabel(last, percentChange);
+  const stageClass = enlarged
+    ? containInShell
+      ? "card stack instrument-kline kline-stage-shell"
+      : "card stack instrument-kline kline-stage-open"
+    : "card stack instrument-kline";
 
   return (
-    <section className="card stack instrument-kline">
+    <section className={stageClass}>
       {showHeader ? (
         <div className="instrument-quote">
-          <div className="page-head">
-            <div>
-              <h2 className="display">{display}</h2>
-              {name ? <p className="muted">{name}</p> : null}
-              {tags.length > 0 || isEtfProxy ? (
-                <div className="chip-row">
-                  {tags.map((tag) => (
-                    <span key={tag} className="chip">
-                      {tag}
-                    </span>
-                  ))}
-                  {isEtfProxy ? <span className="chip">代理</span> : null}
-                </div>
-              ) : null}
+          <p className="meta muted">
+            <InstrumentLabel ticker={display} name={name} />
+            {isEtfProxy ? " · 代理" : ""}
+            {planLimited ? " · 延遲／升級" : ""}
+          </p>
+          <div className="instrument-last">
+            <div className="display tabular">{last ?? "未有報價"}</div>
+            <div className={last ? changeClass(percentChange) : "muted"}>
+              <span className="meta muted">今日</span> {today}
             </div>
-            {last ? <DelayBadge label={delayLabel} lastUpdate={lastUpdateLabel} /> : planLimited ? (
-              <span className="chip chip-delay">延遲／升級</span>
-            ) : null}
           </div>
-          <div className="display tabular">{last ?? "—"}</div>
-          <div className={changeClass(last ? percentChange : null)}>{last ? (percentChange ?? "—") : "—"}</div>
+          {tags.length > 0 ? (
+            <div className="chip-row">
+              {tags.map((tag) => (
+                <span key={tag} className="chip">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
-      <IndicatorPicker active={active} onToggle={onToggle} />
-      {!loaded ? <div className="kline-empty muted">載入日線…</div> : <KlineChart bars={chartBars} active={active} />}
-      <p className="muted">
-        指數／商品／幣／匯都當 Instrument：K 線。無加倉、減倉、入金。呢啲唔係投資建議，只係整理帳簿同公開資料。
-      </p>
+      {canChart ? (
+        <div className="kline-toolbar">
+          <button type="button" className="btn btn-ghost" onClick={toggleSize}>
+            {enlarged ? "還原" : "放大"}
+          </button>
+        </div>
+      ) : null}
+      <div
+        className={
+          enlarged
+            ? "kline-frame kline-frame-open"
+            : noBars || failed
+              ? "kline-frame kline-frame-empty"
+              : "kline-frame"
+        }
+        onClick={canChart && !enlarged ? toggleSize : undefined}
+        role={canChart && !enlarged ? "button" : undefined}
+        tabIndex={canChart && !enlarged ? 0 : undefined}
+        aria-label={enlarged ? "陰陽燭" : canChart ? "放大陰陽燭" : "日線"}
+        onKeyDown={
+          canChart && !enlarged
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  toggleSize();
+                }
+              }
+            : undefined
+        }
+      >
+        {failed ? (
+          <FailurePanel sentence="日線暫時載唔到，唔好緊，再試一次就得。" onRetry={() => setReloadKey((n) => n + 1)} />
+        ) : !loaded ? (
+          <div className="skeleton skeleton-kline" aria-hidden="true" />
+        ) : (
+          <KlineChart bars={chartBars} active={active} expanded={enlarged} />
+        )}
+      </div>
+      {canChart ? <IndicatorPicker active={active} onToggle={onToggle} /> : null}
     </section>
   );
 }

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createBook } from "@/ledger/create-book";
 import { createCashFlow } from "@/ledger/create-cash-flow";
 import { createTrade } from "@/ledger/create-trade";
+import { deleteLot } from "@/ledger/delete-lot";
 import { openLotsFromTrades, summarizeLedger } from "@/ledger/summary";
 import { resetDbClients } from "./client";
 import { createDrizzleStore } from "./drizzle-store";
@@ -98,5 +99,43 @@ describe("cash invariant on sqlite", () => {
     expect(afterBuy.partial).toBe(true);
     expect(afterBuy.navUsd.toFixed(2)).not.toBe("1000.00");
     expect(afterBuy.navUsd.toFixed(2)).not.toBe("1500.00");
+  });
+
+  it("deleting a buy lot restores cash to 1000", async () => {
+    const store = createDrizzleStore();
+    const { book, member, account } = await createBook(store, {
+      name: "測試簿",
+      createdByUserId: "user-demo",
+      creatorDisplayName: "小明",
+      creatorEmail: "demo@example.com",
+    });
+
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: member.id,
+      ledgerAccountId: account.id,
+      amountHkd: "1000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+
+    const { trade } = await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "50",
+      occurredOn: "2024-01-02",
+    });
+
+    const afterBuy = await snapshot(store, book.id);
+    expect(afterBuy.cashUsd.toFixed(2)).toBe("500.00");
+
+    await deleteLot(store, { bookId: book.id, tradeId: trade.id, memberId: member.id });
+    const afterDelete = await snapshot(store, book.id);
+    expect(afterDelete.cashUsd.toFixed(2)).toBe("1000.00");
+    expect(afterDelete.navUsd.toFixed(2)).toBe("1000.00");
+    expect((await store.listTrades(book.id)).length).toBe(0);
   });
 });

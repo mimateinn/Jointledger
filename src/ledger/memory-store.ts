@@ -135,5 +135,24 @@ export function createMemoryStore(): LedgerStore & {
         }
       }
     },
+    async deleteAllocations(ids: string[]) {
+      const remove = new Set(ids);
+      for (let i = allocations.length - 1; i >= 0; i -= 1) {
+        if (remove.has(allocations[i].id)) {
+          allocations.splice(i, 1);
+        }
+      }
+    },
+    async deleteTradesIfUnused(bookId: string, tradeIds: string[]) {
+      const unused = new Set(tradeIds);
+      for (const row of allocations) {
+        unused.delete(row.tradeId);
+      }
+      for (let i = trades.length - 1; i >= 0; i -= 1) {
+        if (trades[i].bookId === bookId && unused.has(trades[i].id)) {
+          trades.splice(i, 1);
+        }
+      }
+    },
   };
 }

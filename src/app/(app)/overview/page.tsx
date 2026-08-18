@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { loadBookView } from "@/lib/book-view";
-import { DELAY_15 } from "@/quotes";
+import { ensureCurrentBook } from "@/lib/ensure-book";
+import { formatAsOfClock } from "@/lib/format";
+import { resolveInstrument } from "@/quotes";
 import { OverviewClient } from "./overview-client";
 
 export const dynamic = "force-dynamic";
@@ -12,13 +14,11 @@ export default async function OverviewPage() {
   if (!user) {
     redirect("/login");
   }
+  await ensureCurrentBook(user);
   const view = await loadBookView(user);
   if (!view) {
     redirect("/first-use");
   }
-
-  const anyPrice = view.lots.some((lot) => lot.lastDisplay);
-  const delayLabel = anyPrice ? DELAY_15 : view.lots.some((lot) => lot.planLimited) ? "延遲／升級" : DELAY_15;
 
   return (
     <OverviewClient
@@ -31,6 +31,8 @@ export default async function OverviewPage() {
         kind: a.kind,
       }))}
       all={view.all}
+      joint={view.joint}
+      asOfLabel={formatAsOfClock()}
       byMember={view.byMember.map((row) => ({
         memberId: row.member.id,
         displayName: row.member.displayName,
@@ -43,13 +45,13 @@ export default async function OverviewPage() {
         memberId: lot.memberId,
         ledgerAccountId: lot.ledgerAccountId,
         symbol: lot.symbol,
+        name: view.quoteViews[lot.symbol]?.name ?? resolveInstrument(lot.symbol)?.displayName ?? null,
         quantity: lot.quantity,
         costUsd: lot.costUsd,
         lastDisplay: lot.lastDisplay,
         percentChange: lot.percentChange,
         marketValueUsd: lot.marketValueUsd,
       }))}
-      delayLabel={delayLabel}
     />
   );
 }

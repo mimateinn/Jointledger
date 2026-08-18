@@ -18,10 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   );
 
   return (
-    <AppChrome
-      displayName={user.displayName}
-      tape={<TickerTape items={tape.items} fx={tape.fx} delayLabel={tape.delayLabel} />}
-    >
+    <AppChrome tape={<TickerTape items={tape.items} fx={tape.fx} delayLabel={tape.delayLabel} />}>
       {children}
     </AppChrome>
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatMoney } from "@/lib/format";
+import { EmptyPanel } from "@/components/empty-panel";
+import { formatMoney, formatSignedUsd } from "@/lib/format";
 import { formatDietzPercent, type MemberReturn, type PeriodKey, type ReturnsReport } from "@/returns/report";
 
 const PERIODS: { key: PeriodKey; label: string }[] = [
@@ -14,15 +15,7 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
 const COLORS = ["var(--up)", "var(--text)", "var(--muted)", "var(--ink)"];
 
 function signedMoney(value: string): string {
-  const n = Number(value);
-  const body = formatMoney(value);
-  if (n > 0) {
-    return `+US$ ${body}`;
-  }
-  if (n < 0) {
-    return `-US$ ${body.replace("-", "")}`;
-  }
-  return `US$ ${body}`;
+  return formatSignedUsd(value);
 }
 
 function memberColor(index: number): string {
@@ -42,7 +35,7 @@ export function ReturnsClient({
   return (
     <div className="stack">
       <div className="page-head">
-        <h1 className="display">收益率</h1>
+        <h1 className="title">收益率</h1>
         <div className="submit-row">
           {!emptyBook ? (
             <button
@@ -53,16 +46,22 @@ export function ReturnsClient({
               對本金{showPrincipal ? " ×" : ""}
             </button>
           ) : null}
-          <button
-            type="button"
-            className={showOld ? "chip chip-active" : "chip"}
-            onClick={() => setShowOld((value) => !value)}
-          >
-            舊表對照 · 可關
-          </button>
+          {!emptyBook ? (
+            <button
+              type="button"
+              className={showOld ? "chip chip-active" : "chip"}
+              onClick={() => setShowOld((value) => !value)}
+            >
+              舊表對照 · 可關
+            </button>
+          ) : null}
         </div>
       </div>
 
+      {emptyBook ? (
+        <EmptyPanel sentence="未有流水，收益率暫時無得計。" actionLabel="記一筆" />
+      ) : (
+      <>
       <form className="chip-row" method="get">
         {PERIODS.map((item) => (
           <button
@@ -169,6 +168,8 @@ export function ReturnsClient({
       <p className="footer-note">
         平均資本≈0 或缺期初價：% 顯示 —，圖改畫 $ 或標「不足」。空白新表唔顯示「對本金」。
       </p>
+      </>
+      )}
     </div>
   );
 }

@@ -22,6 +22,10 @@ export const metadata: Metadata = {
     template: "%s · 聯倉",
   },
   description: "多人股票記帳。純粹記帳，不連接券商。",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

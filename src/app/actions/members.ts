@@ -2,13 +2,15 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { hashPassword } from "@/auth/password";
 import { inviteExpiry, mintInviteSecret } from "@/auth/invite";
-import { requireUser } from "@/auth/session";
+import { destroySession, requireUser } from "@/auth/session";
 import { getDb } from "@/db/client";
 import { createDrizzleStore } from "@/db/drizzle-store";
 import { members } from "@/db/tables";
 import { addMember } from "@/ledger";
+import { deleteMemberCascade } from "@/ledger/delete-member";
 import { getCurrentMembership } from "@/lib/current-book";
 
 export type MemberState = {
@@ -95,4 +97,42 @@ export async function issueInviteAction(
   } catch (error) {
     return { error: error instanceof Error ? error.message : "發邀請失敗" };
   }
+}
+
+export async function deleteMemberAction(
+  _prev: MemberState,
+  formData: FormData,
+): Promise<MemberState> {
+  const loaded = await requireBook();
+  if ("error" in loaded) {
+    return { error: loaded.error };
+  }
+  const memberId = String(formData.get("memberId") ?? "");
+  const typed = String(formData.get("confirmName") ?? "").trim();
+  const target = loaded.ctx.members.find((row) => row.id === memberId);
+  if (!target) {
+    return { error: "搵唔到呢個成員" };
+  }
+  if (typed !== target.displayName) {
+    return { error: "要打齊顯示名先刪得" };
+  }
+  let result;
+  try {
+    result = await deleteMemberCascade({
+      bookId: loaded.ctx.book.id,
+      memberId: target.id,
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "刪成員失敗" };
+  }
+  if (result.deletedUserId === loaded.user.id) {
+    await destroySession();
+    redirect("/login");
+  }
+  revalidatePath("/account");
+  revalidatePath("/overview");
+  revalidatePath("/entry");
+  revalidatePath("/holdings");
+  revalidatePath("/ledger");
+  return { ok: "已刪成員" };
 }

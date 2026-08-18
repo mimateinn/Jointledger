@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/auth/session";
 import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
-import { createCashFlow, createTrade } from "@/ledger";
+import { createCashFlow, createTrade, deleteLot } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
+import { humanFormError } from "@/lib/human-error";
 
 export type EntryState = { error?: string; ok?: string };
 
@@ -37,12 +38,11 @@ export async function createDepositAction(
       occurredOn: String(formData.get("occurredOn") ?? ""),
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "入金失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : "入金失敗") };
   }
 
   revalidatePath("/overview");
   revalidatePath("/ledger");
-  revalidatePath("/entry");
   return { ok: "已記入入金" };
 }
 
@@ -77,12 +77,43 @@ export async function createBuyAction(
       }),
     );
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "記帳失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : "記帳失敗") };
   }
 
   revalidatePath("/overview");
   revalidatePath("/holdings");
   revalidatePath("/ledger");
-  revalidatePath("/entry");
   return { ok: "已記入加倉" };
+}
+
+export async function deleteHoldingAction(
+  _prev: EntryState,
+  formData: FormData,
+): Promise<EntryState> {
+  const user = await requireUser();
+  const ctx = await getCurrentMembership(user);
+  if (!ctx) {
+    return { error: "未有記帳表" };
+  }
+  const confirmed = String(formData.get("confirm") ?? "") === "1";
+  if (!confirmed) {
+    return { error: "要確認先刪" };
+  }
+  try {
+    await withLedgerTransaction((store) =>
+      deleteLot(store, {
+        bookId: ctx.book.id,
+        tradeId: String(formData.get("tradeId") ?? ""),
+        memberId: String(formData.get("memberId") ?? ""),
+      }),
+    );
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "刪持倉失敗" };
+  }
+  revalidatePath("/overview");
+  revalidatePath("/holdings");
+  revalidatePath("/ledger");
+  revalidatePath("/returns");
+  revalidatePath("/entry");
+  return { ok: "已刪持倉" };
 }

@@ -12,8 +12,7 @@ import {
   IconOverview,
   IconReturns,
 } from "./icons";
-import { desktopNav, mobileNav } from "./nav-config";
-import { ThemeToggle } from "./theme-toggle";
+import { desktopNav, isNavActive, mobileNav } from "./nav-config";
 
 const icons = {
   overview: IconOverview,
@@ -25,11 +24,9 @@ const icons = {
 };
 
 export function AppChrome({
-  displayName,
   tape,
   children,
 }: {
-  displayName: string;
   tape?: ReactNode;
   children: ReactNode;
 }) {
@@ -57,7 +54,7 @@ export function AppChrome({
             <ul className="nav-list">
               {desktopNav.map((item) => {
                 const Icon = icons[item.key];
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const active = isNavActive(pathname, item.href);
                 const pending = pendingHref === item.href && !active;
                 return (
                   <li key={item.href}>
@@ -65,6 +62,7 @@ export function AppChrome({
                       href={item.href}
                       prefetch
                       className={active || pending ? "nav-item nav-item-active" : "nav-item"}
+                      aria-current={active ? "page" : undefined}
                       aria-busy={pending}
                       onClick={() => {
                         if (!active) {
@@ -80,16 +78,12 @@ export function AppChrome({
               })}
             </ul>
           </nav>
-          <div className="sidebar-footer">
-            <ThemeToggle />
-            <div className="body">{displayName}</div>
-          </div>
         </aside>
         <main className="main">{children}</main>
         <nav className="mobile-bar" aria-label="手機導覽">
           {mobileNav.map((item) => {
             const Icon = icons[item.key];
-            const active = pathname === item.href;
+            const active = isNavActive(pathname, item.href);
             const pending = pendingHref === item.href && !active;
             return (
               <Link
@@ -97,6 +91,7 @@ export function AppChrome({
                 href={item.href}
                 prefetch
                 className={active || pending ? "active" : undefined}
+                aria-current={active ? "page" : undefined}
                 aria-busy={pending}
                 onClick={() => {
                   if (!active) {

@@ -4,7 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { createBuyAction, createDepositAction, type EntryState } from "@/app/actions/entry";
 import { SubmitButton } from "@/components/submit-button";
 import { deriveAmountUsd } from "@/ledger/create-cash-flow";
-import { formatMoney } from "@/lib/format";
+import { formatUsd } from "@/lib/format";
 
 const initial: EntryState = {};
 const TABS = ["入金", "買入", "賣出", "出金"] as const;
@@ -35,7 +35,7 @@ export function EntryForm({
   const usd = useMemo(() => {
     try {
       if (!hkd || !fx) return "";
-      return formatMoney(deriveAmountUsd(hkd, fx));
+      return formatUsd(deriveAmountUsd(hkd, fx));
     } catch {
       return "";
     }
@@ -43,7 +43,14 @@ export function EntryForm({
 
   return (
     <div className="stack">
-      <h1 className="display">記一筆</h1>
+      <h1 className="title">記一筆</h1>
+      {depositState.ok || buyState.ok ? (
+        <p className="ok" role="status">
+          {depositState.ok ?? buyState.ok}
+        </p>
+      ) : (
+        <p className="muted">空表都可以用。可以先入金，或者直接加持倉。</p>
+      )}
 
       <div className="tabs-line">
         {TABS.map((item) => (
@@ -61,7 +68,7 @@ export function EntryForm({
       {tab === "入金" ? (
         <form key="deposit" className="card form-grid" action={depositAction}>
           <div className="field">
-            <label htmlFor="memberId">記落邊個人</label>
+            <label htmlFor="memberId">邊個倉</label>
             <select className="select" id="memberId" name="memberId" defaultValue={defaultMemberId}>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
@@ -110,7 +117,7 @@ export function EntryForm({
           {depositState.error ? <p className="alert">{depositState.error}</p> : null}
           {depositState.ok ? <p className="ok">{depositState.ok}</p> : null}
           <div className="submit-row">
-            <SubmitButton pendingLabel="記入緊…">記入</SubmitButton>
+            <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
             <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
           </div>
         </form>
@@ -119,7 +126,7 @@ export function EntryForm({
       {tab === "買入" ? (
         <form key="buy" className="card form-grid" action={buyAction}>
           <div className="field">
-            <label htmlFor="ledgerAccountId">記落邊個人</label>
+            <label htmlFor="ledgerAccountId">邊個倉</label>
             <select
               className="select"
               id="ledgerAccountId"
@@ -186,7 +193,7 @@ export function EntryForm({
           {buyState.error ? <p className="alert">{buyState.error}</p> : null}
           {buyState.ok ? <p className="ok">{buyState.ok}</p> : null}
           <div className="submit-row">
-            <SubmitButton pendingLabel="記入緊…">記入</SubmitButton>
+            <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
             <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
           </div>
         </form>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { getCurrentMembership } from "@/lib/current-book";
+import { ensureCurrentBook } from "@/lib/ensure-book";
 import { todayIso } from "@/lib/format";
 import { EntryForm } from "./entry-form";
 
@@ -12,6 +13,7 @@ export default async function EntryPage() {
   if (!user) {
     redirect("/login");
   }
+  await ensureCurrentBook(user);
   const ctx = await getCurrentMembership(user);
   if (!ctx) {
     redirect("/first-use");
