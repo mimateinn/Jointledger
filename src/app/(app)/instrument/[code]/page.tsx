@@ -48,6 +48,7 @@ export default async function InstrumentPage({ params }: { params: Promise<{ cod
         isEtfProxy={item.isEtfProxy}
         planLimited={item.planLimited}
         tags={instrument ? instrumentTags(instrument) : []}
+        containInShell
       />
     </div>
   );

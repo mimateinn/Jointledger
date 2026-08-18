@@ -9,7 +9,8 @@ describe("product copy", () => {
     const kline = readFileSync("src/components/instrument-kline.tsx", "utf8");
     expect(overview).toContain("資產淨值");
     expect(overview).toContain("可用資金");
-    expect(overview).toContain("暫時用買入價，未有市場價");
+    expect(overview).toContain("todayChangeLabel");
+    expect(overview).not.toContain('percentChange ?? "—"');
     expect(holdings).toContain("暫時用買入價，未有市場價");
     expect(watch).toContain("未有報價");
     expect(kline).toContain("未有報價");
@@ -132,7 +133,11 @@ describe("product copy", () => {
     expect(watch).not.toContain("chip-delay");
     expect(kline).not.toContain("都當 Instrument");
     expect(kline).toContain("instrument-last");
+    expect(kline).toContain("今日");
+    expect(kline).toContain("todayChangeLabel");
     expect(kline).not.toContain("DelayBadge");
+    expect(readFileSync("src/app/(app)/instrument/[code]/page.tsx", "utf8")).toContain("containInShell");
+    expect(readFileSync("src/app/(app)/layout.tsx", "utf8")).toContain("AppChrome");
     expect(kline).toContain("canChart ? <IndicatorPicker");
     expect(readFileSync("src/components/kline-chart.tsx", "utf8")).toContain("這檔還沒有可畫的區間");
     expect(readFileSync("next.config.ts", "utf8")).toContain("devIndicators: false");

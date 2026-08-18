@@ -80,6 +80,19 @@ export function formatRelativeDate(iso: string, now = new Date()): string {
   return day;
 }
 
+export const NO_MARKET_PRICE = "暫時用買入價，未有市場價";
+
+/** 今日: % when there is a last price (0.00% if the move is zero); else buy-price sentence. */
+export function todayChangeLabel(last: string | null | undefined, percentChange: string | null | undefined): string {
+  if (!last) {
+    return NO_MARKET_PRICE;
+  }
+  if (!percentChange || percentChange === "—") {
+    return "0.00%";
+  }
+  return percentChange;
+}
+
 /** Clock next to NAV, e.g. 截至 21:04 */
 export function formatAsOfClock(now = new Date()): string {
   const clock = new Intl.DateTimeFormat("zh-Hant", {

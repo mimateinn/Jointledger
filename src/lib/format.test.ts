@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { CANON_SCHEDULES, normalizeScheduleLegs } from "@/import/canon";
-import { formatAsOfClock, formatQty, formatRelativeDate, formatSchedulePercent, formatUsd, todayIso } from "./format";
+import {
+  formatAsOfClock,
+  formatQty,
+  formatRelativeDate,
+  formatSchedulePercent,
+  formatUsd,
+  todayChangeLabel,
+  todayIso,
+} from "./format";
 
 describe("formatSchedulePercent", () => {
   it("multiplies stored unit fractions by 100; does not treat 0.49 as 0.5%", () => {
@@ -35,6 +43,20 @@ describe("formatRelativeDate", () => {
     expect(formatRelativeDate("2026-08-17", now)).toBe("今天");
     expect(formatRelativeDate("2026-08-16", now)).toBe("昨天");
     expect(formatRelativeDate("2026-08-01", now)).toBe("2026-08-01");
+  });
+});
+
+describe("todayChangeLabel", () => {
+  it("writes % when there is a last price, including 0.00%", () => {
+    expect(todayChangeLabel("225.01", "+1.20%")).toBe("+1.20%");
+    expect(todayChangeLabel("225.01", "0.00%")).toBe("0.00%");
+    expect(todayChangeLabel("225.01", null)).toBe("0.00%");
+    expect(todayChangeLabel("225.01", "—")).toBe("0.00%");
+  });
+
+  it("writes the buy-price sentence only when there is no last price", () => {
+    expect(todayChangeLabel(null, null)).toBe("暫時用買入價，未有市場價");
+    expect(todayChangeLabel(null, "+1.20%")).toBe("暫時用買入價，未有市場價");
   });
 });
 

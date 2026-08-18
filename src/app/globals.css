@@ -696,6 +696,10 @@ button {
   padding-bottom: calc(var(--page-pad) + 72px);
 }
 
+.kline-stage-shell .kline-frame-open {
+  height: min(70dvh, 32rem);
+}
+
 .kline-frame-open {
   aspect-ratio: auto;
   min-height: 16rem;

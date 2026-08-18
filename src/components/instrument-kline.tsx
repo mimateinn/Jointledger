@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { todayChangeLabel } from "@/lib/format";
 import { defaultActiveIds, type Bar } from "@/indicators";
 import { FailurePanel } from "./failure-panel";
 import { IndicatorPicker } from "./indicator-picker";
@@ -36,6 +37,7 @@ export function InstrumentKline({
   planLimited,
   tags = [],
   showHeader = true,
+  containInShell = false,
 }: {
   display: string;
   name?: string | null;
@@ -47,6 +49,7 @@ export function InstrumentKline({
   planLimited: boolean;
   tags?: string[];
   showHeader?: boolean;
+  containInShell?: boolean;
 }) {
   const [bars, setBars] = useState<Bar[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -120,8 +123,15 @@ export function InstrumentKline({
     setEnlarged((value) => !value);
   }, []);
 
+  const today = todayChangeLabel(last, percentChange);
+  const stageClass = enlarged
+    ? containInShell
+      ? "card stack instrument-kline kline-stage-shell"
+      : "card stack instrument-kline kline-stage-open"
+    : "card stack instrument-kline";
+
   return (
-    <section className={enlarged ? "card stack instrument-kline kline-stage-open" : "card stack instrument-kline"}>
+    <section className={stageClass}>
       {showHeader ? (
         <div className="instrument-quote">
           <p className="meta muted">
@@ -131,9 +141,9 @@ export function InstrumentKline({
           </p>
           <div className="instrument-last">
             <div className="display tabular">{last ?? "未有報價"}</div>
-            {last && percentChange ? (
-              <div className={`title ${changeClass(percentChange)}`}>{percentChange}</div>
-            ) : null}
+            <div className={last ? changeClass(percentChange) : "muted"}>
+              <span className="meta muted">今日</span> {today}
+            </div>
           </div>
           {tags.length > 0 ? (
             <div className="chip-row">

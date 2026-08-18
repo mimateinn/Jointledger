@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { InstrumentLabel } from "@/components/instrument-label";
-import { formatQty, formatUsd } from "@/lib/format";
+import { formatQty, formatUsd, todayChangeLabel } from "@/lib/format";
 import { lotRowKey } from "@/lib/lot-row-key";
 
 type Filter = "me" | "all" | "joint" | string;
-
-const NO_MARK = "暫時用買入價，未有市場價";
 
 function holdingsMeta(count: number): string {
   const words = ["零", "一", "兩", "三", "四", "五", "六", "七", "八", "九", "十"];
@@ -191,9 +189,9 @@ export function OverviewClient({
                         <span className="chip">{accountName(lot.ledgerAccountId)}</span>
                       </td>
                       <td className="tabular">{formatQty(lot.quantity)}</td>
-                      <td className="tabular">{lot.lastDisplay ?? NO_MARK}</td>
+                      <td className="tabular">{lot.lastDisplay ?? "—"}</td>
                       <td className={`tabular ${lot.lastDisplay ? changeClass(lot.percentChange) : "muted"}`}>
-                        {lot.lastDisplay ? (lot.percentChange ?? "—") : ""}
+                        {todayChangeLabel(lot.lastDisplay, lot.percentChange)}
                       </td>
                       <td className="tabular">
                         {lot.lastDisplay
