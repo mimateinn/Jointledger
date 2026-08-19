@@ -83,19 +83,23 @@ export function UpdateCheckButton() {
           transition: "transform 100ms ease-out",
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/settings-update-icon.png"
-          alt=""
+        <svg
           width={18}
           height={18}
-          style={{
-            width: 18,
-            height: 18,
-            objectFit: "contain",
-            opacity: isLoading ? 0.35 : 1,
-          }}
-        />
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+          style={{ opacity: isLoading ? 0.45 : 1 }}
+        >
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+          <path d="M8 16H3v5" />
+        </svg>
         {isLoading ? "檢查中…" : "檢查更新"}
       </button>
       {state.status === "ok" ? (
