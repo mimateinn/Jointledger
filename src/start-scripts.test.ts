@@ -26,4 +26,11 @@ describe("start scripts", () => {
     expect(bat).not.toMatch(/docker/i);
     expect(bat).not.toMatch(/5432/);
   });
+
+  it("re-exec after overlay skip-checks with JL_SKIP_UPDATE=1", () => {
+    expect(sh).toMatch(/overlay-release\.mjs/);
+    expect(sh).toMatch(/exec env JL_SKIP_UPDATE=1 bash/);
+    expect(bat).toMatch(/overlay-release\.mjs/);
+    expect(bat).toMatch(/set JL_SKIP_UPDATE=1/);
+  });
 });

@@ -174,8 +174,18 @@ describe('API route contract', () => {
     expect(src).toMatch(/export async function POST/);
     expect(src).toMatch(/requireUser/);
     expect(src).toMatch(/401/);
+    expect(src).toMatch(/getCurrentMembership/);
+    expect(src).toMatch(/@\/lib\/current-book/);
     expect(src).toMatch(/overlay-release\.mjs/);
     expect(src).not.toMatch(/searchParams\.get\(['"]tag/);
     expect(src).not.toMatch(/NEXT_PUBLIC_.*TOKEN/);
+  });
+
+  it('middleware does not redirect /api/update to /login', async () => {
+    const fs = await import('node:fs/promises');
+    const src = await fs.readFile(join(process.cwd(), 'src/middleware.ts'), 'utf8');
+    expect(src).toMatch(/\/api\/update/);
+    expect(src).toMatch(/authInHandler/);
+    expect(src).not.toMatch(/authInHandler[\s\S]*redirect/);
   });
 });
