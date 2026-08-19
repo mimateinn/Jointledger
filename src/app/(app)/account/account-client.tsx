@@ -8,6 +8,7 @@ import { EmptyPanel } from "@/components/empty-panel";
 import { MemberDelete } from "@/components/member-delete";
 import { SubmitButton } from "@/components/submit-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UpdateCheckButton } from "@/components/update-check-button";
 import { formatRelativeDate, formatSchedulePercent } from "@/lib/format";
 
 const initial: MemberState = {};
@@ -22,7 +23,7 @@ function InviteOnce({ state }: { state: MemberState }) {
       <p className="body tabular" style={{ wordBreak: "break-all", margin: "8px 0" }}>
         {state.inviteSecret}
       </p>
-      <p className="meta muted">7 日內有效，只用一次。抄低之後離線交俾對方。呢頁再入就唔會再顯示。</p>
+      <p className="meta muted">7 日內有效，只用一次。抄低之後離線交係對方。呢頁再入就唔會再顯示。</p>
     </div>
   );
 }
@@ -179,6 +180,13 @@ export function AccountClient({
             <p className="meta muted">暖紙白／炭橄欖。唔同六個導覽項搶位。</p>
           </div>
           <ThemeToggle />
+        </div>
+        <div className="row">
+          <div>
+            <div className="body">官方更新</div>
+            <p className="meta muted">檢查最新官方 Release。資料同資料庫唔會消失。</p>
+          </div>
+          <UpdateCheckButton />
         </div>
       </section>
 
