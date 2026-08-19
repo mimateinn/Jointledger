@@ -96,7 +96,7 @@ describe("NAV marks", () => {
       bookId: book.id,
       ledgerAccountId: account.id,
       memberId: member.id,
-      symbol: "NVDA",
+      symbol: "AAPL",
       quantity: "5",
       price: "20",
       occurredOn: "2024-01-04",

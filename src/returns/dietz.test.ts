@@ -179,7 +179,7 @@ describe("Modified Dietz", () => {
     const joint = await createJointAccount(store, { bookId: book.id });
     await setAllocationSchedule(store, {
       bookId: book.id,
-      effectiveOn: "2024-01-15",
+      effectiveOn: "2024-01-01",
       legs: [
         { memberId: hey.id, percent: "50" },
         { memberId: sze.member.id, percent: "50" },

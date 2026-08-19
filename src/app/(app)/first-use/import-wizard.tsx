@@ -192,7 +192,7 @@ export function ImportWizard({
           {preview.issues.filter((item) => item.pending).length > 0 ? (
             <div>
               <h3 className="title">待確認</h3>
-              <p className="muted">2020–21 未平倉同 分帳 追溯分帳唔當鎖定真相。對唔上嘅列單獨標出。</p>
+              <p className="muted">未平倉同對唔上嘅列唔當鎖定真相，會單獨標出。</p>
             </div>
           ) : null}
           <form className="form-grid" action={commitAction}>

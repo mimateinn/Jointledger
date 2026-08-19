@@ -1,4 +1,4 @@
-import { UNUSED_DATE, UNUSED_DATE, MEMBER_HEY, MEMBER_SZE, MEMBER_WAH } from "./canon";
+import { MEMBER_HEY, MEMBER_SZE, MEMBER_WAH } from "./canon";
 import type { BookKind } from "./types";
 
 export const ACCOUNT_OWN: Record<string, { book: BookKind; memberName: string; role: "cash" | "trade" }> = {
@@ -26,7 +26,7 @@ export function normalizeOwn(raw: string): string {
   return raw.trim().toUpperCase().slice(0, 1);
 }
 
-export function classifyTransInfoBook(own: string, buyDate: string): BookKind | null {
+export function classifyTransInfoBook(own: string, _buyDate: string): BookKind | null {
   const key = normalizeOwn(own);
   const mapped = TRANSINFO_OWN[key];
   if (!mapped) {
@@ -41,14 +41,7 @@ export function classifyTransInfoBook(own: string, buyDate: string): BookKind | 
   if (mapped.letter === "F") {
     return "joint";
   }
-  // H / B: Hey-side. Joint only from 2024-01-01; earlier B window is Hey solo.
-  if (buyDate >= UNUSED_DATE) {
-    return "joint";
-  }
-  if (buyDate >= UNUSED_DATE) {
-    return "hey";
-  }
-  return "hey";
+  return mapped.fallback;
 }
 
 export function ownAccountLabel(own: string, book: BookKind): string {

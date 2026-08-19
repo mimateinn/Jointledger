@@ -1,5 +1,5 @@
 import { money, moneyString } from "@/ledger/money";
-import { UNUSED_DATE, MEMBER_HEY, UNUSED_DATE } from "./canon";
+import { MEMBER_HEY } from "./canon";
 import { cell } from "./columns";
 import {
   ACCOUNT_OWN,
@@ -23,23 +23,9 @@ function issueId(prefix: string, row: number, extra = ""): string {
   return `${prefix}-${row}${extra ? `-${extra}` : ""}`;
 }
 
-function looksLikeAllocation(detail: string, date: string | null): boolean {
+function looksLikeAllocation(detail: string): boolean {
   const text = detail.toLowerCase();
-  if (text.includes("%") || text.includes("分配") || text.includes("allocation")) {
-    return true;
-  }
-  return date === UNUSED_DATE || date === UNUSED_DATE
-    ? /65\.438|34\.562|49\.537|50\.563/.test(detail)
-    : false;
-}
-
-function splitLooksLike256(hey: string, sze: string): boolean {
-  const h = parseMoney(hey);
-  const s = parseMoney(sze);
-  if (!h || !s) {
-    return false;
-  }
-  return h.startsWith("50") && s.startsWith("50");
+  return text.includes("%") || text.includes("分配") || text.includes("allocation");
 }
 
 export function buildPlan(
@@ -101,10 +87,7 @@ export function buildPlan(
       symbol,
       own: first.own,
       kind: "mismatch",
-      message:
-        symbol === "TSLA"
-          ? "呢個代碼只喺 Account Detail，TransInfo 無呢行。待確認。"
-          : `${symbol} 只喺 Account Detail，TransInfo 無對應買賣。待確認。`,
+      message: `${symbol} 只喺 Account Detail，TransInfo 無對應買賣。待確認。`,
       pending: true,
     });
   }
@@ -120,10 +103,7 @@ export function buildPlan(
       symbol: trade.symbol,
       own: trade.own,
       kind: "mismatch",
-      message:
-        trade.symbol === "AAPL"
-          ? "呢個代碼只喺 TransInfo，Account Detail 無呢行。待確認。"
-          : `${trade.symbol} 只喺 TransInfo，Account Detail 無對應。待確認。`,
+      message: `${trade.symbol} 只喺 TransInfo，Account Detail 無對應。待確認。`,
       pending: true,
     });
     trade.pending = true;
@@ -145,7 +125,7 @@ function planAccountRow(
   const dateRaw = cell(row, map, "date");
   const detail = cell(row, map, "detail");
   const date = parseDate(dateRaw);
-  if (looksLikeAllocation(detail, date)) {
+  if (looksLikeAllocation(detail)) {
     return;
   }
   if (!ownRaw && !dateRaw && !cell(row, map, "hkd") && !cell(row, map, "usd")) {
@@ -338,56 +318,18 @@ function planTransInfoRow(
   let pending = false;
 
   if (!sellDate) {
-    const year = Number(buyDate.slice(0, 4));
-    if (year === 2020 || year === 2021) {
-      const id = issueId("open", excelRow, symbol);
-      issues.push({
-        id,
-        sheet: "transinfo",
-        row: excelRow,
-        symbol,
-        own,
-        kind: "open_lot",
-        message: `${symbol} ${buyDate} 仍未平倉（2020–21）。按表維持開倉，唔當鎖定真相。待確認。`,
-        pending: true,
-      });
-      warningIds.push(id);
-      pending = true;
-    } else {
-      const id = issueId("open-later", excelRow, symbol);
-      issues.push({
-        id,
-        sheet: "transinfo",
-        row: excelRow,
-        symbol,
-        own,
-        kind: "open_lot",
-        message: `${symbol} ${buyDate} 賣出日空白，按表維持開倉。`,
-        pending: false,
-      });
-      warningIds.push(id);
-    }
-  }
-
-  if (book === "joint" && buyDate < UNUSED_DATE) {
-    const heySplit = cell(row, map, "split_hey");
-    const szeSplit = cell(row, map, "split_sze");
-    const retro = !heySplit || splitLooksLike256(heySplit, szeSplit);
-    const id = issueId("retro", excelRow, symbol);
+    const id = issueId("open", excelRow, symbol);
     issues.push({
       id,
       sheet: "transinfo",
       row: excelRow,
       symbol,
       own,
-      kind: "retro_split",
-      message: retro
-        ? `${symbol} 買入 ${buyDate}，表上分帳似 分帳 或未標明；唔會當鎖定真相。待確認。`
-        : `${symbol} 買入 ${buyDate}，分帳 分帳唔會自動套用舊倉。待確認。`,
-      pending: true,
+      kind: "open_lot",
+      message: `${symbol} ${buyDate} 賣出日空白，按表維持開倉。`,
+      pending: false,
     });
     warningIds.push(id);
-    pending = true;
   }
 
   const cost = buyTotal ?? moneyString(money(quantity).mul(money(buyPrice!)));

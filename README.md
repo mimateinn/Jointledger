@@ -10,7 +10,7 @@ M2 做到：登入後頂欄行情跑馬燈、持倉按 Twelve Data 現價標記�
 
 M3 做到：由持倉或 11 格跑馬燈打開標的頁，用 TradingView Lightweight Charts 畫日線。預設只開 SMA20 + 成交量；其餘指標喺瀏覽器用已下載嘅 OHLCV 計。
 
-M4 做到：第一次用可以上傳而家用緊嘅 兩頁 xlsx（xlsx / csv），預覽之後經現有 domain 寫入。唔會連接 Google 試算表。
+M4 做到：第一次用可以上傳兩頁 xlsx（或 csv），預覽之後經現有 domain 寫入。唔會連接 Google 試算表。
 
 M5 做到：收益率用期間淨值 $ + Modified Dietz %（短過一年唔年化）；持倉頁「關注」手動名單；Finnhub 新聞只經自己嘅 API；成員認領綁現有 Member；帳戶頁「再匯入」追加／取代現有 Book。
 
@@ -127,7 +127,7 @@ NAV = cash_usd + 已標記市值
 
 ## 匯入試算表（M4）
 
-唔會用 Google Sheet ID 做即時來源，亦唔會喺 runtime 打 Drive／Sheets API。把而家用緊嘅 兩頁 xlsx 兩頁匯出再上傳：
+唔會用 Google Sheet ID 做即時來源，亦唔會喺 runtime 打 Drive／Sheets API。把兩頁 xlsx 匯出再上傳：
 
 1. **xlsx（建議）**：Google 試算表 → 檔案 → 下載 → Microsoft Excel（.xlsx）。要保留兩個分頁名稱：`TransInfo`、`Account Detail`。
 2. **兩個 csv**：每個分頁「下載 → 逗號分隔值」，兩個檔一齊上傳。檔名或欄位要認到係邊頁。
@@ -136,9 +136,9 @@ NAV = cash_usd + 已標記市值
 
 **待確認**唔當鎖定真相，要揀「一併匯入」或「略過」：
 
-- 2020–21 仍未平倉：按表維持開倉，之後喺 app 先平。
-- 2024-01-15（分帳）追溯分帳套用舊倉。歷史買賣鎖買入當日生效嘅 AllocationSchedule；新單用而家嘅（分帳：50 / 50 再除以總和）。
-- 只喺一邊出現嘅代碼（例如 呢個代碼只喺 Account Detail、呢個代碼只喺 TransInfo）。
+- 賣出日空白：按表維持開倉，之後喺 app 先平。
+- 歷史買賣鎖買入當日生效嘅 AllocationSchedule；新單用而家嘅分帳（各欄再除以總和）。
+- 只喺一邊出現嘅代碼（只喺 Account Detail 或只喺 TransInfo）。
 - 同日同代碼聯名／獨倉對唔上：**唔會**默認 Hey 獨倉。
 
 Account Detail 係現金真相（H／S／W 入金）。TransInfo 一列＝一對買賣，賣出日空白＝仍開倉。買入成本用 `buy_total`（包手續費）。`trades.symbol` 照表寫（可以係 `0700.HK`），M4 唔會估市場。行情仍行 M2 對照；唔識就 `—`。

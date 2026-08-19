@@ -9,7 +9,7 @@ import {
 import { money, moneyString } from "@/ledger/money";
 import { scheduleInForce } from "@/ledger/set-allocation-schedule";
 import type { LedgerStore } from "@/ledger/store";
-import { CANON_SCHEDULES, MEMBER_HEY, MEMBER_SZE, normalizeScheduleLegs, splitByPercents } from "./canon";
+import { MEMBER_HEY, MEMBER_SZE, splitByPercents } from "./canon";
 import { membersForBook } from "./own";
 import type { ImportDecisions, ImportPlan, PendingChoice, PlannedTrade } from "./types";
 
@@ -162,29 +162,6 @@ export async function applyImport(
     existingAccounts.find((row) => row.kind === "joint") ??
     (await w.createJointAccount(store, { bookId, name: "聯名" }));
 
-  const existingSchedules = await store.listAllocationSchedules(bookId);
-  if (existingSchedules.length === 0) {
-    for (const name of [MEMBER_HEY, MEMBER_SZE]) {
-      const key = name.trim().toLowerCase();
-      if (members.has(key)) {
-        continue;
-      }
-      const added = await w.addMember(store, { bookId, displayName: name });
-      members.set(key, { memberId: added.member.id, accountId: added.account.id });
-    }
-    for (const schedule of CANON_SCHEDULES) {
-      const legs = normalizeScheduleLegs(schedule.legs).map((leg) => ({
-        memberId: lookup(leg.name).memberId,
-        percent: leg.percent,
-      }));
-      await w.setAllocationSchedule(store, {
-        bookId,
-        effectiveOn: schedule.effectiveOn,
-        legs,
-      });
-    }
-  }
-
   const schedules = await store.listAllocationSchedules(bookId);
 
   if (input.decisions.reimportMode === "replace") {
@@ -322,7 +299,7 @@ function jointLegs(
         const leg = schedule.legs.find((item) => item.memberId === id);
         return leg?.percent ?? "0";
       })
-    : normalizeScheduleLegs(CANON_SCHEDULES[0].legs).map((leg) => leg.percent);
+    : ["0.5", "0.5"];
   const qtys = splitByPercents(quantity, percents);
   const amounts = splitByPercents(total, percents);
   return [

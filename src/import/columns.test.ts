@@ -3,7 +3,7 @@ import { autoMapSheet, mapUpload } from "./columns";
 import { normalizeScheduleLegs } from "./canon";
 
 describe("column map", () => {
-  it("auto-maps the 兩頁 xlsx headers", () => {
+  it("auto-maps TransInfo and Account Detail headers", () => {
     const ti = autoMapSheet("transinfo", [
       "Code",
       "Qty",
@@ -43,14 +43,15 @@ describe("column map", () => {
   });
 });
 
-describe("分帳 schedule", () => {
-  it("normalizes 50 / 50 to 1", () => {
+describe("schedule percents", () => {
+  it("normalizes raw splits so they sum to 1", () => {
     const legs = normalizeScheduleLegs([
-      { name: "Hey", raw: "50" },
-      { name: "Sze", raw: "50" },
+      { name: "Hey", raw: "40" },
+      { name: "Sze", raw: "60" },
     ]);
     const sum = Number(legs[0].percent) + Number(legs[1].percent);
     expect(sum).toBeCloseTo(1, 8);
-    expect(legs[0].percent.startsWith("0.49487")).toBe(true);
+    expect(legs[0].percent.startsWith("0.4")).toBe(true);
+    expect(legs[1].percent.startsWith("0.6")).toBe(true);
   });
 });

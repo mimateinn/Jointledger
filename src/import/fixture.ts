@@ -2,7 +2,7 @@ import { mapUpload } from "./columns";
 import { buildPlan } from "./plan";
 import type { ParsedSheet } from "./types";
 
-/** Sample rows: cash 1000 + buy cost 500, plus known sheet mismatches. */
+/** Sample rows: cash 1000 + NVDA buy cost 500, plus generic sheet mismatches. */
 export function sampleSheets(): { transinfo: ParsedSheet; account: ParsedSheet } {
   const transinfo: ParsedSheet = {
     kind: "transinfo",
@@ -20,8 +20,6 @@ export function sampleSheets(): { transinfo: ParsedSheet; account: ParsedSheet }
     rows: [
       ["2024-01-01", "入金", "H", "1000", "1", "1000", "in"],
       ["2024-01-02", "NVDA", "F", "", "", "", ""],
-      ["2024-01-01", "allocation 50 / 50", "F", "", "", "", ""],
-      ["2024-01-15", "allocation 50 / 50", "F", "", "", "", ""],
       ["2024-02-01", "TSLA", "B", "200", "1", "200", ""],
     ],
   };

@@ -97,12 +97,9 @@ describe("M4 import apply", () => {
     expect(snap.navUsd.toFixed(2)).not.toBe("1000.00");
   });
 
-  it("tags sheet mismatches and 2020-21 open lots as 待確認", () => {
+  it("tags one-sided sheet mismatches as 待確認", () => {
     const plan = samplePlan();
-    const texts = plan.issues.map((issue) => issue.message).join("\n");
-    expect(texts).toContain("TSLA");
-    expect(texts).toContain("AAPL");
-    expect(plan.issues.some((issue) => issue.kind === "open_lot" && issue.pending)).toBe(true);
+    expect(plan.issues.some((issue) => issue.kind === "open_lot")).toBe(true);
     expect(plan.issues.some((issue) => issue.pending && issue.symbol === "TSLA")).toBe(true);
     expect(plan.issues.some((issue) => issue.pending && issue.symbol === "AAPL")).toBe(true);
   });
@@ -112,15 +109,15 @@ describe("M4 import apply", () => {
       kind: "transinfo" as const,
       name: "TransInfo",
       headers: ["Code", "Qty", "Own", "Buy Date", "Buy Price", "Buy Total"],
-      rows: [["NVDA", "10", "H", "2020-05-01", "50", "500"]],
+      rows: [["NVDA", "10", "H", "2024-05-01", "50", "500"]],
     };
     const account = {
       kind: "account" as const,
       name: "Account Detail",
       headers: ["Date", "Detail", "Own", "HKD", "FX", "USD"],
       rows: [
-        ["2020-05-01", "NVDA", "F", "", "", ""],
-        ["2020-04-01", "入金", "H", "1000", "1", "1000"],
+        ["2024-05-01", "NVDA", "F", "", "", ""],
+        ["2024-04-01", "入金", "H", "1000", "1", "1000"],
       ],
     };
     const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
