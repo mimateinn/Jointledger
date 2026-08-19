@@ -8,6 +8,7 @@ import { EmptyPanel } from "@/components/empty-panel";
 import { MemberDelete } from "@/components/member-delete";
 import { SubmitButton } from "@/components/submit-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UpdateCheckButton } from "@/components/update-check-button";
 import { formatRelativeDate, formatSchedulePercent } from "@/lib/format";
 
 const initial: MemberState = {};
@@ -179,6 +180,13 @@ export function AccountClient({
             <p className="meta muted">暖紙白／炭橄欖。唔同六個導覽項搶位。</p>
           </div>
           <ThemeToggle />
+        </div>
+        <div className="row">
+          <div>
+            <div className="body">官方更新</div>
+            <p className="meta muted">檢查最新官方 Release。資料同資料庫唔會消失。</p>
+          </div>
+          <UpdateCheckButton />
         </div>
       </section>
 
