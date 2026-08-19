@@ -23,7 +23,7 @@ function InviteOnce({ state }: { state: MemberState }) {
       <p className="body tabular" style={{ wordBreak: "break-all", margin: "8px 0" }}>
         {state.inviteSecret}
       </p>
-      <p className="meta muted">7 日內有效，只用一次。抄低之後離線交係對方。呢頁再入就唔會再顯示。</p>
+      <p className="meta muted">7 日內有效，只用一次。抄低之後離線交俾對方。呢頁再入就唔會再顯示。</p>
     </div>
   );
 }
