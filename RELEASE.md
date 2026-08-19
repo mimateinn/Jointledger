@@ -41,6 +41,10 @@
 
 行情同新聞嘅 key 可以唔填。
 
+## 聯絡
+
+問題或建議：laevataincheng@gmail.com
+
 ## 注意
 
 - 唔會連接券商。

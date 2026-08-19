@@ -223,3 +223,7 @@ Server 用資料庫 `news_cache`，按 symbol／類別，TTL ≥ 15 分，單飛
 ## 範圍外（M5 之後）
 
 券商連接、股息、拆股、匯出、改密碼、AI 摘要、Finnhub 行情、完整市場終端。無 key 時股票延遲價只經 Yahoo unofficial chart，唔做終端。
+
+## 聯絡
+
+問題或建議：laevataincheng@gmail.com

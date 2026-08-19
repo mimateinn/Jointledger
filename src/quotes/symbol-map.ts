@@ -107,7 +107,6 @@ const NYSE_EQUITIES = [
   "UNP",
   "SCHW",
   "BLK",
-***REMOVED***
   "BB",
 ] as const;
 
