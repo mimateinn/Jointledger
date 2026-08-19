@@ -3,7 +3,7 @@
  * joint-ledger 本地自動更新（官方 GitHub Release overlay）
  *
  * Blocking 安全約束（必須全中）：
- * - pin 只准 KingHey2003/joint-ledger；唔跟 fork；唔讀 zip 內 repository 決定下次 URL
+ * - pin 只准 mimateinn/Jointledger；唔跟 fork；唔讀 zip 內 repository 決定下次 URL
  * - 只 HTTPS；host allowlist 只准 api.github.com、codeload.github.com；唔關閉 TLS 驗證
  * - 只 official release tag（非 draft／prerelease）；唔拉 zipball/main、branch、PR ref
  * - stamp .jl-release = { tag, sha（該 tag commit SHA）, lastCheckAt, updatedAt }
@@ -35,8 +35,8 @@ import { randomBytes } from 'node:crypto';
 
 const execFileAsync = promisify(execFile);
 
-const PIN_OWNER = 'KingHey2003';
-const PIN_REPO = 'joint-ledger';
+const PIN_OWNER = 'mimateinn';
+const PIN_REPO = 'Jointledger';
 const ALLOWED_HOSTS = new Set(['api.github.com', 'codeload.github.com']);
 const STAMP_FILE = '.jl-release';
 const LOCK_FILE = '.jl-update.lock';

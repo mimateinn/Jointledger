@@ -24,7 +24,7 @@ describe('overlay-release security', () => {
     it('rejects disallowed host', async () => {
       const { assertHttpsUrl } = await loadOverlay();
       expect(() => assertHttpsUrl('https://evil.example.com/x')).toThrow(/allowlist/i);
-      expect(() => assertHttpsUrl('https://github.com/KingHey2003/joint-ledger')).toThrow(
+      expect(() => assertHttpsUrl('https://github.com/mimateinn/Jointledger')).toThrow(
         /allowlist/i
       );
     });
@@ -36,7 +36,7 @@ describe('overlay-release security', () => {
       expect(() => assertHttpsUrl('https://api.github.com/repos/x')).not.toThrow();
       expect(() =>
         assertHttpsUrl(
-          'https://codeload.github.com/KingHey2003/joint-ledger/zip/refs/tags/v1.0.0'
+          'https://codeload.github.com/mimateinn/Jointledger/zip/refs/tags/v1.0.0'
         )
       ).not.toThrow();
     });
@@ -44,10 +44,10 @@ describe('overlay-release security', () => {
     it('rejects zipball/main and branch/PR refs in URL', async () => {
       const { assertHttpsUrl } = await loadOverlay();
       expect(() =>
-        assertHttpsUrl('https://api.github.com/repos/KingHey2003/joint-ledger/zipball/main')
+        assertHttpsUrl('https://api.github.com/repos/mimateinn/Jointledger/zipball/main')
       ).toThrow(/non-release|main/i);
       expect(() =>
-        assertHttpsUrl('https://api.github.com/repos/KingHey2003/joint-ledger/zipball/master')
+        assertHttpsUrl('https://api.github.com/repos/mimateinn/Jointledger/zipball/master')
       ).toThrow(/non-release|main|master/i);
     });
   });
@@ -92,10 +92,10 @@ describe('overlay-release security', () => {
   });
 
   describe('repo pin', () => {
-    it('PIN is KingHey2003/joint-ledger only', async () => {
+    it('PIN is mimateinn/Jointledger only', async () => {
       const { PIN_OWNER, PIN_REPO } = await loadOverlay();
-      expect(PIN_OWNER).toBe('KingHey2003');
-      expect(PIN_REPO).toBe('joint-ledger');
+      expect(PIN_OWNER).toBe('mimateinn');
+      expect(PIN_REPO).toBe('Jointledger');
     });
   });
 
@@ -116,7 +116,7 @@ describe('draft / prerelease / main rejection', () => {
         draft: true,
         prerelease: false,
         tag_name: 'v1.0.0',
-        zipball_url: 'https://api.github.com/repos/KingHey2003/joint-ledger/zipball/v1.0.0',
+        zipball_url: 'https://api.github.com/repos/mimateinn/Jointledger/zipball/v1.0.0',
       })
     ).toThrow(/draft/i);
   });
@@ -128,7 +128,7 @@ describe('draft / prerelease / main rejection', () => {
         draft: false,
         prerelease: true,
         tag_name: 'v1.0.0-beta',
-        zipball_url: 'https://api.github.com/repos/KingHey2003/joint-ledger/zipball/v1.0.0-beta',
+        zipball_url: 'https://api.github.com/repos/mimateinn/Jointledger/zipball/v1.0.0-beta',
       })
     ).toThrow(/prerelease/i);
   });
@@ -140,7 +140,7 @@ describe('draft / prerelease / main rejection', () => {
         draft: false,
         prerelease: false,
         tag_name: 'main',
-        zipball_url: 'https://api.github.com/repos/KingHey2003/joint-ledger/zipball/v1',
+        zipball_url: 'https://api.github.com/repos/mimateinn/Jointledger/zipball/v1',
       })
     ).toThrow(/main|master|non-release/i);
   });
@@ -152,7 +152,7 @@ describe('draft / prerelease / main rejection', () => {
       prerelease: false,
       tag_name: 'v1.2.3',
       name: 'v1.2.3',
-      zipball_url: 'https://api.github.com/repos/KingHey2003/joint-ledger/zipball/v1.2.3',
+      zipball_url: 'https://api.github.com/repos/mimateinn/Jointledger/zipball/v1.2.3',
       id: 1,
     });
     expect(r.tag).toBe('v1.2.3');
