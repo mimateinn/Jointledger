@@ -5,7 +5,7 @@ chcp 65001 >nul
 
 if /I not "%JL_SKIP_UPDATE%"=="1" (
   if exist "scripts\overlay-release.mjs" (
-    echo 檨查官方更新…
+    echo 檢查官方更新…
     node scripts\overlay-release.mjs
     if errorlevel 11 goto :overlay_fail
     if errorlevel 10 (
@@ -17,7 +17,7 @@ if /I not "%JL_SKIP_UPDATE%"=="1" (
     if errorlevel 1 goto :overlay_fail
     goto :after_overlay
     :overlay_fail
-    echo 檨查更新失敗，繼續用而家呢版。
+    echo 檢查更新失敗，繼續用而家呢版。
   )
 )
 :after_overlay
