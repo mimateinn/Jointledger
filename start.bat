@@ -3,6 +3,24 @@ setlocal
 cd /d "%~dp0"
 chcp 65001 >nul
 
+if /I not "%JL_SKIP_UPDATE%"=="1" (
+  if exist "scripts\overlay-release.mjs" (
+    echo 檢查官方更新…
+    node scripts\overlay-release.mjs
+    if errorlevel 11 goto :overlay_fail
+    if errorlevel 10 (
+      echo 已套用官方更新，重新啟動（資料夾同資料庫唔變）…
+      "%~f0"
+      exit /b %ERRORLEVEL%
+    )
+    if errorlevel 1 goto :overlay_fail
+    goto :after_overlay
+    :overlay_fail
+    echo 檢查更新失敗，繼續用而家呢版。
+  )
+)
+:after_overlay
+
 where node >nul 2>&1
 if errorlevel 1 (
   echo 請先安裝 Node.js 同 pnpm（專案指定 pnpm@10.33.3），再開呢個腳本。
