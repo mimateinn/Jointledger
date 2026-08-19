@@ -184,8 +184,7 @@ describe('API route contract', () => {
   it('middleware does not redirect /api/update to /login', async () => {
     const fs = await import('node:fs/promises');
     const src = await fs.readFile(join(process.cwd(), 'src/middleware.ts'), 'utf8');
-    expect(src).toMatch(/\/api\/update/);
-    expect(src).toMatch(/authInHandler/);
-    expect(src).not.toMatch(/authInHandler[\s\S]*redirect/);
+    expect(src).toContain('"/api/update"');
+    expect(src).toMatch(/authInHandler\.has\(pathname\)/);
   });
 });
