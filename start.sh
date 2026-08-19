@@ -1,8 +1,23 @@
 #!/usr/bin/env bash
-# 本機一鍵試用：預設 SQLite，唔開 Docker、唔探 5432
-# 預設生產（build + start）；JL_DEV=1 先行開發伺服器
+# Local trial: default SQLite. No Docker, no 5432 probe.
+# Default production (build + start); JL_DEV=1 uses the dev server.
+# Before start, overlay latest official Release. JL_SKIP_UPDATE=1 skips.
 set -euo pipefail
 cd "$(dirname "$0")"
+
+if [ "${JL_SKIP_UPDATE:-}" != "1" ] && [ -f scripts/overlay-release.mjs ]; then
+  echo "檢查官方更新…"
+  set +e
+  node scripts/overlay-release.mjs
+  OVERLAY_EC=$?
+  set -e
+  if [ "$OVERLAY_EC" -eq 10 ]; then
+    echo "已套用官方更新，重新啟動（資料夾同資料庫唔變）…"
+    exec bash "$0"
+  elif [ "$OVERLAY_EC" -ne 0 ]; then
+    echo "檢查更新失敗（exit $OVERLAY_EC），繼續用而家呢版。"
+  fi
+fi
 
 port_open() {
   local port="$1"
