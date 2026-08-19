@@ -1,6 +1,6 @@
 <img src="icon.png" width="96" alt="Jointledger">
 
-# 聪倉
+# 聯倉
 
 幾個人共一本股票帳。只記帳，不連券商，也不下單。
 
