@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { logoutAction } from "@/app/actions/auth";
+import { changePasswordAction, logoutAction, type AuthState } from "@/app/actions/auth";
 import { addMemberAction, issueInviteAction, type MemberState } from "@/app/actions/members";
 import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
 import { EmptyPanel } from "@/components/empty-panel";
@@ -12,6 +12,7 @@ import { UpdateCheckButton } from "@/components/update-check-button";
 import { formatRelativeDate, formatSchedulePercent } from "@/lib/format";
 
 const initial: MemberState = {};
+const passwordInitial: AuthState = {};
 
 function InviteOnce({ state }: { state: MemberState }) {
   if (!state.inviteSecret) {
@@ -80,6 +81,7 @@ export function AccountClient({
 }) {
   const [addState, addAction] = useActionState(addMemberAction, initial);
   const [inviteState, inviteAction] = useActionState(issueInviteAction, initial);
+  const [passwordState, passwordAction] = useActionState(changePasswordAction, passwordInitial);
   const [reimport, setReimport] = useState(false);
   const current = schedules.find((row) => row.current) ?? schedules.at(-1) ?? null;
   const shown = inviteState.inviteSecret ? inviteState : addState;
@@ -165,6 +167,14 @@ export function AccountClient({
       ) : null}
 
       <section className="card stack">
+        <h2 className="title">匯出</h2>
+        <p className="muted">下載而家呢本記帳表嘅兩頁試算表，之後可以用再匯入寫返入去。</p>
+        <a className="btn btn-secondary" href="/api/export" download="book-export.xlsx">
+          匯出試算表
+        </a>
+      </section>
+
+      <section className="card stack">
         <h2 className="title">再匯入</h2>
         <p className="muted">只寫入而家呢本記帳表。要明示追加或取代。經現有 createCashFlow／createTrade。</p>
         <button className="btn btn-secondary" type="button" onClick={() => setReimport(true)}>
@@ -188,6 +198,52 @@ export function AccountClient({
           </div>
           <UpdateCheckButton />
         </div>
+      </section>
+
+      <section className="card stack">
+        <h2 className="title">改密碼</h2>
+        <form className="form-grid" action={passwordAction}>
+          <div className="field">
+            <label htmlFor="currentPassword">而家嘅密碼</label>
+            <input
+              className="input"
+              id="currentPassword"
+              name="currentPassword"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="newPassword">新密碼 · 至少 8 個字</label>
+            <input
+              className="input"
+              id="newPassword"
+              name="newPassword"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="confirmPassword">再輸入新密碼</label>
+            <input
+              className="input"
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+            />
+          </div>
+          {passwordState.error ? <p className="alert">{passwordState.error}</p> : null}
+          {passwordState.ok ? <p className="ok">{passwordState.ok}</p> : null}
+          <SubmitButton className="btn btn-secondary" pendingLabel="改緊…">
+            改密碼
+          </SubmitButton>
+        </form>
       </section>
 
       <section className="card stack">

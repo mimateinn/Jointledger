@@ -3,7 +3,7 @@ import { SESSION_COOKIE } from "@/auth/cookie";
 
 const publicPaths = new Set(["/login", "/api/auth/invalidate"]);
 /** Route handler returns 401/405 — do not 307 to /login. */
-const authInHandler = new Set(["/api/update"]);
+const authInHandler = new Set(["/api/update", "/api/export"]);
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

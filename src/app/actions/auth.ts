@@ -3,14 +3,15 @@
 import { count, eq, isNull, or, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { claimErrorMessage, evaluateClaim } from "@/auth/claim";
-import { createSession, destroySession } from "@/auth/session";
+import { createSession, destroySession, requireUser } from "@/auth/session";
+import { preparePasswordChange } from "@/auth/change-password";
 import { hashPassword, verifyPassword } from "@/auth/password";
 import { getDb } from "@/db/client";
 import { insertFirstUser } from "@/db/first-user";
 import { xactLockSql } from "@/db/xact-lock";
 import { members, users } from "@/db/tables";
 
-export type AuthState = { error?: string };
+export type AuthState = { error?: string; ok?: string };
 
 export async function userCount(): Promise<number> {
   const db = getDb();
@@ -144,4 +145,29 @@ export async function claimAction(
   }
   await createSession(result.user.id);
   redirect("/");
+}
+
+export async function changePasswordAction(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  let user;
+  try {
+    user = await requireUser();
+  } catch {
+    return { error: "未登入" };
+  }
+
+  const db = getDb();
+  const [row] = await db.select().from(users).where(eq(users.id, user.id)).limit(1);
+  const result = await preparePasswordChange(row?.passwordHash, {
+    currentPassword: String(formData.get("currentPassword") ?? ""),
+    newPassword: String(formData.get("newPassword") ?? ""),
+    confirmPassword: String(formData.get("confirmPassword") ?? ""),
+  });
+  if (!result.ok) {
+    return { error: result.error };
+  }
+  await db.update(users).set({ passwordHash: result.nextHash }).where(eq(users.id, user.id));
+  return { ok: "已改密碼" };
 }
