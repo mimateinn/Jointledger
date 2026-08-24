@@ -100,7 +100,7 @@ describe("local two-sheet xlsx export", () => {
     expect(route).toContain("export async function GET");
     expect(route).toMatch(/401/);
     expect(route).toContain("getSessionUser");
-    expect(route).toContain(EXPORT_FILENAME);
+    expect(route).toContain("EXPORT_FILENAME");
     expect(route).not.toMatch(/redirect\(/);
     const middleware = readFileSync(join(process.cwd(), "src/middleware.ts"), "utf8");
     expect(middleware).toContain('"/api/export"');
