@@ -315,7 +315,7 @@ function planTransInfoRow(
   const sellDateRaw = cell(row, map, "sell_date");
   const sellDate = sellDateRaw ? parseDate(sellDateRaw) : null;
   const warningIds: string[] = [];
-  let pending = false;
+  const pending = false;
 
   if (!sellDate) {
     const id = issueId("open", excelRow, symbol);
