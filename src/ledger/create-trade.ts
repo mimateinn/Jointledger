@@ -41,6 +41,9 @@ export async function createTrade(
   }
 
   const side = input.side ?? "buy";
+  if (side !== "buy" && side !== "sell") {
+    throw new Error("買賣只能是買入或賣出");
+  }
   const costUsd = sideAmount(side, input.quantity, input.price, input.costUsd, "cost");
   const proceedsUsd = sideAmount(side, input.quantity, input.price, input.proceedsUsd, "proceeds");
   const feeUsd = input.feeUsd && input.feeUsd.trim() !== "" ? moneyString(input.feeUsd) : "0";

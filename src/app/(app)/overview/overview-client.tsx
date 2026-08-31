@@ -52,6 +52,7 @@ export function OverviewClient({
     symbol: string;
     name: string | null;
     quantity: string;
+    splitLabel: string | null;
     costUsd: string;
     lastDisplay: string | null;
     percentChange: string | null;
@@ -188,7 +189,10 @@ export function OverviewClient({
                       <td>
                         <span className="chip">{accountName(lot.ledgerAccountId)}</span>
                       </td>
-                      <td className="tabular">{formatQty(lot.quantity)}</td>
+                      <td className="tabular">
+                        {formatQty(lot.quantity)}
+                        {lot.splitLabel ? <span className="meta muted"> 拆股 {lot.splitLabel}</span> : null}
+                      </td>
                       <td className="tabular">{lot.lastDisplay ?? "—"}</td>
                       <td className={`tabular ${lot.lastDisplay ? changeClass(lot.percentChange) : "muted"}`}>
                         {todayChangeLabel(lot.lastDisplay, lot.percentChange)}

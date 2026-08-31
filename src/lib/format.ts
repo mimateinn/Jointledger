@@ -104,6 +104,22 @@ export function formatAsOfClock(now = new Date()): string {
   return `截至 ${clock}`;
 }
 
+export function tradeSideLabel(side: string): string {
+  if (side === "buy") {
+    return "買入";
+  }
+  if (side === "sell") {
+    return "賣出";
+  }
+  if (side === "split") {
+    return "拆股";
+  }
+  if (side === "adjustment") {
+    return "調整";
+  }
+  return side;
+}
+
 export function todayIso(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Shanghai",

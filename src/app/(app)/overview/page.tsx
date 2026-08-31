@@ -47,6 +47,7 @@ export default async function OverviewPage() {
         symbol: lot.symbol,
         name: view.quoteViews[lot.symbol]?.name ?? resolveInstrument(lot.symbol)?.displayName ?? null,
         quantity: lot.quantity,
+        splitLabel: lot.splitLabel,
         costUsd: lot.costUsd,
         lastDisplay: lot.lastDisplay,
         percentChange: lot.percentChange,

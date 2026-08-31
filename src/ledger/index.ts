@@ -2,6 +2,8 @@ export { createBook } from "./create-book";
 export { addMember } from "./add-member";
 export { createCashFlow, deriveAmountUsd } from "./create-cash-flow";
 export { createTrade, deriveCostUsd } from "./create-trade";
+export { createSplit } from "./create-split";
+export { createAdjustment } from "./create-adjustment";
 export { deleteLot } from "./delete-lot";
 export { createJointAccount } from "./create-joint-account";
 export { setAllocationSchedule, scheduleInForce } from "./set-allocation-schedule";

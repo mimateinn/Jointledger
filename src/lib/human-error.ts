@@ -18,5 +18,11 @@ export function humanFormError(raw: string): string {
   if (raw === "匯率必須大於 0") {
     return "匯率不能是零";
   }
+  if (raw === "拆股新股必須大於 0" || raw === "拆股舊股必須大於 0") {
+    return "拆股比例不能是零";
+  }
+  if (raw === "調整要寫備註") {
+    return "調整要寫備註";
+  }
   return raw;
 }

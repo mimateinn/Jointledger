@@ -25,6 +25,7 @@ export type HoldingRow = {
   lastUpdateLabel: string | null;
   name: string | null;
   tags: string[];
+  splitLabel?: string | null;
   closed?: boolean;
 };
 
@@ -116,7 +117,10 @@ export function HoldingsWorkspace({
                         <InstrumentLabel ticker={lot.symbol} name={lot.name} />
                       </Link>
                     </td>
-                    <td className="tabular">{formatQty(lot.quantity)}</td>
+                    <td className="tabular">
+                      {formatQty(lot.quantity)}
+                      {lot.splitLabel ? <span className="meta muted"> 拆股 {lot.splitLabel}</span> : null}
+                    </td>
                     <td className="tabular">{lot.lastDisplay ?? NO_MARK}</td>
                     <td className={`tabular ${lot.lastDisplay ? changeClass(lot.percentChange) : "muted"}`}>
                       {lot.lastDisplay ? (lot.percentChange ?? "—") : ""}

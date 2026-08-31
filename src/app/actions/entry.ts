@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/auth/session";
 import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
-import { createCashFlow, createTrade, deleteLot } from "@/ledger";
+import { createAdjustment, createCashFlow, createSplit, createTrade, deleteLot } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
 import { humanFormError } from "@/lib/human-error";
 
@@ -84,6 +84,57 @@ export async function createBuyAction(
   revalidatePath("/holdings");
   revalidatePath("/ledger");
   return { ok: "已記入加倉" };
+}
+
+export async function createBookkeepingAction(
+  _prev: EntryState,
+  formData: FormData,
+): Promise<EntryState> {
+  const user = await requireUser();
+  const ctx = await getCurrentMembership(user);
+  if (!ctx) {
+    return { error: "未有記帳表" };
+  }
+
+  const ledgerAccountId = String(formData.get("ledgerAccountId") ?? "");
+  const account = ctx.accounts.find((row) => row.id === ledgerAccountId);
+  const memberId = account?.memberId;
+  if (!account || !memberId) {
+    return { error: "搵唔到帳簿" };
+  }
+
+  const kind = String(formData.get("kind") ?? "adjustment");
+  try {
+    await withLedgerTransaction((store) =>
+      kind === "split"
+        ? createSplit(store, {
+            bookId: ctx.book.id,
+            ledgerAccountId: account.id,
+            memberId,
+            symbol: String(formData.get("symbol") ?? ""),
+            newShares: String(formData.get("newShares") ?? ""),
+            oldShares: String(formData.get("oldShares") ?? ""),
+            occurredOn: String(formData.get("occurredOn") ?? ""),
+            note: String(formData.get("note") ?? "") || null,
+          })
+        : createAdjustment(store, {
+            bookId: ctx.book.id,
+            ledgerAccountId: account.id,
+            memberId,
+            occurredOn: String(formData.get("occurredOn") ?? ""),
+            note: String(formData.get("note") ?? ""),
+            symbol: String(formData.get("symbol") ?? "") || null,
+            amountUsd: String(formData.get("amountUsd") ?? "") || null,
+          }),
+    );
+  } catch (error) {
+    return { error: humanFormError(error instanceof Error ? error.message : "記帳失敗") };
+  }
+
+  revalidatePath("/overview");
+  revalidatePath("/holdings");
+  revalidatePath("/ledger");
+  return { ok: kind === "split" ? "已記入拆股" : "已記入調整" };
 }
 
 export async function deleteHoldingAction(

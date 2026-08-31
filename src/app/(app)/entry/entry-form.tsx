@@ -1,14 +1,15 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { createBuyAction, createDepositAction, type EntryState } from "@/app/actions/entry";
+import { createBookkeepingAction, createBuyAction, createDepositAction, type EntryState } from "@/app/actions/entry";
 import { SubmitButton } from "@/components/submit-button";
 import { deriveAmountUsd } from "@/ledger/create-cash-flow";
 import { formatUsd } from "@/lib/format";
 
 const initial: EntryState = {};
-const TABS = ["入金", "買入", "賣出", "出金"] as const;
+const TABS = ["入金", "買入", "賣出", "出金", "調整"] as const;
 type Tab = (typeof TABS)[number];
+type BookkeepingKind = "adjustment" | "split";
 
 export function EntryForm({
   members,
@@ -26,6 +27,8 @@ export function EntryForm({
   const [tab, setTab] = useState<Tab>("入金");
   const [depositState, depositAction] = useActionState(createDepositAction, initial);
   const [buyState, buyAction] = useActionState(createBuyAction, initial);
+  const [bookState, bookAction] = useActionState(createBookkeepingAction, initial);
+  const [bookKind, setBookKind] = useState<BookkeepingKind>("adjustment");
   const [hkd, setHkd] = useState("");
   const [fx, setFx] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -44,9 +47,9 @@ export function EntryForm({
   return (
     <div className="stack">
       <h1 className="title">記一筆</h1>
-      {depositState.ok || buyState.ok ? (
+      {depositState.ok || buyState.ok || bookState.ok ? (
         <p className="ok" role="status">
-          {depositState.ok ?? buyState.ok}
+          {depositState.ok ?? buyState.ok ?? bookState.ok}
         </p>
       ) : (
         <p className="muted">空表都可以用。可以先入金，或者直接加持倉。</p>
@@ -192,6 +195,85 @@ export function EntryForm({
           </div>
           {buyState.error ? <p className="alert">{buyState.error}</p> : null}
           {buyState.ok ? <p className="ok">{buyState.ok}</p> : null}
+          <div className="submit-row">
+            <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
+            <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
+          </div>
+        </form>
+      ) : null}
+
+      {tab === "調整" ? (
+        <form key="bookkeeping" className="card form-grid" action={bookAction}>
+          <div className="field">
+            <label htmlFor="bookKind">種類</label>
+            <select
+              className="select"
+              id="bookKind"
+              name="kind"
+              value={bookKind}
+              onChange={(e) => setBookKind(e.target.value as BookkeepingKind)}
+            >
+              <option value="adjustment">人手調整</option>
+              <option value="split">拆股</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="ledgerAccountIdAdj">邊個倉</label>
+            <select
+              className="select"
+              id="ledgerAccountIdAdj"
+              name="ledgerAccountId"
+              defaultValue={defaultAccountId}
+            >
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="occurredOnAdj">日期</label>
+            <input
+              className="input"
+              id="occurredOnAdj"
+              name="occurredOn"
+              type="date"
+              required
+              defaultValue={today}
+            />
+          </div>
+          {bookKind === "split" ? (
+            <>
+              <div className="field">
+                <label htmlFor="symbolSplit">代碼</label>
+                <input className="input" id="symbolSplit" name="symbol" required placeholder="NVDA" autoComplete="off" />
+              </div>
+              <div className="field">
+                <label htmlFor="newShares">新股</label>
+                <input className="input" id="newShares" name="newShares" inputMode="decimal" required placeholder="2" autoComplete="off" />
+                <p className="meta muted">2 對 1 就填新股 2、舊股 1。只改股數，成本不變。</p>
+              </div>
+              <div className="field">
+                <label htmlFor="oldShares">舊股</label>
+                <input className="input" id="oldShares" name="oldShares" inputMode="decimal" required placeholder="1" autoComplete="off" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="field">
+                <label htmlFor="noteAdj">備註</label>
+                <input className="input" id="noteAdj" name="note" required placeholder="例如湊整" autoComplete="off" />
+              </div>
+              <div className="field">
+                <label htmlFor="amountUsdAdj">美金</label>
+                <input className="input" id="amountUsdAdj" name="amountUsd" inputMode="decimal" placeholder="可空，負數扣現金" autoComplete="off" />
+                <p className="meta muted">人手記一筆。唔係入金、亦唔係買賣。</p>
+              </div>
+            </>
+          )}
+          {bookState.error ? <p className="alert">{bookState.error}</p> : null}
+          {bookState.ok ? <p className="ok">{bookState.ok}</p> : null}
           <div className="submit-row">
             <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
             <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>

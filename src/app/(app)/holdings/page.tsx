@@ -43,6 +43,7 @@ export default async function HoldingsPage() {
       lastUpdateLabel: null,
       name: resolveInstrument(lot.symbol)?.displayName ?? null,
       tags: [] as string[],
+      splitLabel: lot.splitLabel,
       closed: true,
     }));
 
@@ -64,6 +65,7 @@ export default async function HoldingsPage() {
       lastUpdateLabel: quote?.lastUpdateLabel ?? null,
       name: quote?.name ?? null,
       tags: instrument ? instrumentTags(instrument) : [],
+      splitLabel: lot.splitLabel,
     };
   });
 
