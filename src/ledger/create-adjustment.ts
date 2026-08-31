@@ -12,8 +12,8 @@ export async function createAdjustment(
   }
 
   const rawAmount = (input.amountUsd ?? "").trim().replace(/^\+/, "");
-  let costUsd = "0";
-  let proceedsUsd = "0";
+  let costUsd = moneyString("0");
+  let proceedsUsd = moneyString("0");
   if (rawAmount !== "") {
     const amount = money(rawAmount);
     if (amount.gt(0)) {
@@ -30,9 +30,9 @@ export async function createAdjustment(
     ledgerAccountId: input.ledgerAccountId,
     symbol,
     side: "adjustment",
-    quantity: "0",
-    price: "0",
-    feeUsd: "0",
+    quantity: moneyString("0"),
+    price: moneyString("0"),
+    feeUsd: moneyString("0"),
     occurredOn: input.occurredOn,
     note,
   });

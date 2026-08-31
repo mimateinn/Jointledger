@@ -34,7 +34,7 @@ export async function createSplit(
     side: "split",
     quantity: newShares,
     price: oldShares,
-    feeUsd: "0",
+    feeUsd: moneyString("0"),
     occurredOn: input.occurredOn,
     note,
   });
@@ -43,8 +43,8 @@ export async function createSplit(
     tradeId: trade.id,
     memberId: input.memberId,
     quantity: newShares,
-    costUsd: "0",
-    proceedsUsd: "0",
+    costUsd: moneyString("0"),
+    proceedsUsd: moneyString("0"),
   });
 
   return { trade, allocation };

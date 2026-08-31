@@ -298,13 +298,3 @@ export function filterByMember<T extends { memberId: string }>(
   }
   return rows.filter((row) => row.memberId === memberId);
 }
-
-export function filterByMember<T extends { memberId: string }>(
-  rows: T[],
-  memberId: string | null,
-): T[] {
-  if (!memberId) {
-    return rows;
-  }
-  return rows.filter((row) => row.memberId === memberId);
-}
