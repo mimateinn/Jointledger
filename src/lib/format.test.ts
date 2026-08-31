@@ -8,6 +8,7 @@ import {
   formatUsd,
   todayChangeLabel,
   todayIso,
+  tradeSideLabel,
 } from "./format";
 
 describe("formatSchedulePercent", () => {
@@ -65,6 +66,14 @@ describe("todayChangeLabel", () => {
 describe("formatAsOfClock", () => {
   it("labels NAV as-of with 截至", () => {
     expect(formatAsOfClock(new Date("2026-08-17T21:04:00+08:00"))).toBe("截至 21:04");
+  });
+});
+
+describe("tradeSideLabel", () => {
+  it("names split and adjustment rows", () => {
+    expect(tradeSideLabel("split")).toBe("拆股");
+    expect(tradeSideLabel("adjustment")).toBe("調整");
+    expect(tradeSideLabel("buy")).toBe("買入");
   });
 });
 

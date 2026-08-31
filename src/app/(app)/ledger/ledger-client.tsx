@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { EmptyPanel } from "@/components/empty-panel";
 import { InstrumentLabel } from "@/components/instrument-label";
-import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd } from "@/lib/format";
+import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd, tradeSideLabel } from "@/lib/format";
 
 export function LedgerClient({
   cashFlows,
@@ -19,6 +19,7 @@ export function LedgerClient({
   }[];
   trades: {
     id: string;
+    side: string;
     symbol: string;
     name: string | null;
     quantity: string;
@@ -84,18 +85,20 @@ export function LedgerClient({
         ) : (
           <table className="table">
             <thead>
-              <tr>
-                <th>日期</th>
-                <th>標的</th>
-                <th>數量</th>
-                <th>價格</th>
-                <th>備註</th>
-              </tr>
+                <tr>
+                  <th>日期</th>
+                  <th>種類</th>
+                  <th>標的</th>
+                  <th>數量</th>
+                  <th>價格</th>
+                  <th>備註</th>
+                </tr>
             </thead>
             <tbody>
               {trades.map((row) => (
                 <tr key={row.id}>
                     <td>{formatRelativeDate(row.occurredOn)}</td>
+                    <td>{tradeSideLabel(row.side)}</td>
                     <td>
                       <InstrumentLabel ticker={row.symbol} name={row.name} />
                     </td>

@@ -1,6 +1,6 @@
 export type AccountKind = "personal" | "joint";
 export type CashFlowKind = "deposit" | "withdrawal";
-export type TradeSide = "buy" | "sell";
+export type TradeSide = "buy" | "sell" | "split" | "adjustment";
 
 export type Book = {
   id: string;
@@ -196,4 +196,28 @@ export type SetAllocationScheduleInput = {
 export type CreateJointAccountInput = {
   bookId: string;
   name?: string;
+};
+
+export type CreateSplitInput = {
+  bookId: string;
+  ledgerAccountId: string;
+  memberId: string;
+  symbol: string;
+  /** New shares in the ratio, e.g. 2 in a 2-for-1. */
+  newShares: string;
+  /** Old shares in the ratio, e.g. 1 in a 2-for-1. */
+  oldShares: string;
+  occurredOn: string;
+  note?: string | null;
+};
+
+export type CreateAdjustmentInput = {
+  bookId: string;
+  ledgerAccountId: string;
+  memberId: string;
+  occurredOn: string;
+  note: string;
+  symbol?: string | null;
+  /** Signed USD cash impact. Empty or 0 leaves cash unchanged. */
+  amountUsd?: string | null;
 };

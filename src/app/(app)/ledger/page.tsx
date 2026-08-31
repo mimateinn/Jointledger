@@ -34,6 +34,7 @@ export default async function LedgerPage() {
       }))}
       trades={view.trades.map((row) => ({
         id: row.id,
+        side: row.side,
         symbol: row.symbol,
         name: resolveInstrument(row.symbol)?.displayName ?? null,
         quantity: row.quantity,

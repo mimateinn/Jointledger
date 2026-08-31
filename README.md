@@ -8,7 +8,7 @@
 
 第一個人註冊，開出這本表。之後用一次性成員邀請密鑰認領，大家綁同一本。
 
-可以入金、加倉、刪持倉或刪用戶。淨值是現金加已標記市值；沒有現價時，不會用成本去估。
+可以入金、加倉、刪持倉或刪用戶。拆股會改持倉股數並顯示在持倉上。可以記一筆人手調整。淨值是現金加已標記市值；沒有現價時，不會用成本去估。
 
 頂欄有行情跑馬燈。持倉現價可選 Twelve Data。沒有 key 也能開，只是延遲或部份市值。從跑馬燈或持倉打開標的頁，看日線 K 線。
 
@@ -42,7 +42,7 @@ A shared stock book for several people. It only keeps the books. It does not con
 
 The first person registers and opens the book. Later people claim a seat with a one-time member invite key, and they all share the same book.
 
-You can deposit cash, add a position, and delete a position or a user. NAV is cash plus marked market value. If a price is missing, cost is never used as a stand-in.
+You can deposit cash, add a position, and delete a position or a user. Stock splits restate holding quantity and show on holdings. You can add one manual adjustment row. NAV is cash plus marked market value. If a price is missing, cost is never used as a stand-in.
 
 A ticker runs along the top. Position prices can use Twelve Data. The app still opens with no key; quotes may be delayed, or NAV may be marked partial. Open a symbol from the ticker or from positions to see a daily candlestick chart.
 
