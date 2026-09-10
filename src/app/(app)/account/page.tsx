@@ -33,7 +33,7 @@ export default async function AccountPage() {
       current: current?.id === row.id,
       legs: row.legs.map((leg) => ({
         memberId: leg.memberId,
-        displayName: byId.get(leg.memberId) ?? "?",
+        displayName: byId.get(leg.memberId) ?? "未認領",
         percent: leg.percent,
       })),
     }));

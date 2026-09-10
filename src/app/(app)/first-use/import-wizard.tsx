@@ -8,6 +8,7 @@ import {
   type ImportActionState,
 } from "@/app/actions/import";
 import { SubmitButton } from "@/components/submit-button";
+import { inviteSecretFieldName } from "@/import/invite-secrets";
 import type { ColumnTarget } from "@/import/types";
 
 const initial: ImportActionState = {};
@@ -53,10 +54,11 @@ export function ImportWizard({
   const [committed, commitAction] = useActionState(commitImportAction, initial);
   const [bulk, setBulk] = useState<"import" | "skip" | "">("");
 
-  const state = committed.draftId || committed.error ? committed : mapped.draftId ? mapped : parsed;
+  const state = committed.draftId || committed.error || committed.issuedInvites ? committed : mapped.draftId ? mapped : parsed;
   const preview = state.preview;
-  const showMap = Boolean(state.needsMap && state.draftId);
-  const showPreview = Boolean(state.draftId && preview && !state.needsMap);
+  const issuedInvites = committed.issuedInvites;
+  const showMap = Boolean(state.needsMap && state.draftId && !issuedInvites);
+  const showPreview = Boolean(state.draftId && preview && !state.needsMap && !issuedInvites);
 
   return (
     <div className="stack">
@@ -204,6 +206,25 @@ export function ImportWizard({
                 <input className="input" id="bookName" name="bookName" defaultValue="聯倉" />
               </div>
             )}
+            {!reimport && preview.members.length > 0 ? (
+              <div className="stack">
+                <p className="muted">
+                  未設密碼嘅匯入成員可帶邀請密鑰。留空就現場發一把，只顯示一次。密鑰唔會寫入檔案或草稿。
+                </p>
+                {preview.members.map((name) => (
+                  <div className="field" key={name}>
+                    <label htmlFor={inviteSecretFieldName(name)}>{name} 邀請密鑰（可留空）</label>
+                    <input
+                      className="input"
+                      id={inviteSecretFieldName(name)}
+                      name={inviteSecretFieldName(name)}
+                      type="password"
+                      autoComplete="off"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {reimport ? (
               <div className="field">
                 <label htmlFor="reimportMode">寫入方式</label>
@@ -291,6 +312,26 @@ export function ImportWizard({
               ) : null}
             </div>
           </form>
+        </section>
+      ) : null}
+
+      {issuedInvites && issuedInvites.length > 0 ? (
+        <section className="card stack">
+          <h2 className="title">邀請密鑰只顯示一次</h2>
+          <p className="muted">抄低之後離線交俾對方。系統只存 hash，呢頁之後睇唔返明文。</p>
+          <ul className="stack">
+            {issuedInvites.map((row) => (
+              <li key={row.displayName}>
+                <div className="meta muted">{row.displayName}</div>
+                <code className="tabular">{row.inviteSecret}</code>
+              </li>
+            ))}
+          </ul>
+          <div>
+            <a href="/overview" className="btn btn-primary">
+              去總覽
+            </a>
+          </div>
         </section>
       ) : null}
 
