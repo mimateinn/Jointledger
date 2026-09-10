@@ -7,6 +7,7 @@ export { createAdjustment } from "./create-adjustment";
 export { deleteLot } from "./delete-lot";
 export { createJointAccount } from "./create-joint-account";
 export { setAllocationSchedule, scheduleInForce } from "./set-allocation-schedule";
+export { jointTradeLegs } from "./joint-legs";
 export {
   summarizeLedger,
   openLotsFromTrades,

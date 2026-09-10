@@ -59,8 +59,12 @@ export async function createBuyAction(
 
   const ledgerAccountId = String(formData.get("ledgerAccountId") ?? "");
   const account = ctx.accounts.find((row) => row.id === ledgerAccountId);
-  const memberId = account?.memberId ?? ctx.member.id;
-  if (!account || !memberId) {
+  if (!account) {
+    return { error: "搵唔到帳簿" };
+  }
+  const joint = account.kind === "joint";
+  const memberId = account.memberId ?? ctx.members[0]?.id;
+  if ((!joint && !account.memberId) || !memberId) {
     return { error: "搵唔到帳簿" };
   }
 

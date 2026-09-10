@@ -1,4 +1,6 @@
+import { jointTradeLegs } from "./joint-legs";
 import { isPositive, money, moneyString } from "./money";
+import { scheduleInForce } from "./set-allocation-schedule";
 import type { LedgerStore } from "./store";
 import type { CreateTradeInput, Trade, TradeAllocation } from "./types";
 
@@ -60,9 +62,23 @@ export async function createTrade(
     note: input.note?.trim() ? input.note.trim() : null,
   });
 
-  const sources = input.legs?.length
-    ? input.legs
-    : [
+  let sources = input.legs?.length ? input.legs : null;
+  if (!sources) {
+    const account = await store.getLedgerAccount(input.ledgerAccountId);
+    if (account?.kind === "joint") {
+      const schedules = await store.listAllocationSchedules(input.bookId);
+      const members = await store.listMembers(input.bookId);
+      const schedule = scheduleInForce(schedules, input.occurredOn);
+      const field = side === "sell" ? "proceeds" : "cost";
+      sources = jointTradeLegs({
+        scheduleLegs: schedule?.legs ?? null,
+        members,
+        quantity: input.quantity,
+        total: field === "cost" ? costUsd : proceedsUsd,
+        field,
+      });
+    } else {
+      sources = [
         {
           memberId: input.memberId,
           quantity: input.quantity,
@@ -70,6 +86,8 @@ export async function createTrade(
           proceedsUsd,
         },
       ];
+    }
+  }
 
   const totalQty = sources.reduce((sum, leg) => sum.plus(money(leg.quantity)), money("0"));
   const allocations: TradeAllocation[] = [];
