@@ -5,6 +5,7 @@ import { getCurrentMembership } from "@/lib/current-book";
 import { ensureCurrentBook } from "@/lib/ensure-book";
 import { scheduleInForce } from "@/ledger/set-allocation-schedule";
 import { todayIso } from "@/lib/format";
+import { memberLabel } from "@/lib/member-label";
 import { AccountClient } from "./account-client";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,10 @@ export default async function AccountPage() {
       current: current?.id === row.id,
       legs: row.legs.map((leg) => ({
         memberId: leg.memberId,
-        displayName: byId.get(leg.memberId) ?? "未認領",
+        displayName: memberLabel(
+          byId.has(leg.memberId) ? { displayName: byId.get(leg.memberId)! } : null,
+          leg.memberId,
+        ),
         percent: leg.percent,
       })),
     }));

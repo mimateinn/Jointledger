@@ -13,7 +13,7 @@ export type BookSnapshot = {
 
 export type OpenLot = {
   tradeId: string;
-  memberId: string;
+  memberId: string | null;
   ledgerAccountId: string;
   symbol: string;
   quantity: string;
@@ -289,7 +289,26 @@ export function positionLotsFromTrades(
   }));
 }
 
-export function filterByMember<T extends { memberId: string }>(
+export function jointShareFraction(
+  allocations: Pick<TradeAllocation, "tradeId" | "memberId" | "quantity">[],
+  tradeId: string,
+  memberId: string | null,
+): string | null {
+  const legs = allocations.filter((row) => row.tradeId === tradeId);
+  if (legs.length < 2) {
+    return null;
+  }
+  const total = legs.reduce((sum, row) => sum.plus(money(row.quantity)), money("0"));
+  if (!total.gt(0) || !memberId) {
+    return null;
+  }
+  const mine = legs
+    .filter((row) => row.memberId === memberId)
+    .reduce((sum, row) => sum.plus(money(row.quantity)), money("0"));
+  return mine.div(total).toString();
+}
+
+export function filterByMember<T extends { memberId: string | null }>(
   rows: T[],
   memberId: string | null,
 ): T[] {

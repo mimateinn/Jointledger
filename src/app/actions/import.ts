@@ -2,16 +2,21 @@
 
 import { and, eq, inArray } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { writeInvite } from "@/auth/invite-persist";
 import { requireUser } from "@/auth/session";
 import { getDb } from "@/db/client";
+import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
 import { importBatches } from "@/db/tables";
 import { applyImport } from "@/import/apply";
 import { applyManualMap, mapUpload } from "@/import/columns";
+import { readInviteSecret } from "@/import/invite-secrets";
 import { parseUpload, pickSheets } from "@/import/parse";
 import { buildPlan } from "@/import/plan";
 import type { ColumnTarget, ImportDecisions, ImportPlan, PendingChoice } from "@/import/types";
 import { getCurrentMembership } from "@/lib/current-book";
+
+export type IssuedInvite = { displayName: string; inviteSecret: string };
 
 export type ImportActionState = {
   error?: string;
@@ -26,6 +31,7 @@ export type ImportActionState = {
   accountHeaders?: string[];
   transinfoTargets?: Array<ColumnTarget | null>;
   accountTargets?: Array<ColumnTarget | null>;
+  issuedInvites?: IssuedInvite[];
 };
 
 type DraftPayload = {
@@ -306,6 +312,32 @@ export async function commitImportAction(
           mode: decisions.reimportMode ?? "initial",
         })
         .where(eq(importBatches.id, draftId));
+
+      if (!reimport) {
+        const store = createDrizzleStore();
+        const bookMembers = await store.listMembers(result.bookId);
+        const issuedInvites: IssuedInvite[] = [];
+        for (const member of bookMembers) {
+          if (member.userId) {
+            continue;
+          }
+          const inviteSecret = await writeInvite(
+            member.id,
+            result.bookId,
+            readInviteSecret(formData, member.displayName),
+          );
+          issuedInvites.push({ displayName: member.displayName, inviteSecret });
+        }
+        if (issuedInvites.length > 0) {
+          return {
+            draftId,
+            filename: payload.filename,
+            fileHash: payload.fileHash,
+            preview: payload.plan,
+            issuedInvites,
+          };
+        }
+      }
     } catch (error) {
       await db
         .update(importBatches)

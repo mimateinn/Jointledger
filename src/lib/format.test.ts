@@ -5,6 +5,7 @@ import {
   formatQty,
   formatRelativeDate,
   formatSchedulePercent,
+  formatSharePercent,
   formatUsd,
   todayChangeLabel,
   todayIso,
@@ -21,6 +22,9 @@ describe("formatSchedulePercent", () => {
     expect(legs[1].percent.startsWith("0.6")).toBe(true);
     expect(formatSchedulePercent(legs[0].percent)).toBe("40.0%");
     expect(formatSchedulePercent(legs[1].percent)).toBe("60.0%");
+    expect(formatSharePercent(legs[0].percent)).toBe("40.0%");
+    expect(formatSharePercent(null)).toBe("—");
+    expect(formatSharePercent("")).toBe("—");
   });
 });
 

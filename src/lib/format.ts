@@ -6,6 +6,14 @@ export function formatSchedulePercent(percent: string): string {
   return `${money(percent).mul(100).toFixed(1)}%`;
 }
 
+/** Joint share fraction (0–1) → display percent. Empty/null → —. */
+export function formatSharePercent(fraction: string | null | undefined): string {
+  if (fraction == null || fraction.trim() === "") {
+    return "—";
+  }
+  return formatSchedulePercent(fraction);
+}
+
 export function formatMoney(value: string | Decimal, scale = 2): string {
   const fixed = money(value).toFixed(scale);
   const negative = fixed.startsWith("-");

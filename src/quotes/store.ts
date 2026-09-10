@@ -111,6 +111,41 @@ export async function loadQuoteRows(
   return out;
 }
 
+/** Cleared last-good: never write cost (or any invented price) into quotes.last. */
+export function clearedLastGoodFields(now = new Date()): {
+  last: null;
+  percentChange: null;
+  previousClose: null;
+  quotedAt: null;
+  status: QuoteStatus;
+  fetchedAt: Date;
+} {
+  return {
+    last: null,
+    percentChange: null,
+    previousClose: null,
+    quotedAt: null,
+    status: "empty",
+    fetchedAt: now,
+  };
+}
+
+export async function clearLastGoodForDisplays(
+  displays: readonly string[],
+  db: QuoteExecutor = getDb(),
+): Promise<void> {
+  const wanted = [...new Set(displays.map((d) => d.trim().toUpperCase()).filter(Boolean))];
+  if (wanted.length === 0) {
+    return;
+  }
+  const inst = await db.select().from(instruments).where(inArray(instruments.displayCode, wanted));
+  const now = new Date();
+  const cleared = clearedLastGoodFields(now);
+  for (const row of inst) {
+    await db.update(quotes).set(cleared).where(eq(quotes.instrumentId, row.id));
+  }
+}
+
 export async function saveQuoteRow(
   instrumentId: string,
   row: {

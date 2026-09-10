@@ -7,6 +7,7 @@ import { withLedgerTransaction } from "@/db/ledger-tx";
 import { createAdjustment, createCashFlow, createSplit, createTrade, deleteLot } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
 import { humanFormError } from "@/lib/human-error";
+import { refreshMarksAfterSplit } from "@/quotes";
 
 export type EntryState = { error?: string; ok?: string };
 
@@ -58,7 +59,7 @@ export async function createBuyAction(
 
   const ledgerAccountId = String(formData.get("ledgerAccountId") ?? "");
   const account = ctx.accounts.find((row) => row.id === ledgerAccountId);
-  const memberId = account?.memberId;
+  const memberId = account?.memberId ?? ctx.member.id;
   if (!account || !memberId) {
     return { error: "搵唔到帳簿" };
   }
@@ -98,12 +99,13 @@ export async function createBookkeepingAction(
 
   const ledgerAccountId = String(formData.get("ledgerAccountId") ?? "");
   const account = ctx.accounts.find((row) => row.id === ledgerAccountId);
-  const memberId = account?.memberId;
+  const memberId = account?.memberId ?? ctx.member.id;
   if (!account || !memberId) {
     return { error: "搵唔到帳簿" };
   }
 
   const kind = String(formData.get("kind") ?? "adjustment");
+  const symbol = String(formData.get("symbol") ?? "");
   try {
     await withLedgerTransaction((store) =>
       kind === "split"
@@ -111,7 +113,7 @@ export async function createBookkeepingAction(
             bookId: ctx.book.id,
             ledgerAccountId: account.id,
             memberId,
-            symbol: String(formData.get("symbol") ?? ""),
+            symbol,
             newShares: String(formData.get("newShares") ?? ""),
             oldShares: String(formData.get("oldShares") ?? ""),
             occurredOn: String(formData.get("occurredOn") ?? ""),
@@ -123,12 +125,19 @@ export async function createBookkeepingAction(
             memberId,
             occurredOn: String(formData.get("occurredOn") ?? ""),
             note: String(formData.get("note") ?? ""),
-            symbol: String(formData.get("symbol") ?? "") || null,
+            symbol: symbol || null,
             amountUsd: String(formData.get("amountUsd") ?? "") || null,
           }),
     );
   } catch (error) {
     return { error: humanFormError(error instanceof Error ? error.message : "記帳失敗") };
+  }
+  if (kind === "split") {
+    try {
+      await refreshMarksAfterSplit([symbol]);
+    } catch {
+      // Quote refresh must not break bookkeeping that already committed.
+    }
   }
 
   revalidatePath("/overview");
@@ -155,7 +164,7 @@ export async function deleteHoldingAction(
       deleteLot(store, {
         bookId: ctx.book.id,
         tradeId: String(formData.get("tradeId") ?? ""),
-        memberId: String(formData.get("memberId") ?? ""),
+        memberId: String(formData.get("memberId") ?? "") || "_",
       }),
     );
   } catch (error) {

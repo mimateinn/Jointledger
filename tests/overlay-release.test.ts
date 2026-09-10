@@ -159,6 +159,77 @@ describe('draft / prerelease / main rejection', () => {
   });
 });
 
+describe('fail-closed park / restore', () => {
+  it('parks and unparks node_modules and .next via *.jl-park', async () => {
+    const { parkRuntimeDirs, unparkRuntimeDirs, PARK_SUFFIX, PARK_DIRS } = await loadOverlay();
+    const fs = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const { mkdtemp } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    expect(PARK_SUFFIX).toBe('.jl-park');
+    expect(PARK_DIRS).toEqual(['node_modules', '.next']);
+    const root = await mkdtemp(join(tmpdir(), 'jl-park-'));
+    await fs.mkdir(join(root, 'node_modules'));
+    await fs.writeFile(join(root, 'node_modules', 'kept.txt'), 'modules');
+    await fs.mkdir(join(root, '.next'));
+    await fs.writeFile(join(root, '.next', 'cache.txt'), 'cache');
+    await parkRuntimeDirs(root);
+    await expect(fs.stat(join(root, 'node_modules'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(fs.stat(join(root, '.next'))).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(await fs.readFile(join(root, `node_modules${PARK_SUFFIX}`, 'kept.txt'), 'utf8')).toBe('modules');
+    expect(await fs.readFile(join(root, `.next${PARK_SUFFIX}`, 'cache.txt'), 'utf8')).toBe('cache');
+    await unparkRuntimeDirs(root);
+    expect(await fs.readFile(join(root, 'node_modules', 'kept.txt'), 'utf8')).toBe('modules');
+    expect(await fs.readFile(join(root, '.next', 'cache.txt'), 'utf8')).toBe('cache');
+    await expect(fs.stat(join(root, `node_modules${PARK_SUFFIX}`))).rejects.toMatchObject({ code: 'ENOENT' });
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('restore copies backup tree and deletes overlay-only files', async () => {
+    const { createBackup, restoreFromBackup, shouldExclude } = await loadOverlay();
+    const fs = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const { tmpdir } = await import('node:os');
+    const root = await fs.mkdtemp(join(tmpdir(), 'jl-restore-'));
+    const backup = join(root, 'backup-tree');
+    const live = join(root, 'live');
+    await fs.mkdir(join(live, 'src'), { recursive: true });
+    await fs.writeFile(join(live, 'src', 'kept.ts'), 'old');
+    await fs.writeFile(join(live, 'package.json'), '{"name":"old"}');
+    await createBackup(backup, new Set(), live);
+    await fs.writeFile(join(live, 'src', 'kept.ts'), 'new');
+    await fs.mkdir(join(live, 'src', 'overlay-only'), { recursive: true });
+    await fs.writeFile(join(live, 'src', 'overlay-only', 'fresh.ts'), 'added');
+    await fs.writeFile(join(live, 'data-should-stay.env'), 'no');
+    await restoreFromBackup(backup, new Set(), live);
+    expect(await fs.readFile(join(live, 'src', 'kept.ts'), 'utf8')).toBe('old');
+    await expect(fs.stat(join(live, 'src', 'overlay-only', 'fresh.ts'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    expect(shouldExclude('data/joint-ledger.sqlite')).toBe(true);
+    expect(shouldExclude('node_modules.jl-park/foo')).toBe(true);
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('writes .jl-release only after overlay+install+migrate succeed', async () => {
+    const fs = await import('node:fs/promises');
+    const src = await fs.readFile(join(process.cwd(), 'scripts/overlay-release.mjs'), 'utf8');
+    const overlayIdx = src.indexOf('await overlayFromExtracted');
+    const installIdx = src.indexOf('await runPnpmInstallRebuildMigrate');
+    const stampIdx = src.lastIndexOf('await writeStamp(stamp)');
+    const restoreIdx = src.indexOf('await restoreFromBackup');
+    expect(overlayIdx).toBeGreaterThan(0);
+    expect(installIdx).toBeGreaterThan(overlayIdx);
+    expect(stampIdx).toBeGreaterThan(installIdx);
+    expect(restoreIdx).toBeGreaterThan(0);
+    expect(restoreIdx).toBeLessThan(stampIdx);
+    expect(src).toContain('parkRuntimeDirs');
+    expect(src).toContain('unparkRuntimeDirs');
+    expect(src).toContain('deleteOverlayOnlyFiles');
+    expect(src).toMatch(/\.jl-park/);
+  });
+});
+
 describe('API route contract', () => {
   it('route is POST-only, 401, no client tag, no NEXT_PUBLIC token', async () => {
     const fs = await import('node:fs/promises');

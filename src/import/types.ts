@@ -12,6 +12,7 @@ export type TransInfoTarget =
   | "sell_fee"
   | "sell_total"
   | "pnl"
+  | "row_kind"
   | "split_hey"
   | "split_sze"
   | "split_wah";

@@ -13,6 +13,7 @@ export {
   positionLotsFromTrades,
   filterByMember,
   lotMarketValue,
+  jointShareFraction,
 } from "./summary";
 export { createMemoryStore } from "./memory-store";
 export { money, moneyString } from "./money";

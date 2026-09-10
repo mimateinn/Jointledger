@@ -1,14 +1,10 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { hashPassword } from "@/auth/password";
-import { inviteExpiry, mintInviteSecret } from "@/auth/invite";
+import { writeInvite as persistWriteInvite } from "@/auth/invite-persist";
 import { destroySession, requireUser } from "@/auth/session";
-import { getDb } from "@/db/client";
 import { createDrizzleStore } from "@/db/drizzle-store";
-import { members } from "@/db/tables";
 import { addMember } from "@/ledger";
 import { deleteMemberCascade } from "@/ledger/delete-member";
 import { getCurrentMembership } from "@/lib/current-book";
@@ -30,16 +26,7 @@ async function requireBook() {
 }
 
 async function writeInvite(memberId: string, bookId: string): Promise<string> {
-  const secret = mintInviteSecret();
-  const db = getDb();
-  await db
-    .update(members)
-    .set({
-      inviteSecretHash: await hashPassword(secret),
-      inviteExpiresAt: inviteExpiry(),
-    })
-    .where(and(eq(members.id, memberId), eq(members.bookId, bookId)));
-  return secret;
+  return persistWriteInvite(memberId, bookId);
 }
 
 export async function addMemberAction(

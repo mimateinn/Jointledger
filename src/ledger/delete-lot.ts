@@ -4,7 +4,7 @@ import type { LedgerStore } from "./store";
 export type DeleteLotInput = {
   bookId: string;
   tradeId: string;
-  memberId: string;
+  memberId: string | null;
 };
 
 /**
@@ -12,10 +12,11 @@ export type DeleteLotInput = {
  * Cash is whatever the invariant says on the remaining rows — never rewritten.
  */
 export async function deleteLot(store: LedgerStore, input: DeleteLotInput): Promise<void> {
+  const memberId = !input.memberId || input.memberId === "_" ? null : input.memberId;
   const trades = await store.listTrades(input.bookId);
   const allocations = await store.listTradeAllocations(input.bookId);
   const lot = positionLotsFromTrades(trades, allocations).find(
-    (row) => row.tradeId === input.tradeId && row.memberId === input.memberId,
+    (row) => row.tradeId === input.tradeId && (row.memberId ?? "_") === (memberId ?? "_"),
   );
   if (!lot) {
     throw new Error("搵唔到呢筆持倉");
@@ -23,7 +24,7 @@ export async function deleteLot(store: LedgerStore, input: DeleteLotInput): Prom
 
   const tradeIds = [lot.tradeId, ...lot.sellTradeIds];
   const remove = allocations.filter(
-    (row) => tradeIds.includes(row.tradeId) && row.memberId === input.memberId,
+    (row) => tradeIds.includes(row.tradeId) && (row.memberId ?? "_") === (memberId ?? "_"),
   );
   if (remove.length === 0) {
     throw new Error("搵唔到呢筆持倉");

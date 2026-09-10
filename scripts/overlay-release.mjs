@@ -58,6 +58,8 @@ const EXCLUDE_FILES = new Set([
   '.jl-need-restart',
 ]);
 const SQLITE_RE = /\.sqlite(-journal|-wal|-shm)?$/i;
+const PARK_SUFFIX = '.jl-park';
+const PARK_DIRS = ['node_modules', '.next'];
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -210,10 +212,52 @@ function shouldExclude(relPath) {
   if (parts.length === 0) return true;
   const top = parts[0];
   if (EXCLUDE_DIRS.has(top)) return true;
+  if (parts.some((p) => p.endsWith(PARK_SUFFIX))) return true;
   if (parts.length === 1 && EXCLUDE_FILES.has(top)) return true;
   if (SQLITE_RE.test(basename(relPath))) return true;
   if (top === STAMP_FILE || top === LOCK_FILE) return true;
   return false;
+}
+
+async function parkRuntimeDirs(root = ROOT) {
+  const parked = [];
+  for (const name of PARK_DIRS) {
+    const live = join(root, name);
+    const park = live + PARK_SUFFIX;
+    try {
+      await fs.stat(live);
+    } catch (e) {
+      if (e && e.code === 'ENOENT') continue;
+      throw e;
+    }
+    try {
+      await fs.rm(park, { recursive: true, force: true });
+    } catch {}
+    await fs.rename(live, park);
+    parked.push(name);
+  }
+  return parked;
+}
+
+async function unparkRuntimeDirs(root = ROOT) {
+  for (const name of PARK_DIRS) {
+    const live = join(root, name);
+    const park = live + PARK_SUFFIX;
+    try {
+      await fs.stat(park);
+    } catch (e) {
+      if (e && e.code === 'ENOENT') continue;
+      throw e;
+    }
+    await fs.rm(live, { recursive: true, force: true }).catch(() => {});
+    await fs.rename(park, live);
+  }
+}
+
+async function dropParkedRuntimeDirs(root = ROOT) {
+  for (const name of PARK_DIRS) {
+    await fs.rm(join(root, name + PARK_SUFFIX), { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 async function protectedSqlitePaths() {
@@ -383,7 +427,43 @@ async function overlayFromExtracted(extractedRoot, protectedPaths) {
   await walk(srcRoot);
 }
 
-async function restoreFromBackup(backupDir, protectedPaths) {
+async function deleteOverlayOnlyFiles(backupDir, protectedPaths, root = ROOT) {
+  async function walk(dir, relBase = '') {
+    let list;
+    try {
+      list = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const ent of list) {
+      const rel = relBase ? `${relBase}/${ent.name}` : ent.name;
+      if (shouldExclude(rel)) continue;
+      const livePath = join(dir, ent.name);
+      if (protectedPaths.has(resolve(livePath))) continue;
+      const backupPath = join(backupDir, rel);
+      if (ent.isDirectory()) {
+        await walk(livePath, rel);
+        try {
+          await fs.access(backupPath);
+        } catch {
+          const leftover = await fs.readdir(livePath).catch(() => ['x']);
+          if (leftover.length === 0) {
+            await fs.rmdir(livePath).catch(() => {});
+          }
+        }
+      } else if (ent.isFile()) {
+        try {
+          await fs.access(backupPath);
+        } catch {
+          await fs.unlink(livePath).catch(() => {});
+        }
+      }
+    }
+  }
+  await walk(root);
+}
+
+async function restoreFromBackup(backupDir, protectedPaths, root = ROOT) {
   log('Fail-closed: restoring from backup...');
   async function walk(src, relBase = '') {
     const list = await fs.readdir(src, { withFileTypes: true });
@@ -391,7 +471,7 @@ async function restoreFromBackup(backupDir, protectedPaths) {
       const rel = relBase ? `${relBase}/${ent.name}` : ent.name;
       if (shouldExclude(rel)) continue;
       const srcPath = join(src, ent.name);
-      const destPath = join(ROOT, rel);
+      const destPath = join(root, rel);
       if (protectedPaths.has(resolve(destPath))) continue;
       if (ent.isDirectory()) {
         await fs.mkdir(destPath, { recursive: true });
@@ -403,10 +483,11 @@ async function restoreFromBackup(backupDir, protectedPaths) {
     }
   }
   await walk(backupDir);
+  await deleteOverlayOnlyFiles(backupDir, protectedPaths, root);
   log('Restore complete.');
 }
 
-async function createBackup(backupDir, protectedPaths) {
+async function createBackup(backupDir, protectedPaths, root = ROOT) {
   await fs.mkdir(backupDir, { recursive: true });
   async function walk(src, relBase = '') {
     let list;
@@ -430,7 +511,7 @@ async function createBackup(backupDir, protectedPaths) {
       }
     }
   }
-  await walk(ROOT);
+  await walk(root);
 }
 
 async function runPnpmInstallRebuildMigrate() {
@@ -584,12 +665,15 @@ async function doOverlay(release) {
     }
     log('Creating backup (fail-closed) ...');
     await createBackup(backupDir, protectedPaths);
+    log('Parking node_modules/.next via *.jl-park ...');
+    await parkRuntimeDirs();
     log('Copy from temp into existing root (exclude data/.env/sqlite/node_modules/.next) ...');
     try {
       await overlayFromExtracted(extractDir, protectedPaths);
     } catch (overlayErr) {
       err('Overlay failed, restoring...', overlayErr && overlayErr.message);
       await restoreFromBackup(backupDir, protectedPaths);
+      await unparkRuntimeDirs();
       throw overlayErr;
     }
     try {
@@ -597,6 +681,7 @@ async function doOverlay(release) {
     } catch (postErr) {
       err('Post-overlay install/migrate failed, restoring...', postErr && postErr.message);
       await restoreFromBackup(backupDir, protectedPaths);
+      await unparkRuntimeDirs();
       throw postErr;
     }
     const stamp = {
@@ -607,6 +692,7 @@ async function doOverlay(release) {
       name: release.name,
     };
     await writeStamp(stamp);
+    await dropParkedRuntimeDirs();
     log('Stamp written after success:', stamp.tag, stamp.sha.slice(0, 12));
     log('Overlay success. Restart required.');
     return { ok: true, stamp, needRestart: true };
@@ -670,10 +756,18 @@ export {
   shouldExclude,
   validateReleasePayload,
   getLatestOfficialRelease,
+  parkRuntimeDirs,
+  unparkRuntimeDirs,
+  dropParkedRuntimeDirs,
+  createBackup,
+  restoreFromBackup,
+  deleteOverlayOnlyFiles,
   ALLOWED_HOSTS,
   PIN_OWNER,
   PIN_REPO,
   STAMP_FILE,
+  PARK_SUFFIX,
+  PARK_DIRS,
   MAX_ZIP_BYTES,
   MAX_EXTRACTED_BYTES,
 };

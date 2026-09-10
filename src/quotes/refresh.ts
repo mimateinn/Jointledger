@@ -3,6 +3,7 @@ import { nextUtcMinute, packTtlMs, utcDateString } from "./market-hours";
 import { withPackLock, type PackLockTx } from "./pack-lock";
 import { buildUniverse, flightKey, isDeniedSymbol, resolveInstrument } from "./symbol-map";
 import {
+  clearLastGoodForDisplays,
   loadQuoteRows,
   loadRefreshState,
   saveQuoteRow,
@@ -76,6 +77,7 @@ async function refreshUniverse(
   instruments: CanonInstrument[],
   now: Date,
   tx: PackLockTx,
+  forceDisplays: readonly string[] = [],
 ): Promise<void> {
   const ids = await upsertInstruments(instruments, tx);
   const previous = await loadQuoteRows(
@@ -93,6 +95,7 @@ async function refreshUniverse(
     return;
   }
 
+  const forced = new Set(forceDisplays.map((d) => d.trim().toUpperCase()).filter(Boolean));
   const due: CanonInstrument[] = [];
   for (const row of instruments) {
     if (isDeniedSymbol(row.display) || isDeniedSymbol(row.tdSymbol)) {
@@ -113,7 +116,7 @@ async function refreshUniverse(
       }
       continue;
     }
-    if (needsFetch(previous.get(row.display), now, ttl, via === "twelve_data")) {
+    if (forced.has(row.display) || needsFetch(previous.get(row.display), now, ttl, via === "twelve_data")) {
       due.push(row);
     }
   }
@@ -190,11 +193,15 @@ async function refreshUniverse(
   );
 }
 
-export async function ensureQuotes(openLotSymbols: readonly string[] = [], now = new Date()): Promise<void> {
+export async function ensureQuotes(
+  openLotSymbols: readonly string[] = [],
+  now = new Date(),
+  options?: { forceDisplays?: readonly string[] },
+): Promise<void> {
   const universe = buildUniverse(openLotSymbols);
   const run = async () => {
     try {
-      await withPackLock((tx) => refreshUniverse(universe, now, tx));
+      await withPackLock((tx) => refreshUniverse(universe, now, tx, options?.forceDisplays));
     } catch {
       // Render last-good / em-dash. Never fail the page.
     }
@@ -208,6 +215,15 @@ export async function ensureQuotes(openLotSymbols: readonly string[] = [], now =
     packFlight = null;
   });
   await packFlight;
+}
+
+export async function refreshLastGoodAfterSplit(
+  displays: readonly string[],
+  now = new Date(),
+): Promise<void> {
+  const wanted = [...new Set(displays.map((d) => d.trim().toUpperCase()).filter(Boolean))];
+  await clearLastGoodForDisplays(wanted);
+  await ensureQuotes(wanted, now, { forceDisplays: wanted });
 }
 
 export async function marksForDisplays(

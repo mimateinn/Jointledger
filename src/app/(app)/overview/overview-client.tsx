@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { InstrumentLabel } from "@/components/instrument-label";
-import { formatQty, formatUsd, todayChangeLabel } from "@/lib/format";
+import { formatQty, formatSharePercent, formatUsd, todayChangeLabel } from "@/lib/format";
 import { lotRowKey } from "@/lib/lot-row-key";
 
 type Filter = "me" | "all" | "joint" | string;
@@ -57,6 +57,9 @@ export function OverviewClient({
     lastDisplay: string | null;
     percentChange: string | null;
     marketValueUsd: string | null;
+    joint?: boolean;
+    sharePercent?: string | null;
+    memberLabel?: string;
   }[];
   asOfLabel: string;
 }) {
@@ -187,7 +190,10 @@ export function OverviewClient({
                         </Link>
                       </td>
                       <td>
-                        <span className="chip">{accountName(lot.ledgerAccountId)}</span>
+                        <span className="chip">{lot.memberLabel ?? accountName(lot.ledgerAccountId)}</span>
+                        {lot.joint && lot.sharePercent ? (
+                          <span className="meta muted"> {formatSharePercent(lot.sharePercent)}</span>
+                        ) : null}
                       </td>
                       <td className="tabular">
                         {formatQty(lot.quantity)}

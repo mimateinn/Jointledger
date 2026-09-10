@@ -30,7 +30,7 @@ export function HoldingDelete({
   closed,
 }: {
   tradeId: string;
-  memberId: string;
+  memberId: string | null;
   symbol: string;
   closed?: boolean;
 }) {
@@ -78,7 +78,7 @@ export function HoldingDelete({
       onClick={(event) => event.stopPropagation()}
     >
       <input type="hidden" name="tradeId" value={tradeId} />
-      <input type="hidden" name="memberId" value={memberId} />
+      <input type="hidden" name="memberId" value={memberId ?? "_"} />
       <input type="hidden" name="confirm" value="1" />
       {state.error ? <p className="alert">{state.error}</p> : null}
       <UndoBanner onUndo={() => setPhase("idle")} />
