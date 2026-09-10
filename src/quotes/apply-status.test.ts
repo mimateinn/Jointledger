@@ -35,6 +35,16 @@ describe("quote failure mapping", () => {
     expect(lastGoodStillFresh(new Date("2026-08-08T12:00:00Z"), now)).toBe(false);
   });
 
+  it("never treats lot cost as last-good", () => {
+    const costAsLast = resolveDisplayedMark(
+      { kind: "empty" },
+      { last: "50", percentChange: null, fetchedAt: now },
+      now,
+    );
+    expect(costAsLast.last).toBeNull();
+    expect(costAsLast.usedLastGood).toBe(false);
+  });
+
   it("classifies Twelve Data bodies without inventing a price", () => {
     expect(classifyTwelveDataBody(401, { code: 401, status: "error" }).kind).toBe("unauthorized");
     expect(classifyTwelveDataBody(403, { code: 403, message: "Upgrade your plan", status: "error" }).kind).toBe(

@@ -52,6 +52,9 @@ export default async function OverviewPage() {
         lastDisplay: lot.lastDisplay,
         percentChange: lot.percentChange,
         marketValueUsd: lot.marketValueUsd,
+        joint: lot.joint,
+        sharePercent: lot.sharePercent,
+        memberLabel: lot.memberLabel,
       }))}
     />
   );

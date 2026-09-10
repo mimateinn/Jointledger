@@ -1,9 +1,10 @@
 import { createDrizzleStore } from "@/db/drizzle-store";
-import { filterByMember, lotMarketValue, openLotsFromTrades, summarizeLedger } from "@/ledger";
+import { filterByMember, jointShareFraction, lotMarketValue, openLotsFromTrades, summarizeLedger } from "@/ledger";
 import { moneyString } from "@/ledger/money";
 import type { SessionUser } from "@/auth/session";
 import { loadMarksForLots, type QuoteView } from "@/quotes";
 import { getCurrentMembership } from "./current-book";
+import { memberLabel } from "./member-label";
 
 function snapJson(snap: ReturnType<typeof summarizeLedger>) {
   return {
@@ -69,6 +70,9 @@ export async function loadBookView(user: SessionUser) {
     const last = marks[lot.symbol] ?? null;
     const mv = lotMarketValue(lot.quantity, last);
     const view = views[lot.symbol];
+    const account = ctx.accounts.find((row) => row.id === lot.ledgerAccountId);
+    const member = lot.memberId ? ctx.members.find((row) => row.id === lot.memberId) : undefined;
+    const sharePercent = jointShareFraction(allocations, lot.tradeId, lot.memberId);
     return {
       ...lot,
       last,
@@ -76,6 +80,9 @@ export async function loadBookView(user: SessionUser) {
       percentChange: view?.percentChange ?? null,
       marketValueUsd: mv ? moneyString(mv) : null,
       planLimited: view?.planLimited ?? false,
+      joint: account?.kind === "joint",
+      sharePercent,
+      memberLabel: memberLabel(member, lot.memberId),
     };
   });
 

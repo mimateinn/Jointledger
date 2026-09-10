@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatQty, formatUsd } from "@/lib/format";
+import { formatQty, formatSharePercent, formatUsd } from "@/lib/format";
 import { lotRowKey } from "@/lib/lot-row-key";
 import { EmptyPanel } from "./empty-panel";
 import { HoldingDelete } from "./holding-delete";
@@ -12,7 +12,7 @@ import { WatchlistPanel, type WatchRow } from "./watchlist-panel";
 
 export type HoldingRow = {
   tradeId: string;
-  memberId: string;
+  memberId: string | null;
   symbol: string;
   quantity: string;
   lastDisplay: string | null;
@@ -27,6 +27,9 @@ export type HoldingRow = {
   tags: string[];
   splitLabel?: string | null;
   closed?: boolean;
+  joint?: boolean;
+  sharePercent?: string | null;
+  memberLabel?: string;
 };
 
 function changeClass(change: string | null): string | undefined {
@@ -97,6 +100,7 @@ export function HoldingsWorkspace({
               <thead>
                 <tr>
                   <th>標的</th>
+                  <th>邊個倉</th>
                   <th>數量</th>
                   <th>現價</th>
                   <th>今日</th>
@@ -116,6 +120,12 @@ export function HoldingsWorkspace({
                       <Link href={`/instrument/${encodeURIComponent(lot.symbol)}`}>
                         <InstrumentLabel ticker={lot.symbol} name={lot.name} />
                       </Link>
+                    </td>
+                    <td>
+                      <span className="chip">{lot.memberLabel ?? "—"}</span>
+                      {lot.joint && lot.sharePercent ? (
+                        <span className="meta muted"> {formatSharePercent(lot.sharePercent)}</span>
+                      ) : null}
                     </td>
                     <td className="tabular">
                       {formatQty(lot.quantity)}

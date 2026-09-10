@@ -17,6 +17,7 @@ import type {
   PlannedCashFlow,
   PlannedTrade,
 } from "./types";
+import { isImportSkippedKind, parseRowKind } from "./row-kind";
 import { absMoney, extractTickers, parseDate, parseInOut, parseMoney } from "./values";
 
 function issueId(prefix: string, row: number, extra = ""): string {
@@ -222,6 +223,10 @@ function planTransInfoRow(
   const qtyRaw = cell(row, map, "quantity");
   const dateRaw = cell(row, map, "buy_date");
   if (!symbol && !ownRaw && !qtyRaw && !dateRaw) {
+    return null;
+  }
+  const rowKind = parseRowKind(cell(row, map, "row_kind"));
+  if (isImportSkippedKind(rowKind)) {
     return null;
   }
   const buyDate = parseDate(dateRaw);

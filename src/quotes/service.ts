@@ -1,5 +1,5 @@
 import { TAPE_CANON, isDeniedSymbol, resolveInstrument } from "./symbol-map";
-import { ensureQuotes, marksForDisplays, quoteRowsForDisplays } from "./refresh";
+import { ensureQuotes, marksForDisplays, quoteRowsForDisplays, refreshLastGoodAfterSplit } from "./refresh";
 import { DELAY_15, toQuoteView } from "./view";
 import type { QuoteView } from "./types";
 
@@ -53,6 +53,10 @@ export async function refreshAndLoadTape(
     fx,
     delayLabel: anyPrice ? DELAY_15 : items.some((item) => item.planLimited) ? items[0].delayLabel : DELAY_15,
   };
+}
+
+export async function refreshMarksAfterSplit(symbols: readonly string[]): Promise<void> {
+  await refreshLastGoodAfterSplit(symbols);
 }
 
 export async function loadMarksForLots(
