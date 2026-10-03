@@ -1,28 +1,28 @@
-login@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-login@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-login@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-overview@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-overview@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-overview@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-entry@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-entry@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-entry@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-holdings@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-holdings@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-holdings@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-watchlist@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-watchlist@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-watchlist@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-instrument@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-instrument@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-instrument@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-ledger@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-ledger@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-ledger@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-returns@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-returns@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-returns@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
-account@360 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-account@375 scrollWidth=477 overflow=4 tape-pin@477 FAIL
-account@414 scrollWidth=477 overflow=2 tape-pin@477 FAIL
+login@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+login@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+login@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+overview@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+overview@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+overview@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+entry@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+entry@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+entry@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+holdings@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+holdings@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+holdings@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+watchlist@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+watchlist@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+watchlist@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+instrument@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+instrument@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+instrument@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+ledger@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+ledger@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+ledger@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+returns@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+returns@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+returns@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
+account@360 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+account@375 scrollWidth=485 overflow=4 tape-pin@485 scrollWidth>viewport FAIL
+account@414 scrollWidth=485 overflow=2 tape-pin@485 scrollWidth>viewport FAIL
 measure-scroll-width: inject-old-tape overflows=27

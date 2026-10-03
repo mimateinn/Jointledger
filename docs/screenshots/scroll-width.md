@@ -4,6 +4,6 @@ Overflow is measured from element bounding rects (right edge > viewport + 1), ex
 
 375 spec: page margin 16 / content 343 / bottom bar 56.
 
-Proof that the check catches a tape regression: `--inject-old-tape` (`flex-shrink:0` on lead/pin) fails with `tape-pin@477` (see `scroll-width-fail-proof.txt`). Current CSS passes (`scroll-width-pass-proof.txt`).
+Proof that the check catches a tape regression: `--inject-old-tape` (`flex-shrink:0` on lead/pin) fails with `tape-pin@485` and `scrollWidth>viewport` (see `scroll-width-fail-proof.txt`). Current CSS passes (`scroll-width-pass-proof.txt`). Tape viewport stays ≥158px at 360/375/414/480/520/600.
 
 `scripts/measure-scroll-width.mjs` writes the generated table to `scroll-width-table.md` and does not overwrite this proof section.

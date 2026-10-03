@@ -8,4 +8,20 @@ Pass condition: at scroll 0, `.entry-sticky` top < viewport height, and every an
 
 Negative control: `node scripts/measure-sticky.mjs --inject-overflow-hidden` injects `.app-frame{overflow-x:hidden}` + `html,body{overflow-x:clip}` and must exit non-zero.
 
-Numbers are filled by `pnpm test:sticky` (see table after the next run).
+| Viewport | scroll | top | bottom | pageH | ancestor | result |
+|---|---|---:|---:|---:|---|---|
+| 375x812 | scroll-0 (0) | 689 | 756 | 1235 | visible | ok |
+| 375x812 | scroll-mid (211) | 672 | 739 | 1235 | visible | ok |
+| 375x667 | scroll-0 (0) | 544 | 611 | 1235 | visible | ok |
+| 375x667 | scroll-mid (284) | 544 | 611 | 1235 | visible | ok |
+
+`--inject-overflow-hidden` (must be non-zero):
+
+```
+entry@375x812 scroll=0 .entry-sticky top=883 pageH=1235 ancestor=div.app-frame overflow-x=hidden overflow-y=auto FAIL
+entry@375x667 scroll=0 .entry-sticky top=883 pageH=1235 ancestor=div.app-frame overflow-x=hidden overflow-y=auto FAIL
+measure-sticky: inject-overflow-hidden failures=2
+```
+
+Full logs: `sticky-pass-proof.txt`, `sticky-fail-proof.txt`.
+

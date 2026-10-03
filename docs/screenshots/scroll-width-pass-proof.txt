@@ -25,4 +25,10 @@ returns@414 scrollWidth=414 overflow=0 ok
 account@360 scrollWidth=360 overflow=0 ok
 account@375 scrollWidth=375 overflow=0 ok
 account@414 scrollWidth=414 overflow=0 ok
+tape@360 viewport=158 lead=79 pin=123 ok
+tape@375 viewport=165 lead=86 pin=123 ok
+tape@414 viewport=185 lead=106 pin=123 ok
+tape@480 viewport=218 lead=139 pin=123 ok
+tape@520 viewport=238 lead=159 pin=123 ok
+tape@600 viewport=278 lead=199 pin=123 ok
 measure-scroll-width: ok
