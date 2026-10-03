@@ -1,19 +1,11 @@
 # Sticky tops at 375
 
-Measured after removing `.app-frame { overflow-x: hidden }` (that rule created a scroll container and parked `.entry-sticky` below the viewport).
+`.entry-sticky` is `position: sticky` and must sit in the viewport at **scrollY = 0**.
+The entry page is taller than the phone viewport (page height ~1235 > 812), so a broken ancestor (`overflow-x: hidden` / `clip`) parks the bar below the fold (~883) until you scroll to the bottom.
+`.mobile-bar` is `position: fixed` and is not a sticky proof.
 
-| Page | Viewport | Selector | top | bottom | visible |
-|---|---|---|---:|---:|---|
-| entry | 375x812 | `.entry-sticky` | 460 | 527 | yes |
-| entry | 375x812 | `.mobile-bar` | 756 | 812 | yes |
-| overview | 375x812 | `.mobile-bar` | 756 | 812 | yes |
-| holdings | 375x812 | `.mobile-bar` | 756 | 812 | yes |
-| ledger | 375x812 | `.mobile-bar` | 756 | 812 | yes |
-| account | 375x812 | `.mobile-bar` | 756 | 812 | yes |
-| entry | 375x667 | `.entry-sticky` | 315 | 382 | yes |
-| entry | 375x667 | `.mobile-bar` | 611 | 667 | yes |
-| overview | 375x667 | `.mobile-bar` | 611 | 667 | yes |
-| holdings | 375x667 | `.mobile-bar` | 611 | 667 | yes |
-| ledger | 375x667 | `.mobile-bar` | 611 | 667 | yes |
-| account | 375x667 | `.mobile-bar` | 611 | 667 | yes |
+Pass condition: at scroll 0, `.entry-sticky` top < viewport height, and every ancestor has computed `overflow-x` and `overflow-y` of `visible`.
 
+Negative control: `node scripts/measure-sticky.mjs --inject-overflow-hidden` injects `.app-frame{overflow-x:hidden}` + `html,body{overflow-x:clip}` and must exit non-zero.
+
+Numbers are filled by `pnpm test:sticky` (see table after the next run).

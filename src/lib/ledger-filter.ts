@@ -70,13 +70,14 @@ export function parseLedgerFilters(
   };
   const typeRaw = get("type");
   const viewRaw = get("view");
+  const view: LedgerView = viewRaw === "trades" ? "trades" : "cash";
   return {
     q: get("q"),
     type: KIND_SET.has(typeRaw) ? (typeRaw as LedgerKind) : "",
-    member: normalizeLedgerMember(get("member"), members),
+    member: memberForView(normalizeLedgerMember(get("member"), members), view),
     from: get("from"),
     to: get("to"),
-    view: viewRaw === "trades" ? "trades" : "cash",
+    view,
   };
 }
 
@@ -112,7 +113,8 @@ export function matchesLedgerRow(row: FilterableLedgerRow, filters: LedgerFilter
   if (filters.type && row.kind !== filters.type) {
     return false;
   }
-  if (filters.member && !rowMatchesMember(row, filters.member, [])) {
+  const member = memberForView(filters.member, filters.view);
+  if (member && !rowMatchesMember(row, member, [])) {
     return false;
   }
   const day = row.occurredOn.slice(0, 10);
@@ -135,6 +137,13 @@ export function matchesLedgerRow(row: FilterableLedgerRow, filters: LedgerFilter
 
 export function isJointMemberFilter(member: string): boolean {
   return member === JOINT_MEMBER || member === JOINT_MEMBER_LABEL;
+}
+
+export function memberForView(member: string, view: LedgerView): string {
+  if (view !== "trades" && isJointMemberFilter(member)) {
+    return "";
+  }
+  return member;
 }
 
 export function normalizeLedgerMember(
@@ -176,7 +185,8 @@ export function filterLedgerRows<T extends FilterableLedgerRow>(
   filters: LedgerFilters,
   members: LedgerMemberOption[] = [],
 ): T[] {
-  return rows.filter((row) => matchesLedgerRow(row, { ...filters, member: normalizeLedgerMember(filters.member, members) }));
+  const member = memberForView(normalizeLedgerMember(filters.member, members), filters.view);
+  return rows.filter((row) => matchesLedgerRow(row, { ...filters, member }));
 }
 
 export function kindsForView(view: LedgerView): LedgerKind[] {

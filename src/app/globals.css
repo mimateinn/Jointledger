@@ -842,7 +842,7 @@ button {
   gap: 8px;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 600px) {
   .tape-lead {
     flex: 1 1 0;
     max-width: 58%;
@@ -866,8 +866,8 @@ button {
     display: none;
   }
   .tape-viewport {
-    flex: 1 1 72px;
-    min-width: 72px;
+    flex: 1 1 80px;
+    min-width: 80px;
   }
 }
 

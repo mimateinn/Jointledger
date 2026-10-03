@@ -97,6 +97,24 @@ await waitFor(page, () => !location.search.includes("q="), "clear-before-back");
 await page.goBack();
 await waitFor(page, () => location.search.includes("q=NVDA") && document.querySelector('input[name="q"]')?.value === "NVDA", "back");
 
+await page.goto(`${BASE}/ledger?member=joint`, { waitUntil: "networkidle0" });
+actions += 1;
+await waitFor(
+  page,
+  () =>
+    !location.search.includes("member=joint") &&
+    document.querySelector('select[name="member"]')?.value === "" &&
+    document.querySelectorAll("tbody tr:not(.month-row)").length > 0,
+  "joint-on-cash",
+);
+const jointCash = await page.evaluate(() => ({
+  search: location.search,
+  memberValue: document.querySelector('select[name="member"]')?.value ?? "",
+  rows: document.querySelectorAll("tbody tr:not(.month-row)").length,
+  count: document.querySelector(".filter-count")?.textContent ?? "",
+}));
+notes.push(`joint-on-cash member=${jointCash.memberValue || "全部"} rows=${jointCash.rows} search=${jointCash.search || "(empty)"} ${jointCash.count}`);
+
 notes.push(`actions=${actions}`);
 notes.push(`dropped=${dropped.length}`);
 if (dropped.length) {

@@ -94,6 +94,12 @@ describe("ledger filter", () => {
     expect(filterLedgerRows([joint], { ...trades, member: "聯名" }, members).map((r) => r.id)).toEqual(["j1"]);
     expect(filterLedgerRows([joint], { ...trades, member: "joint" }, members).map((r) => r.id)).toEqual(["j1"]);
     expect(parseLedgerFilters({ member: "Member A" }, members).member).toBe("mem-a");
-    expect(parseLedgerFilters({ member: "聯名" }, members).member).toBe("joint");
+    expect(parseLedgerFilters({ member: "聯名", view: "trades" }, members).member).toBe("joint");
+    expect(parseLedgerFilters({ member: "joint" }, members).member).toBe("");
+    expect(parseLedgerFilters({ member: "聯名" }, members).member).toBe("");
+    expect(filterLedgerRows(rows, { ...emptyLedgerFilters("cash"), member: "joint" }).map((r) => r.id)).toEqual([
+      "c1",
+      "c2",
+    ]);
   });
 });

@@ -1,6 +1,10 @@
 /**
- * Fail if any in-page element overflows the viewport (except the tape track
- * and other intentionally horizontal scrollers).
+ * Fail if any in-page element overflows the viewport, or if
+ * documentElement.scrollWidth exceeds the viewport.
+ *
+ * Intentional horizontal scrollers must be marked `.table-scroll`,
+ * `.tape-track`, or `.chip-scroll`. A plain `overflow-x: auto` wrapper
+ * (e.g. 600px box / 900px child) is not excluded.
  *
  *   CHROME_PATH=/path/to/chrome pnpm start
  *   CHROME_PATH=/path/to/chrome pnpm test:scroll-width
@@ -22,6 +26,9 @@ const PASS = process.env.SHOT_PASS ?? "demo-pass-1";
 const INJECT_OLD_TAPE = process.argv.includes("--inject-old-tape");
 
 const WIDTHS = [360, 375, 414];
+const TAPE_WIDTHS = [360, 375, 414, 480, 520, 600];
+const TAPE_MIN = 80;
+const MARKED_SCROLLERS = [".table-scroll", ".tape-track", ".chip-scroll"];
 const PAGES = [
   { name: "login", path: "/login" },
   { name: "overview", path: "/overview" },
@@ -34,25 +41,13 @@ const PAGES = [
   { name: "account", path: "/account" },
 ];
 
-function measureOverflow() {
+function measureOverflow(marked) {
   const vw = window.innerWidth;
   const skip = (el) => {
     if (!(el instanceof Element)) {
       return true;
     }
-    if (el.closest(".tape-track")) {
-      return true;
-    }
-    let node = el;
-    while (node && node !== document.documentElement) {
-      const style = getComputedStyle(node);
-      const ox = style.overflowX;
-      if ((ox === "auto" || ox === "scroll") && node.scrollWidth > node.clientWidth + 1) {
-        return true;
-      }
-      node = node.parentElement;
-    }
-    return false;
+    return marked.some((sel) => el.closest(sel));
   };
   const offenders = [];
   for (const el of document.body.querySelectorAll("*")) {
@@ -78,6 +73,17 @@ function measureOverflow() {
   };
 }
 
+function measureTape() {
+  const viewport = document.querySelector(".tape-viewport");
+  const lead = document.querySelector(".tape-lead");
+  const pin = document.querySelector(".tape-pin");
+  return {
+    tapeViewport: viewport ? Math.round(viewport.getBoundingClientRect().width) : 0,
+    tapeLead: lead ? Math.round(lead.getBoundingClientRect().width) : 0,
+    tapePin: pin ? Math.round(pin.getBoundingClientRect().width) : 0,
+  };
+}
+
 const browser = await puppeteer.launch({
   executablePath: resolveChrome(),
   headless: "new",
@@ -91,6 +97,7 @@ await page.type("#password", PASS);
 await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("button[type=submit]")]);
 
 const rows = [];
+const tapeRows = [];
 let bad = 0;
 for (const item of PAGES) {
   for (const width of WIDTHS) {
@@ -111,7 +118,7 @@ for (const item of PAGES) {
         ].join(""),
       });
     }
-    const measured = await page.evaluate(measureOverflow);
+    const measured = await page.evaluate(measureOverflow, MARKED_SCROLLERS);
     const layout = await page.evaluate(() => ({
       pagePad: document.querySelector("main")
         ? Math.round(parseFloat(getComputedStyle(document.querySelector("main")).paddingLeft))
@@ -119,24 +126,43 @@ for (const item of PAGES) {
       pageW: document.querySelector(".page") ? Math.round(document.querySelector(".page").getBoundingClientRect().width) : null,
       barH: document.querySelector(".mobile-bar") ? Math.round(document.querySelector(".mobile-bar").getBoundingClientRect().height) : null,
     }));
-    const ok = measured.overflowCount === 0;
+    const scrollOk = measured.scrollWidth <= measured.viewport;
+    const ok = measured.overflowCount === 0 && scrollOk;
     if (!ok) {
       bad += 1;
     }
-    rows.push({ name: item.name, width, ...measured, ...layout, ok });
+    rows.push({ name: item.name, width, ...measured, ...layout, ok, scrollOk });
     const extra = measured.offenders[0] ? ` ${measured.offenders[0].cls}@${measured.offenders[0].right}` : "";
+    const scrollNote = scrollOk ? "" : " scrollWidth>viewport";
     console.log(
-      `${item.name}@${width} scrollWidth=${measured.scrollWidth} overflow=${measured.overflowCount}${extra} ${ok ? "ok" : "FAIL"}`,
+      `${item.name}@${width} scrollWidth=${measured.scrollWidth} overflow=${measured.overflowCount}${extra}${scrollNote} ${ok ? "ok" : "FAIL"}`,
     );
   }
 }
 
 if (!INJECT_OLD_TAPE) {
-  const md = [
-    "# Mobile document width",
+  for (const width of TAPE_WIDTHS) {
+    await page.setViewport({ width, height: 812, deviceScaleFactor: 1 });
+    await page.goto(`${BASE}/overview`, { waitUntil: "networkidle0", timeout: 60000 });
+    const tape = await page.evaluate(measureTape);
+    const ok = tape.tapeViewport >= TAPE_MIN;
+    if (!ok) {
+      bad += 1;
+    }
+    tapeRows.push({ width, ...tape, ok });
+    console.log(
+      `tape@${width} viewport=${tape.tapeViewport} lead=${tape.tapeLead} pin=${tape.tapePin} ${ok ? "ok" : "FAIL"}`,
+    );
+  }
+}
+
+if (!INJECT_OLD_TAPE) {
+  const table = [
+    "# Mobile document width (generated)",
     "",
-    "Overflow is measured from element bounding rects (right edge > viewport + 1), excluding `.tape-track` and horizontal scrollers. `documentElement.scrollWidth` is reported but is not the pass/fail signal.",
-    "375 spec: page margin 16 / content 343 / bottom bar 56.",
+    "Generated by `scripts/measure-scroll-width.mjs`. Proof notes live in `scroll-width.md` and are not overwritten.",
+    "Overflow: element bounding rects (right > viewport + 1), excluding marked `.table-scroll` / `.tape-track` / `.chip-scroll`.",
+    "`documentElement.scrollWidth` must be <= viewport. 375 spec: page margin 16 / content 343 / bottom bar 56.",
     "",
     "| Page | 360 | 375 | 414 | 375 margin | 375 content | 375 bar |",
     "|---|---:|---:|---:|---:|---:|---:|",
@@ -145,12 +171,18 @@ if (!INJECT_OLD_TAPE) {
     const a = rows.find((r) => r.name === name && r.width === 360);
     const b = rows.find((r) => r.name === name && r.width === 375);
     const c = rows.find((r) => r.name === name && r.width === 414);
-    md.push(
+    table.push(
       `| ${name} | ${a.scrollWidth}${a.ok ? "" : " FAIL"} | ${b.scrollWidth}${b.ok ? "" : " FAIL"} | ${c.scrollWidth}${c.ok ? "" : " FAIL"} | ${b.pagePad ?? "-"} | ${b.pageW ?? "-"} | ${b.barH ?? "-"} |`,
     );
   }
-  md.push("");
-  writeFileSync(join(ROOT, "docs/screenshots/scroll-width.md"), `${md.join("\n")}\n`);
+  table.push("");
+  table.push("| Width | tape-viewport | tape-lead | tape-pin |");
+  table.push("|---:|---:|---:|---:|");
+  for (const row of tapeRows) {
+    table.push(`| ${row.width} | ${row.tapeViewport}${row.ok ? "" : " FAIL"} | ${row.tapeLead} | ${row.tapePin} |`);
+  }
+  table.push("");
+  writeFileSync(join(ROOT, "docs/screenshots/scroll-width-table.md"), `${table.join("\n")}\n`);
 }
 
 await browser.close();

@@ -11,9 +11,11 @@ import {
   LEDGER_KIND_LABEL,
   emptyLedgerFilters,
   filterLedgerRows,
+  isJointMemberFilter,
   kindsForView,
   ledgerFiltersActive,
   ledgerFiltersToSearch,
+  memberForView,
   parseLedgerFilters,
   type FilterableLedgerRow,
   type LedgerFilters,
@@ -80,6 +82,15 @@ export function LedgerClient({
   useEffect(() => {
     setCurrent(filters);
     setDraft(filters);
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("view") === "trades" || !isJointMemberFilter(params.get("member") ?? "")) {
+      return;
+    }
+    const url = `${window.location.pathname}${ledgerFiltersToSearch({ ...filters, member: "" })}`;
+    window.history.replaceState(null, "", url);
   }, [filters]);
 
   useEffect(() => {
@@ -110,7 +121,7 @@ export function LedgerClient({
       ...current,
       view,
       type: "" as const,
-      member: view === "cash" && kept.member === JOINT_MEMBER ? "" : current.member,
+      member: memberForView(current.member, view),
     };
     commit(next);
     setDraft({
@@ -118,7 +129,7 @@ export function LedgerClient({
       q: kept.q,
       from: kept.from,
       to: kept.to,
-      member: view === "cash" && kept.member === JOINT_MEMBER ? "" : kept.member,
+      member: memberForView(kept.member, view),
     });
   }
 
@@ -130,7 +141,7 @@ export function LedgerClient({
       ...current,
       q: String(data.get("q") ?? ""),
       type: (String(data.get("type") ?? "") as LedgerKind | "") || "",
-      member: String(data.get("member") ?? ""),
+      member: memberForView(String(data.get("member") ?? ""), current.view),
       from: String(data.get("from") ?? ""),
       to: String(data.get("to") ?? ""),
     });
