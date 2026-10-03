@@ -19,15 +19,24 @@ export type LedgerFilters = {
   view: LedgerView;
 };
 
+export const JOINT_MEMBER = "joint";
+export const JOINT_MEMBER_LABEL = "聯名";
+
 export type FilterableLedgerRow = {
   id: string;
   kind: LedgerKind;
   occurredOn: string;
   memberName: string;
   memberIds?: string[];
+  joint?: boolean;
   symbol?: string;
   name?: string | null;
   note?: string | null;
+};
+
+export type LedgerMemberOption = {
+  id: string;
+  displayName: string;
 };
 
 const KIND_SET = new Set<string>(LEDGER_KINDS);
@@ -47,6 +56,7 @@ export function emptyLedgerFilters(view: LedgerView = "cash"): LedgerFilters {
 
 export function parseLedgerFilters(
   input: URLSearchParams | Record<string, string | string[] | undefined>,
+  members: LedgerMemberOption[] = [],
 ): LedgerFilters {
   const get = (key: string): string => {
     if (input instanceof URLSearchParams) {
@@ -63,7 +73,7 @@ export function parseLedgerFilters(
   return {
     q: get("q"),
     type: KIND_SET.has(typeRaw) ? (typeRaw as LedgerKind) : "",
-    member: get("member"),
+    member: normalizeLedgerMember(get("member"), members),
     from: get("from"),
     to: get("to"),
     view: viewRaw === "trades" ? "trades" : "cash",
@@ -102,7 +112,7 @@ export function matchesLedgerRow(row: FilterableLedgerRow, filters: LedgerFilter
   if (filters.type && row.kind !== filters.type) {
     return false;
   }
-  if (filters.member && !rowMatchesMember(row, filters.member)) {
+  if (filters.member && !rowMatchesMember(row, filters.member, [])) {
     return false;
   }
   const day = row.occurredOn.slice(0, 10);
@@ -123,15 +133,50 @@ export function matchesLedgerRow(row: FilterableLedgerRow, filters: LedgerFilter
   return hay.includes(q);
 }
 
-export function rowMatchesMember(row: FilterableLedgerRow, member: string): boolean {
-  if (row.memberIds?.includes(member)) {
-    return true;
-  }
-  return row.memberName === member;
+export function isJointMemberFilter(member: string): boolean {
+  return member === JOINT_MEMBER || member === JOINT_MEMBER_LABEL;
 }
 
-export function filterLedgerRows<T extends FilterableLedgerRow>(rows: T[], filters: LedgerFilters): T[] {
-  return rows.filter((row) => matchesLedgerRow(row, filters));
+export function normalizeLedgerMember(
+  raw: string,
+  members: LedgerMemberOption[] = [],
+): string {
+  const value = raw.trim();
+  if (!value) {
+    return "";
+  }
+  if (isJointMemberFilter(value)) {
+    return JOINT_MEMBER;
+  }
+  const hit = members.find((member) => member.id === value || member.displayName === value);
+  return hit?.id ?? value;
+}
+
+export function rowMatchesMember(
+  row: FilterableLedgerRow,
+  member: string,
+  members: LedgerMemberOption[] = [],
+): boolean {
+  const resolved = normalizeLedgerMember(member, members);
+  if (isJointMemberFilter(resolved)) {
+    return Boolean(row.joint) || isJointMemberFilter(row.memberName);
+  }
+  if (row.memberIds?.includes(resolved) || row.memberName === resolved) {
+    return true;
+  }
+  const alias = members.find((item) => item.id === resolved || item.displayName === resolved);
+  if (!alias) {
+    return row.memberName === member;
+  }
+  return Boolean(row.memberIds?.includes(alias.id) || row.memberName === alias.displayName);
+}
+
+export function filterLedgerRows<T extends FilterableLedgerRow>(
+  rows: T[],
+  filters: LedgerFilters,
+  members: LedgerMemberOption[] = [],
+): T[] {
+  return rows.filter((row) => matchesLedgerRow(row, { ...filters, member: normalizeLedgerMember(filters.member, members) }));
 }
 
 export function kindsForView(view: LedgerView): LedgerKind[] {

@@ -40,13 +40,19 @@ export default async function InstrumentPage({ params }: { params: Promise<{ cod
 
   return (
     <div className="page">
-      <div className="page-head">
+      <div className="page-head page-head-stack">
         <Link href="/holdings" className="btn btn-ghost">
           <Icon name="chevron-left" size={16} />
           持倉
         </Link>
         <h1 className="page-title">
-          {item.name ?? item.display} <span className="meta muted">{item.display}</span>
+          {item.name && item.name !== item.display ? (
+            <>
+              {item.name} <span className="meta muted">{item.display}</span>
+            </>
+          ) : (
+            item.display
+          )}
         </h1>
       </div>
       <div className="grid-12">

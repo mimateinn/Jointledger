@@ -52,13 +52,13 @@ export function UpdateCheckButton() {
       if (data.needRestart) {
         setState({
           status: "ok",
-          message: data.message || COPY.restart,
+          message: COPY.restart,
           needRestart: true,
         });
       } else {
         setState({
           status: "ok",
-          message: data.message || COPY.latest,
+          message: COPY.latest,
         });
       }
     } catch {

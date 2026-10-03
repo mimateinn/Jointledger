@@ -74,18 +74,26 @@ describe("ledger filter", () => {
     expect(ledgerFiltersToSearch(emptyLedgerFilters())).toEqual(ledgerFiltersToSearch(emptyLedgerFilters("cash")));
   });
 
-  it("matches joint trades by member id on the legs, not only the account label", () => {
+  it("matches joint trades by member id, display name, or the 聯名 option", () => {
+    const members = [
+      { id: "mem-a", displayName: "Member A" },
+      { id: "mem-b", displayName: "Member B" },
+    ];
     const joint: FilterableLedgerRow = {
       id: "j1",
       kind: "buy",
       occurredOn: "2026-09-12",
       memberName: "聯名",
       memberIds: ["mem-a", "mem-b"],
+      joint: true,
       symbol: "MSFT",
     };
     const trades = emptyLedgerFilters("trades");
-    expect(filterLedgerRows([joint], { ...trades, member: "mem-a" }).map((r) => r.id)).toEqual(["j1"]);
-    expect(filterLedgerRows([joint], { ...trades, member: "Member A" }).map((r) => r.id)).toEqual([]);
-    expect(filterLedgerRows([joint], { ...trades, member: "聯名" }).map((r) => r.id)).toEqual(["j1"]);
+    expect(filterLedgerRows([joint], { ...trades, member: "mem-a" }, members).map((r) => r.id)).toEqual(["j1"]);
+    expect(filterLedgerRows([joint], { ...trades, member: "Member A" }, members).map((r) => r.id)).toEqual(["j1"]);
+    expect(filterLedgerRows([joint], { ...trades, member: "聯名" }, members).map((r) => r.id)).toEqual(["j1"]);
+    expect(filterLedgerRows([joint], { ...trades, member: "joint" }, members).map((r) => r.id)).toEqual(["j1"]);
+    expect(parseLedgerFilters({ member: "Member A" }, members).member).toBe("mem-a");
+    expect(parseLedgerFilters({ member: "聯名" }, members).member).toBe("joint");
   });
 });

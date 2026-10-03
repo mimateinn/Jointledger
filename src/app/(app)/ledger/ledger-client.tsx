@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useTransition, type CSSProperties } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { EmptyPanel } from "@/components/empty-panel";
 import { Icon } from "@/components/icons";
 import { InstrumentLabel } from "@/components/instrument-label";
-import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd, tradeSideLabel } from "@/lib/format";
+import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd } from "@/lib/format";
 import {
+  JOINT_MEMBER,
+  JOINT_MEMBER_LABEL,
   LEDGER_KIND_LABEL,
   emptyLedgerFilters,
   filterLedgerRows,
@@ -17,6 +18,7 @@ import {
   type FilterableLedgerRow,
   type LedgerFilters,
   type LedgerKind,
+  type LedgerMemberOption,
 } from "@/lib/ledger-filter";
 
 const COPY = {
@@ -36,6 +38,7 @@ const COPY = {
   from: "由",
   to: "至",
   all: "全部",
+  joint: JOINT_MEMBER_LABEL,
 };
 
 type CashRow = FilterableLedgerRow & {
@@ -57,30 +60,60 @@ export function LedgerClient({
 }: {
   cashFlows: CashRow[];
   trades: TradeRow[];
-  members: { id: string; displayName: string }[];
+  members: LedgerMemberOption[];
   filters: LedgerFilters;
 }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const current = useMemo(
-    () => (searchParams.toString() ? parseLedgerFilters(searchParams) : filters),
-    [searchParams, filters],
-  );
-  const [pending, start] = useTransition();
+  const [current, setCurrent] = useState(filters);
+  const [draft, setDraft] = useState(filters);
+  const searchRef = useRef<HTMLInputElement>(null);
   const allRows = useMemo(() => [...cashFlows, ...trades], [cashFlows, trades]);
-  const shown = useMemo(() => filterLedgerRows(allRows, current), [allRows, current]);
+  const shown = useMemo(() => filterLedgerRows(allRows, current, members), [allRows, current, members]);
   const active = ledgerFiltersActive(current);
   const emptyBook = cashFlows.length === 0 && trades.length === 0;
+  const memberOptions = useMemo(
+    () => [...members, { id: JOINT_MEMBER, displayName: COPY.joint }],
+    [members],
+  );
 
-  function replace(next: LedgerFilters) {
-    start(() => {
-      router.push(`${pathname}${ledgerFiltersToSearch(next)}`, { scroll: false });
-    });
+  useEffect(() => {
+    setCurrent(filters);
+    setDraft(filters);
+  }, [filters]);
+
+  useEffect(() => {
+    const onPop = () => {
+      const next = parseLedgerFilters(new URLSearchParams(window.location.search), members);
+      setCurrent(next);
+      setDraft(next);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [members]);
+
+  function commit(next: LedgerFilters, mode: "push" | "replace" = "push") {
+    const url = `${window.location.pathname}${ledgerFiltersToSearch(next)}`;
+    if (mode === "push") {
+      window.history.pushState(null, "", url);
+    } else {
+      window.history.replaceState(null, "", url);
+    }
+    setCurrent(next);
+    setDraft(next);
   }
 
-  function patch(part: Partial<LedgerFilters>) {
-    replace({ ...current, ...part });
+  function applyFromForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const keep = searchRef.current;
+    commit({
+      ...current,
+      q: String(data.get("q") ?? ""),
+      type: (String(data.get("type") ?? "") as LedgerKind | "") || "",
+      member: String(data.get("member") ?? ""),
+      from: String(data.get("from") ?? ""),
+      to: String(data.get("to") ?? ""),
+    });
+    keep?.focus();
   }
 
   const kinds = kindsForView(current.view);
@@ -91,10 +124,10 @@ export function LedgerClient({
         <h1 className="page-title">{COPY.title}</h1>
         <div className="seg" style={{ "--seg-n": 2, "--seg-i": current.view === "trades" ? 1 : 0 } as CSSProperties}>
           <span className="seg-thumb" aria-hidden />
-          <button type="button" aria-pressed={current.view === "cash"} onClick={() => patch({ view: "cash", type: "" })}>
+          <button type="button" aria-pressed={current.view === "cash"} onClick={() => commit({ ...current, view: "cash", type: "" })}>
             {COPY.cash}
           </button>
-          <button type="button" aria-pressed={current.view === "trades"} onClick={() => patch({ view: "trades", type: "" })}>
+          <button type="button" aria-pressed={current.view === "trades"} onClick={() => commit({ ...current, view: "trades", type: "" })}>
             {COPY.trades}
           </button>
         </div>
@@ -105,32 +138,26 @@ export function LedgerClient({
       ) : (
         <>
           <div className="card stack">
-            <form
-              key={ledgerFiltersToSearch(current)}
-              className="filter-bar"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const data = new FormData(event.currentTarget);
-                patch({
-                  q: String(data.get("q") ?? ""),
-                  type: (String(data.get("type") ?? "") as LedgerKind | "") || "",
-                  member: String(data.get("member") ?? ""),
-                  from: String(data.get("from") ?? ""),
-                  to: String(data.get("to") ?? ""),
-                });
-              }}
-            >
+            <form className="filter-bar" onSubmit={applyFromForm}>
               <div className="field-with-icon" style={{ flex: "1 1 200px" }}>
                 <Icon name="search" size={16} />
                 <input
+                  ref={searchRef}
                   className="input"
                   name="q"
-                  defaultValue={current.q}
+                  value={draft.q}
+                  onChange={(event) => setDraft({ ...draft, q: event.target.value })}
                   placeholder={COPY.search}
                   aria-label={COPY.search}
                 />
               </div>
-              <select className="select" name="type" defaultValue={current.type} aria-label={COPY.type}>
+              <select
+                className="select"
+                name="type"
+                value={draft.type}
+                onChange={(event) => setDraft({ ...draft, type: (event.target.value as LedgerKind | "") || "" })}
+                aria-label={COPY.type}
+              >
                 <option value="">{COPY.all}</option>
                 {kinds.map((kind) => (
                   <option key={kind} value={kind}>
@@ -138,22 +165,49 @@ export function LedgerClient({
                   </option>
                 ))}
               </select>
-              <select className="select" name="member" defaultValue={current.member} aria-label={COPY.member}>
+              <select
+                className="select"
+                name="member"
+                value={draft.member}
+                onChange={(event) => setDraft({ ...draft, member: event.target.value })}
+                aria-label={COPY.member}
+              >
                 <option value="">{COPY.all}</option>
-                {members.map((member) => (
+                {memberOptions.map((member) => (
                   <option key={member.id} value={member.id}>
                     {member.displayName}
                   </option>
                 ))}
               </select>
-              <input className="input" type="date" name="from" defaultValue={current.from} aria-label={COPY.from} />
-              <input className="input" type="date" name="to" defaultValue={current.to} aria-label={COPY.to} />
+              <input
+                className="input"
+                type="date"
+                name="from"
+                value={draft.from}
+                onChange={(event) => setDraft({ ...draft, from: event.target.value })}
+                aria-label={COPY.from}
+              />
+              <input
+                className="input"
+                type="date"
+                name="to"
+                value={draft.to}
+                onChange={(event) => setDraft({ ...draft, to: event.target.value })}
+                aria-label={COPY.to}
+              />
               <button className="btn btn-secondary" type="submit">
                 <Icon name="filter" size={16} />
                 {COPY.filter}
               </button>
               {active ? (
-                <button className="btn btn-ghost" type="button" onClick={() => replace({ ...emptyLedgerFilters(current.view) })}>
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => {
+                    commit({ ...emptyLedgerFilters(current.view) });
+                    searchRef.current?.focus();
+                  }}
+                >
                   {COPY.clear}
                 </button>
               ) : null}
@@ -167,7 +221,7 @@ export function LedgerClient({
                 {current.type ? <span className="chip chip-active">{LEDGER_KIND_LABEL[current.type]}</span> : null}
                 {current.member ? (
                   <span className="chip chip-active">
-                    {members.find((member) => member.id === current.member)?.displayName ?? current.member}
+                    {memberOptions.find((member) => member.id === current.member)?.displayName ?? current.member}
                   </span>
                 ) : null}
                 {current.from || current.to ? (
@@ -179,12 +233,12 @@ export function LedgerClient({
             ) : null}
           </div>
 
-          <section className={`card card-flush ${pending ? "is-entering" : ""}`}>
+          <section className="card card-flush">
             {shown.length === 0 ? (
               <div className="state-panel">
                 <Icon name="search" size={24} />
                 <h2>{COPY.noMatch}</h2>
-                <button className="btn btn-primary" type="button" onClick={() => replace({ ...emptyLedgerFilters(current.view) })}>
+                <button className="btn btn-primary" type="button" onClick={() => commit({ ...emptyLedgerFilters(current.view) })}>
                   {COPY.clear}
                 </button>
               </div>
@@ -294,7 +348,6 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
                 <td title={row.occurredOn.slice(0, 10)}>{formatRelativeDate(row.occurredOn)}</td>
                 <td data-label="類型">
                   <span className="chip">{LEDGER_KIND_LABEL[row.kind]}</span>
-                  <span className="sr-only">{tradeSideLabel(row.kind)}</span>
                 </td>
                 <td>
                   <InstrumentLabel ticker={row.symbol ?? "—"} name={row.name ?? null} />

@@ -20,7 +20,7 @@
   --text: #1b1c19;
   --muted: #6b6e66;
   --ink: #2f5d56;
-  --up: #1b7a4a;
+  --up: #166c40;
   --down: #c0392b;
   --delay-bg: #f3ebd8;
   --delay-text: #7a6238;
@@ -41,12 +41,10 @@
 }
 
 /* Dark theme extensions */
-:root,
 [data-theme="dark"] {
-  /* 沿用不變：--bg #121411 --surface #1c1e1b --border #2c2f2a --text #edeee8
-     --muted #9aa196 --ink #7a9a8a --delay-bg #2a261c --delay-text #c4a574 --on-ink #121411 */
-  --up: #42a375;            /* 舊 #3d9b6e → 新。卡片 hover 底(#292a27)上由 4.20 → 4.62，過 4.5 */
-  --down: #e6746c;          /* 舊 #e06b63 → 新。hover 底上 4.44 → 4.87 */
+  /* Dark extras. Do not attach these to :root — that overrides [data-theme=light]. */
+  --up: #42a375;
+  --down: #e6746c;
 
   --border-strong: #6f766b; /* NEW 輸入框／分段掣邊線。對 bg 3.95、對 surface 3.58（≥3:1，WCAG 1.4.11） */
   --surface-hover: #292a27; /* NEW 表格行／可按卡 hover（= text 6% 混 surface） */
@@ -71,8 +69,7 @@
 
 /* ---------- 2. 暖紙 Light ---------- */
 [data-theme="light"] {
-  /* 沿用不變：--bg #f4f3ef --surface #fff --border #e3e1da --text #1b1c19 --muted #6b6e66
-     --ink #2f5d56 --up #1b7a4a --down #c0392b --delay-bg #f3ebd8 --delay-text #7a6238 --on-ink #fff */
+  --up: #166c40; /* was #1b7a4a / effective #42a375 via :root leak; ≥4.5:1 on light bg */
   --border-strong: #85887f; /* NEW 對 bg 3.25、對 surface 3.60 */
   --surface-hover: #f1f1f1; /* NEW（= text 6% 混 white）；muted 4.59、up 4.73、down 4.81 */
   --surface-selected: #eef2f1; /* NEW（= ink 8% 混 white）；正文 15.17、muted 4.60 */

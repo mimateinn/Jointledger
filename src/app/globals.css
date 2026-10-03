@@ -10,6 +10,8 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-inter), var(--font-noto), "Noto Sans TC", "Noto Sans CJK TC",
@@ -203,12 +205,18 @@ button {
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .tape {
   display: flex;
   align-items: stretch;
   height: 40px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
@@ -233,7 +241,9 @@ button {
 }
 
 .tape-lead {
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   border-right: 1px solid var(--border);
   background: var(--surface);
 }
@@ -298,7 +308,9 @@ button {
   padding: 0 12px;
   border-left: 1px solid var(--border);
   background: var(--surface);
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .tape-fx {
@@ -832,6 +844,29 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .tape-lead {
+    flex: 1 1 0;
+    max-width: 58%;
+  }
+  .tape-lead .tape-name,
+  .tape-lead .tape-proxy {
+    display: none;
+  }
+  .tape-cell {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .tape-pin {
+    flex: 0 1 auto;
+    padding: 0 8px;
+    gap: 6px;
+  }
+  .tape-pin .chip-delay {
+    display: none;
+  }
 }
 
 @media (max-width: 800px) {

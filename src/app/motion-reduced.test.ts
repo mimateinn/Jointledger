@@ -8,18 +8,26 @@ function css(file: string): string {
   return readFileSync(join(root, file), "utf8");
 }
 
+function reducedMotionBlock(motion: string): string {
+  const start = motion.indexOf("@media (prefers-reduced-motion: reduce)");
+  expect(start).toBeGreaterThan(-1);
+  const after = motion.slice(start);
+  const next = after.search(/\n\.is-reduced\b/);
+  return next === -1 ? after : after.slice(0, next);
+}
+
 describe("reduced-motion cascade", () => {
   it("does not let globals.css reintroduce a skeleton animation", () => {
     expect(css("globals.css")).not.toMatch(/\.skeleton\s*\{[^}]*animation\s*:/s);
   });
 
-  it("stops skeleton, mobile-bar press, and theme-toggle rotate when reduced", () => {
+  it("stops skeleton, mobile-bar press, and theme-toggle rotate inside the reduce media block", () => {
     const motion = css("motion.css");
-    expect(motion).toMatch(/prefers-reduced-motion:\s*reduce/);
-    expect(motion).toMatch(/\.is-reduced/);
-    expect(motion).toMatch(/\.skeleton,\s*\n\s*\.skeleton::after\s*\{\s*animation:\s*none\s*!important/);
-    expect(motion).toMatch(/\.mobile-bar a:active/);
-    expect(motion).toMatch(/\.theme-toggle:active \.icon\s*\{\s*transform:\s*none\s*!important/);
+    const reduce = reducedMotionBlock(motion);
+    expect(reduce).toMatch(/\.skeleton,\s*\n\s*\.skeleton::after\s*\{\s*animation:\s*none\s*!important/);
+    expect(reduce).toMatch(/\.mobile-bar a:active[\s\S]*transform:\s*none\s*!important/);
+    expect(reduce).toMatch(/\.theme-toggle:active \.icon[\s\S]*transform:\s*none\s*!important/);
     expect(motion).toMatch(/\.mobile-bar a:active\s*\{\s*transform:\s*scale\(var\(--press-scale\)\)/);
+    expect(motion).toMatch(/\.is-reduced \.mobile-bar a:active[\s\S]*transform:\s*none\s*!important/);
   });
 });

@@ -80,6 +80,7 @@ export function EntryForm({
             type="button"
             className={tab === item ? "tab tab-active" : "tab"}
             aria-disabled={CLOSED.has(item) || undefined}
+            title={CLOSED.has(item) ? COPY.later : undefined}
             onClick={() => {
               if (CLOSED.has(item)) {
                 setToast(COPY.later);
@@ -89,7 +90,6 @@ export function EntryForm({
             }}
           >
             {item}
-            {CLOSED.has(item) ? <span className="chip" style={{ marginLeft: 8 }}>{COPY.later}</span> : null}
           </button>
         ))}
       </div>

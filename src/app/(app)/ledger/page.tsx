@@ -31,12 +31,14 @@ export default async function LedgerPage({
     if (account.memberId) return memberName(account.memberId);
     return account.name;
   };
-  const filters = parseLedgerFilters(await searchParams);
+  const members = view.members.map((m) => ({ id: m.id, displayName: m.displayName }));
+  const jointIds = new Set(view.accounts.filter((account) => account.kind === "joint").map((account) => account.id));
+  const filters = parseLedgerFilters(await searchParams, members);
 
   return (
     <LedgerClient
       filters={filters}
-      members={view.members.map((m) => ({ id: m.id, displayName: m.displayName }))}
+      members={members}
       cashFlows={view.cashFlows.map((row) => ({
         id: row.id,
         kind: row.kind as LedgerKind,
@@ -53,6 +55,7 @@ export default async function LedgerPage({
         kind: row.side as LedgerKind,
         memberName: accountMember(row.ledgerAccountId),
         memberIds: view.allocations.filter((leg) => leg.tradeId === row.id).map((leg) => leg.memberId),
+        joint: jointIds.has(row.ledgerAccountId),
         symbol: row.symbol,
         name: resolveInstrument(row.symbol)?.displayName ?? null,
         quantity: row.quantity,

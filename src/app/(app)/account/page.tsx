@@ -52,7 +52,6 @@ export default async function AccountPage() {
       members={ctx.members.map((m) => ({
         id: m.id,
         displayName: m.displayName,
-        email: m.email,
         userId: m.userId,
       }))}
       schedules={schedules}

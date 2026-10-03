@@ -66,7 +66,7 @@ function MemberRow({
   lastUser,
   inviteAction,
 }: {
-  member: { id: string; displayName: string; email: string | null; userId: string | null };
+  member: { id: string; displayName: string; userId: string | null };
   you: boolean;
   lastUser: boolean;
   inviteAction: (formData: FormData) => void | Promise<void>;
@@ -104,7 +104,7 @@ export function AccountClient({
   emptyLedger,
 }: {
   currentUserId: string;
-  members: { id: string; displayName: string; email: string | null; userId: string | null }[];
+  members: { id: string; displayName: string; userId: string | null }[];
   emptyLedger: boolean;
   schedules: {
     effectiveOn: string;
