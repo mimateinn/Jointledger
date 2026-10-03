@@ -1,10 +1,4 @@
-/* ==========================================================================
-   聯倉 joint-ledger · motion.css  (design v3)
-   放入 src/app/motion.css，並喺 globals.css 頂部 @import "./motion.css"; （tokens.css 之後）
-   原則：只動 transform / opacity（另有 SVG stroke-dashoffset 畫勾，無 layout 影響）；
-   時長 120–240ms 為主，頁面轉場 ≤ 280ms；全部尊重 prefers-reduced-motion，
-   亦提供 <html class="is-reduced"> 手動開關（例如帳戶頁「減少動態」）。
-   ========================================================================== */
+/* Motion tokens and keyframes. Reduced-motion / .is-reduced must win over later CSS. */
 
 :root {
   /* 時長階梯 */
@@ -106,7 +100,7 @@
 .btn:active:not(:disabled):not([aria-disabled="true"]),
 .chip:active,
 .theme-toggle:active { transform: scale(var(--press-scale)); }
-.mobile-bar a:active { transform: scale(0.94); }
+.mobile-bar a:active { transform: scale(var(--press-scale)); }
 
 .card-link,
 .choice-card.is-link {
@@ -282,8 +276,13 @@ tr.is-leaving  { animation: jl-fade-out var(--dur-fast) var(--ease-exit) both; }
   }
   .tape-track { animation: none !important; transform: none !important; }
   .tape-viewport { overflow-x: auto; }
-  .skeleton::after { animation: none !important; display: none; }
+  .skeleton,
+  .skeleton::after { animation: none !important; }
+  .skeleton::after { display: none; }
   .skeleton { opacity: 0.8; }
+  .mobile-bar a:active,
+  .theme-toggle:active,
+  .theme-toggle:active .icon { transform: none !important; }
   .btn[aria-busy="true"]::before { animation: none !important; border-right-color: currentColor; opacity: 0.55; }
   .spin,
   .btn-update[data-state="loading"] .icon { animation: none !important; opacity: 0.55; }
@@ -324,8 +323,13 @@ tr.is-leaving  { animation: jl-fade-out var(--dur-fast) var(--ease-exit) both; }
 }
 .is-reduced .tape-track { animation: none !important; transform: none !important; }
 .is-reduced .tape-viewport { overflow-x: auto; }
-.is-reduced .skeleton::after { animation: none !important; display: none; }
+.is-reduced .skeleton,
+.is-reduced .skeleton::after { animation: none !important; }
+.is-reduced .skeleton::after { display: none; }
 .is-reduced .skeleton { opacity: 0.8; }
+.is-reduced .mobile-bar a:active,
+.is-reduced .theme-toggle:active,
+.is-reduced .theme-toggle:active .icon { transform: none !important; }
 .is-reduced .btn[aria-busy="true"]::before { animation: none !important; border-right-color: currentColor; opacity: 0.55; }
 .is-reduced .spin,
 .is-reduced .btn-update[data-state="loading"] .icon { animation: none !important; opacity: 0.55; }

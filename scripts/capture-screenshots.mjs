@@ -7,14 +7,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-function loadPuppeteer() {
-  try {
-    return createRequire(import.meta.url)("puppeteer-core");
-  } catch {
-    return createRequire("/tmp/jl-shots/package.json")("puppeteer-core");
-  }
-}
-const puppeteer = loadPuppeteer();
+const puppeteer = createRequire(import.meta.url)("puppeteer-core");
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "docs/screenshots");
@@ -146,12 +139,10 @@ async function main() {
 
   const mode = process.argv[2] ?? "all";
 
-  if (mode === "login-empty" || mode === "all") {
+  if (mode === "login-empty") {
     await page.goto(`${BASE}/login`, { waitUntil: "networkidle0", timeout: 60000 });
     for (const vp of [1440, 375]) {
-      for (const theme of ["light", "dark"]) {
-        await shot(page, "login-empty", vp, theme, { reload: true });
-      }
+      await shot(page, "login-empty", vp, "light", { reload: true });
     }
   }
 
@@ -195,10 +186,16 @@ async function main() {
 
     await captureCombos(page, "instrument-aapl", "/instrument/AAPL", 1200);
     await captureCombos(page, "ledger", "/ledger");
-    await captureCombos(page, "ledger-filter", "/ledger?q=AAPL&type=buy&view=trades");
+    await page.goto(`${BASE}/ledger?q=AAPL&type=buy&view=trades`, { waitUntil: "networkidle0", timeout: 60000 });
+    await shot(page, "ledger-filter", 1440, "light", { reload: true });
     await captureCombos(page, "returns", "/returns");
     await captureCombos(page, "account", "/account", 500);
-    await captureCombos(page, "not-found", "/this-page-does-not-exist");
+    await page.goto(`${BASE}/this-page-does-not-exist`, { waitUntil: "networkidle0", timeout: 60000 });
+    for (const vp of [1440, 375]) {
+      for (const theme of ["light", "dark"]) {
+        await shot(page, "not-found", vp, theme, { reload: true });
+      }
+    }
 
     // Loading skeleton: delay the RSC document briefly and grab mid-navigation.
     await page.setViewport({ ...SIZES[1440], deviceScaleFactor: 1 });

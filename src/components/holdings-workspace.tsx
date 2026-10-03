@@ -57,7 +57,7 @@ const COPY = {
   closed: "已平倉",
   byMarket: "按市場",
   byCcy: "按幣種",
-  byBook: "按帳簿",
+  byMember: "按成員",
   missing: (n: number) => `${n} 隻暫時用買入價，未有市場價`,
 };
 
@@ -231,11 +231,14 @@ export function HoldingsWorkspace({
                 <button type="button" aria-pressed={dimension === "currency"} onClick={() => setDimension("currency")}>
                   {COPY.byCcy}
                 </button>
-                <button type="button" aria-pressed={dimension === "book"} onClick={() => setDimension("book")}>
-                  {COPY.byBook}
+                <button type="button" aria-pressed={dimension === "member"} onClick={() => setDimension("member")}>
+                  {COPY.byMember}
                 </button>
               </div>
-              <AllocationChart result={alloc} title={COPY.alloc} />
+              <AllocationChart
+                result={alloc}
+                title={dimension === "market" ? COPY.byMarket : dimension === "currency" ? COPY.byCcy : COPY.byMember}
+              />
             </section>
             <section className="card card-flush col-7">
               <table className="table">

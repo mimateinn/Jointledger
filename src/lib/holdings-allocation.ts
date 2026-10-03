@@ -1,4 +1,4 @@
-export type AllocDimension = "market" | "currency" | "book";
+export type AllocDimension = "market" | "currency" | "member";
 export type AllocBasis = "market" | "cost";
 
 export type AllocLot = {
@@ -54,10 +54,10 @@ export function currencyKeyFromSymbol(symbol: string): "USD" | "HKD" | "OTHER" {
 function lotValue(lot: AllocLot, basis: AllocBasis): number {
   if (basis === "market" && lot.lastDisplay && lot.marketValueUsd) {
     const n = Number(lot.marketValueUsd);
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
   }
   const cost = Number(lot.costUsd);
-  return Number.isFinite(cost) ? cost : 0;
+  return Number.isFinite(cost) ? Math.max(0, cost) : 0;
 }
 
 function lotTodayUsd(lot: AllocLot): number | null {
@@ -132,11 +132,31 @@ export function buildAllocation(
   }
 
   return {
-    slices: head,
+    slices: total > 0 ? roundSlicesToHundred(head) : head.map((slice) => ({ ...slice, pct: 0 })),
     total,
     missingPrice,
     singleGroup: head.length <= 1,
   };
+}
+
+function roundSlicesToHundred(slices: AllocSlice[]): AllocSlice[] {
+  if (slices.length === 0) {
+    return slices;
+  }
+  const rounded = slices.map((slice) => ({ ...slice, pct: Math.round(slice.pct * 10) / 10 }));
+  const sum = rounded.reduce((acc, slice) => acc + slice.pct, 0);
+  const diff = Math.round((100 - sum) * 10) / 10;
+  if (diff === 0) {
+    return rounded;
+  }
+  let best = 0;
+  for (let i = 1; i < rounded.length; i += 1) {
+    if (rounded[i].value > rounded[best].value) {
+      best = i;
+    }
+  }
+  rounded[best] = { ...rounded[best], pct: Math.round((rounded[best].pct + diff) * 10) / 10 };
+  return rounded;
 }
 
 export const ALLOC_INK_MIX = [100, 75, 55, 40, 28, 18];

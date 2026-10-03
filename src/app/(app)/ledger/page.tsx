@@ -36,11 +36,12 @@ export default async function LedgerPage({
   return (
     <LedgerClient
       filters={filters}
-      members={view.members.map((m) => m.displayName)}
+      members={view.members.map((m) => ({ id: m.id, displayName: m.displayName }))}
       cashFlows={view.cashFlows.map((row) => ({
         id: row.id,
         kind: row.kind as LedgerKind,
         memberName: memberName(row.memberId),
+        memberIds: [row.memberId],
         amountUsd: row.amountUsd,
         amountHkd: row.amountHkd,
         fxRate: row.fxRate,
@@ -51,6 +52,7 @@ export default async function LedgerPage({
         id: row.id,
         kind: row.side as LedgerKind,
         memberName: accountMember(row.ledgerAccountId),
+        memberIds: view.allocations.filter((leg) => leg.tradeId === row.id).map((leg) => leg.memberId),
         symbol: row.symbol,
         name: resolveInstrument(row.symbol)?.displayName ?? null,
         quantity: row.quantity,

@@ -1,8 +1,4 @@
-/* ==========================================================================
-   聯倉 joint-ledger · components-patch.css  (design v3)
-   放入 globals.css 末尾（或新檔 src/app/components.css 並 @import）。
-   依賴 tokens.css + tokens-patch.css；動畫見 motion.css（本檔只寫靜態狀態）。
-   ========================================================================== */
+/* Shared layout and control styles. Motion lives in motion.css. */
 
 /* ---- 基礎排版 ---- */
 html, body {
@@ -180,7 +176,7 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .theme-fade, .theme-fade *, .theme-fade *::before, .theme-fade *::after { transition: background-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard) !important; }  /* 手動切主題時暫掛 120ms，完成即移除 */
 
-/* ---- 頁面補充（v3 polish）---- */
+/* Page chrome */
 .page { padding-bottom: var(--sp-12); }
 .unit { font-size: 0.5em; color: var(--muted); margin-right: var(--sp-1); font-weight: var(--fw-medium); }
 .login-card { width: min(400px, 100%); }

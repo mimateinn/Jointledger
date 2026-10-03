@@ -7,7 +7,7 @@ const COPY = {
   total: "總市值",
   emptyTitle: "未有持倉",
   empty: "未有持倉，暫時冇分佈可睇",
-  single: "目前只有一個市場",
+  single: "目前只有一個分組",
   hint: "根據而家持倉市值計算，只係描述，唔係配置建議。",
 };
 

@@ -97,8 +97,8 @@ async function ensureBook(user: { id: string; displayName: string }) {
     bookId: book.id,
     effectiveOn: "2025-01-01",
     legs: [
-      { memberId: member.id, percent: "60" },
-      { memberId: memberB.id, percent: "40" },
+      { memberId: member.id, percent: "0.6" },
+      { memberId: memberB.id, percent: "0.4" },
     ],
   });
 

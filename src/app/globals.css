@@ -747,22 +747,11 @@ button {
   color: var(--muted);
 }
 
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-
 .skeleton {
   display: block;
-  background: color-mix(in srgb, var(--border) 80%, var(--surface));
-  border-radius: 4px;
+  background: var(--skeleton-base);
+  border-radius: var(--radius-xs);
   min-height: 1em;
-  animation: skeleton-pulse 1.2s ease-in-out infinite;
 }
 
 .skeleton-title {

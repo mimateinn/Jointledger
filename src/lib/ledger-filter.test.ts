@@ -44,6 +44,7 @@ describe("ledger filter", () => {
     });
     expect(parseLedgerFilters({ type: "hack", view: "cash" }).type).toBe("");
     expect(parseLedgerFilters({ view: "cash" }).view).toBe("cash");
+    expect(parseLedgerFilters({}).view).toBe("cash");
   });
 
   it("filters by text across code, name, note, and member", () => {
@@ -68,7 +69,23 @@ describe("ledger filter", () => {
     expect(filterLedgerRows(rows, emptyLedgerFilters("cash")).map((r) => r.id)).toEqual(["c1", "c2"]);
     expect(ledgerFiltersActive(trades)).toBe(false);
     expect(ledgerFiltersActive({ ...trades, q: "n" })).toBe(true);
-    expect(ledgerFiltersToSearch({ ...trades, q: "nvda", type: "buy" })).toBe("?q=nvda&type=buy");
-    expect(ledgerFiltersToSearch(emptyLedgerFilters("cash"))).toBe("?view=cash");
+    expect(ledgerFiltersToSearch({ ...trades, q: "nvda", type: "buy" })).toBe("?view=trades&q=nvda&type=buy");
+    expect(ledgerFiltersToSearch(emptyLedgerFilters("cash"))).toBe("");
+    expect(ledgerFiltersToSearch(emptyLedgerFilters())).toEqual(ledgerFiltersToSearch(emptyLedgerFilters("cash")));
+  });
+
+  it("matches joint trades by member id on the legs, not only the account label", () => {
+    const joint: FilterableLedgerRow = {
+      id: "j1",
+      kind: "buy",
+      occurredOn: "2026-09-12",
+      memberName: "聯名",
+      memberIds: ["mem-a", "mem-b"],
+      symbol: "MSFT",
+    };
+    const trades = emptyLedgerFilters("trades");
+    expect(filterLedgerRows([joint], { ...trades, member: "mem-a" }).map((r) => r.id)).toEqual(["j1"]);
+    expect(filterLedgerRows([joint], { ...trades, member: "Member A" }).map((r) => r.id)).toEqual([]);
+    expect(filterLedgerRows([joint], { ...trades, member: "聯名" }).map((r) => r.id)).toEqual(["j1"]);
   });
 });

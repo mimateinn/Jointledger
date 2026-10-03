@@ -22,7 +22,7 @@ const COPY = {
   title: "流水",
   trades: "買賣",
   cash: "出入金",
-  search: "搜尋標的、備註或標籤",
+  search: "搜尋代碼、名稱或備註",
   filter: "篩選",
   clear: "清除篩選",
   count: (n: number) => `共 ${n} 筆`,
@@ -56,7 +56,7 @@ export function LedgerClient({
 }: {
   cashFlows: CashRow[];
   trades: TradeRow[];
-  members: string[];
+  members: { id: string; displayName: string }[];
   filters: LedgerFilters;
 }) {
   const router = useRouter();
@@ -83,13 +83,13 @@ export function LedgerClient({
     <div className="page">
       <div className="page-head">
         <h1 className="page-title">{COPY.title}</h1>
-        <div className="seg" style={{ "--seg-n": 2, "--seg-i": filters.view === "trades" ? 0 : 1 } as CSSProperties}>
+        <div className="seg" style={{ "--seg-n": 2, "--seg-i": filters.view === "trades" ? 1 : 0 } as CSSProperties}>
           <span className="seg-thumb" aria-hidden />
-          <button type="button" aria-pressed={filters.view === "trades"} onClick={() => patch({ view: "trades", type: "" })}>
-            {COPY.trades}
-          </button>
           <button type="button" aria-pressed={filters.view === "cash"} onClick={() => patch({ view: "cash", type: "" })}>
             {COPY.cash}
+          </button>
+          <button type="button" aria-pressed={filters.view === "trades"} onClick={() => patch({ view: "trades", type: "" })}>
+            {COPY.trades}
           </button>
         </div>
       </div>
@@ -100,6 +100,7 @@ export function LedgerClient({
         <>
           <div className="card stack">
             <form
+              key={ledgerFiltersToSearch(filters)}
               className="filter-bar"
               onSubmit={(event) => {
                 event.preventDefault();
@@ -133,9 +134,9 @@ export function LedgerClient({
               </select>
               <select className="select" name="member" defaultValue={filters.member} aria-label={COPY.member}>
                 <option value="">{COPY.all}</option>
-                {members.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
                   </option>
                 ))}
               </select>
@@ -158,7 +159,11 @@ export function LedgerClient({
               <div className="chip-row">
                 {filters.q ? <span className="chip chip-active">「{filters.q}」</span> : null}
                 {filters.type ? <span className="chip chip-active">{LEDGER_KIND_LABEL[filters.type]}</span> : null}
-                {filters.member ? <span className="chip chip-active">{filters.member}</span> : null}
+                {filters.member ? (
+                  <span className="chip chip-active">
+                    {members.find((member) => member.id === filters.member)?.displayName ?? filters.member}
+                  </span>
+                ) : null}
                 {filters.from || filters.to ? (
                   <span className="chip chip-active">
                     {filters.from || "…"} – {filters.to || "…"}
@@ -262,6 +267,7 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
       <thead>
         <tr>
           <th>日期</th>
+          <th>類型</th>
           <th>標的</th>
           <th>邊個倉</th>
           <th className="num">數量</th>
@@ -273,18 +279,21 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
       <tbody>
         {grouped(rows).flatMap((group) => [
           <tr className="month-row" key={`m-${group.month}`}>
-            <td colSpan={7}>{group.month}</td>
+            <td colSpan={8}>{group.month}</td>
           </tr>,
           ...group.rows.map((row) => {
             const amount = Number(row.quantity) * Number(row.price);
             return (
               <tr key={row.id}>
                 <td title={row.occurredOn.slice(0, 10)}>{formatRelativeDate(row.occurredOn)}</td>
+                <td data-label="類型">
+                  <span className="chip">{LEDGER_KIND_LABEL[row.kind]}</span>
+                  <span className="sr-only">{tradeSideLabel(row.kind)}</span>
+                </td>
                 <td>
-                    <InstrumentLabel ticker={row.symbol ?? "—"} name={row.name ?? null} />
-                    <span className="sr-only">{tradeSideLabel(row.kind)}</span>
-                  </td>
-                  <td>{row.memberName}</td>
+                  <InstrumentLabel ticker={row.symbol ?? "—"} name={row.name ?? null} />
+                </td>
+                <td>{row.memberName}</td>
                 <td className="num card-meta" data-label="數量">
                   {formatQty(row.quantity)}
                 </td>

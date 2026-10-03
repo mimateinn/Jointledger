@@ -24,6 +24,7 @@ export type FilterableLedgerRow = {
   kind: LedgerKind;
   occurredOn: string;
   memberName: string;
+  memberIds?: string[];
   symbol?: string;
   name?: string | null;
   note?: string | null;
@@ -40,7 +41,7 @@ export const LEDGER_KIND_LABEL: Record<LedgerKind, string> = {
   adjustment: "調整",
 };
 
-export function emptyLedgerFilters(view: LedgerView = "trades"): LedgerFilters {
+export function emptyLedgerFilters(view: LedgerView = "cash"): LedgerFilters {
   return { q: "", type: "", member: "", from: "", to: "", view };
 }
 
@@ -65,7 +66,7 @@ export function parseLedgerFilters(
     member: get("member"),
     from: get("from"),
     to: get("to"),
-    view: viewRaw === "cash" ? "cash" : "trades",
+    view: viewRaw === "trades" ? "trades" : "cash",
   };
 }
 
@@ -75,7 +76,7 @@ export function ledgerFiltersActive(filters: Pick<LedgerFilters, "q" | "type" | 
 
 export function ledgerFiltersToSearch(filters: LedgerFilters): string {
   const params = new URLSearchParams();
-  if (filters.view !== "trades") {
+  if (filters.view !== "cash") {
     params.set("view", filters.view);
   }
   if (filters.q) params.set("q", filters.q);
@@ -101,7 +102,7 @@ export function matchesLedgerRow(row: FilterableLedgerRow, filters: LedgerFilter
   if (filters.type && row.kind !== filters.type) {
     return false;
   }
-  if (filters.member && row.memberName !== filters.member) {
+  if (filters.member && !rowMatchesMember(row, filters.member)) {
     return false;
   }
   const day = row.occurredOn.slice(0, 10);
@@ -120,6 +121,13 @@ export function matchesLedgerRow(row: FilterableLedgerRow, filters: LedgerFilter
     .join(" ")
     .toLowerCase();
   return hay.includes(q);
+}
+
+export function rowMatchesMember(row: FilterableLedgerRow, member: string): boolean {
+  if (row.memberIds?.includes(member)) {
+    return true;
+  }
+  return row.memberName === member;
 }
 
 export function filterLedgerRows<T extends FilterableLedgerRow>(rows: T[], filters: LedgerFilters): T[] {

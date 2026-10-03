@@ -40,11 +40,7 @@
   --meta-size: 12px;
 }
 
-/* ==========================================================================
-   聯倉 joint-ledger · tokens-patch.css  (design v3, 2026-10-03)
-   ========================================================================== */
-
-/* ---------- 1. 墨紙 Dark（:root 預設 + [data-theme="dark"]） ---------- */
+/* Dark theme extensions */
 :root,
 [data-theme="dark"] {
   /* 沿用不變：--bg #121411 --surface #1c1e1b --border #2c2f2a --text #edeee8
