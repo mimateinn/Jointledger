@@ -104,7 +104,11 @@ for (const item of PAGES) {
     }
     if (INJECT_OLD_TAPE) {
       await page.addStyleTag({
-        content: ".tape-lead,.tape-pin{flex-shrink:0!important;min-width:max-content!important;overflow:visible!important;max-width:none!important}",
+        content: [
+          ".tape{overflow:visible!important}",
+          ".tape-lead,.tape-pin{flex:0 0 auto!important;flex-shrink:0!important;min-width:max-content!important;max-width:none!important;overflow:visible!important}",
+          ".tape-lead .tape-name,.tape-pin .chip-delay{display:inline-flex!important}",
+        ].join(""),
       });
     }
     const measured = await page.evaluate(measureOverflow);

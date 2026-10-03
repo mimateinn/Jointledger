@@ -182,6 +182,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
       {items.length === 0 ? null : visible.length === 0 ? (
         <p className="empty">呢個市場未有關注。</p>
       ) : (
+        <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>
@@ -250,6 +251,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
             })}
           </tbody>
         </table>
+        </div>
       )}
     </section>
   );

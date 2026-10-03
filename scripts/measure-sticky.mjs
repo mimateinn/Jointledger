@@ -22,7 +22,7 @@ const VIEWPORTS = [
 const PAGES = [
   { name: "entry", path: "/entry", sels: [".entry-sticky", ".mobile-bar"] },
   { name: "overview", path: "/overview", sels: [".mobile-bar"] },
-  { name: "holdings", path: "/holdings", sels: [".sticky-kline", ".mobile-bar"] },
+  { name: "holdings", path: "/holdings", sels: [".mobile-bar"] },
   { name: "ledger", path: "/ledger", sels: [".mobile-bar"] },
   { name: "account", path: "/account", sels: [".mobile-bar"] },
 ];
@@ -44,7 +44,11 @@ for (const vp of VIEWPORTS) {
   await page.setViewport({ width: vp.w, height: vp.h, deviceScaleFactor: 1 });
   for (const item of PAGES) {
     await page.goto(`${BASE}${item.path}`, { waitUntil: "networkidle0", timeout: 60000 });
-    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    if (item.name === "entry") {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    } else {
+      await page.evaluate(() => window.scrollTo(0, 0));
+    }
     await new Promise((r) => setTimeout(r, 200));
     const measured = await page.evaluate((sels) => {
       const h = window.innerHeight;
