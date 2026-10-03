@@ -6,8 +6,8 @@
   --text: #edeee8;
   --muted: #9aa196;
   --ink: #7a9a8a;
-  --up: #3d9b6e;
-  --down: #e06b63;
+  --up: #42a375;
+  --down: #e6746c;
   --delay-bg: #2a261c;
   --delay-text: #c4a574;
   --on-ink: #121411;
@@ -38,4 +38,146 @@
   --title-size: 20px;
   --body-size: 14px;
   --meta-size: 12px;
+}
+
+/* ==========================================================================
+   聯倉 joint-ledger · tokens-patch.css  (design v3, 2026-10-03)
+   ========================================================================== */
+
+/* ---------- 1. 墨紙 Dark（:root 預設 + [data-theme="dark"]） ---------- */
+:root,
+[data-theme="dark"] {
+  /* 沿用不變：--bg #121411 --surface #1c1e1b --border #2c2f2a --text #edeee8
+     --muted #9aa196 --ink #7a9a8a --delay-bg #2a261c --delay-text #c4a574 --on-ink #121411 */
+  --up: #42a375;            /* 舊 #3d9b6e → 新。卡片 hover 底(#292a27)上由 4.20 → 4.62，過 4.5 */
+  --down: #e6746c;          /* 舊 #e06b63 → 新。hover 底上 4.44 → 4.87 */
+
+  --border-strong: #6f766b; /* NEW 輸入框／分段掣邊線。對 bg 3.95、對 surface 3.58（≥3:1，WCAG 1.4.11） */
+  --surface-hover: #292a27; /* NEW 表格行／可按卡 hover（= text 6% 混 surface） */
+  --surface-selected: #272d28; /* NEW 選中行（= ink 12% 混 surface）；正文 12.06、muted 5.30 */
+  --ink-hover: #8fae9e;     /* NEW primary 掣 hover；on-ink 對比 7.69 */
+  --ink-press: #a0bdae;     /* NEW primary 掣 active；on-ink 對比 9.16 */
+  --focus-ring: #7a9a8a;    /* NEW = ink；對 surface 5.45 */
+  --up-bg: #1f2922;         /* NEW 升 chip 底（up 8% 混 surface）；up 字 4.81 */
+  --down-bg: #2c2521;       /* NEW 跌 chip 底（down 8% 混 surface）；down 字 5.08 */
+  --scrim: rgba(0, 0, 0, 0.62); /* NEW 對話框／抽屜遮罩 */
+  --skeleton-base: #292c27; /* NEW 骨架底（border 80% 混 surface） */
+  --skeleton-shine: rgba(237, 238, 232, 0.07); /* NEW shimmer 高光 */
+  --icon-accent: var(--ink); /* NEW 空狀態插圖 accent 點 */
+
+  /* 陰影（墨紙：以邊線＋深影分層，唔靠亮影） */
+  --shadow-0: none;                                                  /* 卡片預設（只靠 1px border） */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);                         /* 可按卡 hover、sticky 列 */
+  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border); /* 下拉、popover、toast */
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-strong); /* 對話框、抽屜 */
+  color-scheme: dark;
+}
+
+/* ---------- 2. 暖紙 Light ---------- */
+[data-theme="light"] {
+  /* 沿用不變：--bg #f4f3ef --surface #fff --border #e3e1da --text #1b1c19 --muted #6b6e66
+     --ink #2f5d56 --up #1b7a4a --down #c0392b --delay-bg #f3ebd8 --delay-text #7a6238 --on-ink #fff */
+  --border-strong: #85887f; /* NEW 對 bg 3.25、對 surface 3.60 */
+  --surface-hover: #f1f1f1; /* NEW（= text 6% 混 white）；muted 4.59、up 4.73、down 4.81 */
+  --surface-selected: #eef2f1; /* NEW（= ink 8% 混 white）；正文 15.17、muted 4.60 */
+  --ink-hover: #264c46;     /* NEW on-ink(白) 對比 9.53 */
+  --ink-press: #1f3f3a;     /* NEW on-ink 對比 11.47 */
+  --focus-ring: #2f5d56;    /* NEW = ink；對 bg 6.70 */
+  --up-bg: #e8f2ed;         /* NEW up 10% 混 white；up 字 4.67 */
+  --down-bg: #f9ebea;       /* NEW down 10% 混 white；down 字 4.69 */
+  --scrim: rgba(27, 28, 25, 0.48);
+  --skeleton-base: #e9e7e1; /* border 80% 混 surface */
+  --skeleton-shine: rgba(255, 255, 255, 0.7);
+  --icon-accent: var(--ink);
+
+  /* 陰影（暖紙：暖灰墨色低透明度，唔用純黑） */
+  --shadow-0: none;
+  --shadow-1: 0 1px 2px rgba(27, 28, 25, 0.06), 0 1px 1px rgba(27, 28, 25, 0.04);
+  --shadow-2: 0 4px 12px rgba(27, 28, 25, 0.1), 0 1px 3px rgba(27, 28, 25, 0.06);
+  --shadow-3: 0 12px 32px rgba(27, 28, 25, 0.16), 0 2px 6px rgba(27, 28, 25, 0.08);
+  color-scheme: light;
+}
+
+/* ---------- 3. 與主題無關：間距、圓角、字階、版面、層級、圖示 ---------- */
+:root {
+  /* 間距（4px 基準；--sp-N = N × 4px） */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;   /* 只作 --card-pad 用，唔好喺其他地方新用 */
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+  /* 沿用：--page-pad 24px  --card-pad 20px  --gap 16px（值不變，見下面 mobile 覆寫） */
+  --gap-sm: 8px;      /* NEW 同組控件之間（chip 列、按鈕列） */
+  --gap-lg: 24px;     /* NEW 區塊之間 */
+  --card-pad-sm: 16px; /* NEW 手機卡 padding */
+  --page-pad-sm: 16px; /* NEW 手機頁邊距 */
+
+  /* 圓角（舊 --card-radius 8、--chip-radius 4 保留） */
+  --radius-xs: 2px;     /* NEW 骨架條、進度條 */
+  --radius-sm: 4px;     /* = --chip-radius：chip、input、button */
+  --radius-md: 8px;     /* = --card-radius：卡、表格容器、圖表框 */
+  --radius-lg: 12px;    /* NEW 對話框、手機底抽屜頂角、toast */
+  --radius-pill: 999px; /* NEW 圓點、avatar、分段掣 thumb */
+
+  /* 字階（舊值保留；NEW 為補位） */
+  --display-size: 32px;      /* 沿用；手機 28px */
+  --display-size-sm: 28px;   /* NEW */
+  --h1-size: 24px;           /* NEW 頁標題（舊：頁標題用 --title-size 20px，同卡標題一樣大） */
+  --title-size: 20px;        /* 沿用：對話框標題、首次入門大標 */
+  --card-title-size: 16px;   /* NEW 卡內 h2（舊：20px） */
+  --body-size: 14px;         /* 沿用 */
+  --meta-size: 12px;         /* 沿用 */
+  --caption-size: 11px;      /* NEW 只准手機底欄標籤、圖表軸 */
+  --lh-display: 36px;
+  --lh-h1: 32px;
+  --lh-title: 28px;
+  --lh-card-title: 24px;
+  --lh-body: 22px;           /* 舊 html line-height 1.45 (≈20px) → 22px */
+  --lh-meta: 18px;
+  --lh-caption: 16px;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --tracking-display: -0.02em;
+  --tracking-h1: -0.01em;
+  --tracking-meta: 0.01em;
+  --font-sans: var(--font-inter), var(--font-noto), "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
+
+  /* 版面 */
+  --content-max: 1200px;  /* NEW 主內容最大寬（1440 視窗：1220−48=1172，唔觸頂） */
+  --form-max: 560px;      /* NEW 單欄表單卡最大寬（記一筆、登入外的表單） */
+  --reading-max: 720px;   /* NEW 說明文字、設定頁單欄 */
+  --tape-h: 40px;         /* 沿用現值 40；手機覆寫 32 */
+  --bottom-bar-h: 56px;   /* NEW 手機底欄（不含 safe-area） */
+  --control-h: 40px;      /* NEW 桌面按鈕／輸入高；手機覆寫 44 */
+  --hit-min: 44px;        /* NEW 觸控目標下限 */
+  --table-row-h: 44px;    /* NEW 表格行最小高 */
+
+  /* 層級 */
+  --z-tape: 10;
+  --z-bar: 20;       /* 沿用 mobile-bar */
+  --z-guide: 25;
+  --z-sheet: 30;
+  --z-dialog: 40;    /* 沿用 kline 放大 */
+  --z-toast: 50;
+
+  /* 圖示 */
+  --icon-sw: 1.5;    /* 24 格內線寬；<svg class="icon"> 用，見 components-patch.css 的 16/20 補償 */
+}
+
+@media (max-width: 800px) {
+  :root {
+    --page-pad: 16px;
+    --card-pad: 16px;
+    --gap: 12px;
+    --display-size: 28px;
+    --h1-size: 22px;
+    --lh-display: 32px;
+    --lh-h1: 30px;
+    --tape-h: 32px;
+    --control-h: 44px;
+  }
 }
