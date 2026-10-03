@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
+import { Icon } from "@/components/icons";
 import { InstrumentKline } from "@/components/instrument-kline";
 import { instrumentTags } from "@/ohlcv";
 import { loadInstrumentView, resolveInstrument } from "@/quotes";
@@ -37,19 +39,38 @@ export default async function InstrumentPage({ params }: { params: Promise<{ cod
   };
 
   return (
-    <div className="stack">
-      <InstrumentKline
-        display={item.display}
-        name={item.name}
-        last={item.last}
-        percentChange={item.percentChange}
-        delayLabel={item.delayLabel}
-        lastUpdateLabel={item.lastUpdateLabel}
-        isEtfProxy={item.isEtfProxy}
-        planLimited={item.planLimited}
-        tags={instrument ? instrumentTags(instrument) : []}
-        containInShell
-      />
+    <div className="page">
+      <div className="page-head">
+        <Link href="/holdings" className="btn btn-ghost">
+          <Icon name="chevron-left" size={16} />
+          持倉
+        </Link>
+        <h1 className="page-title">
+          {item.name ?? item.display} <span className="meta muted">{item.display}</span>
+        </h1>
+      </div>
+      <div className="grid-12">
+        <div className="col-8">
+          <InstrumentKline
+            display={item.display}
+            name={item.name}
+            last={item.last}
+            percentChange={item.percentChange}
+            delayLabel={item.delayLabel}
+            lastUpdateLabel={item.lastUpdateLabel}
+            isEtfProxy={item.isEtfProxy}
+            planLimited={item.planLimited}
+            tags={instrument ? instrumentTags(instrument) : []}
+            containInShell
+          />
+        </div>
+        <aside className="col-4 stack">
+          <section className="card">
+            <h2 className="card-title">注意</h2>
+            <p className="meta muted">呢啲唔係投資建議，只係整理帳簿同公開資料。</p>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

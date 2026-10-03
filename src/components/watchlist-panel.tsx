@@ -150,7 +150,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
             autoComplete="off"
           />
         </div>
-        <p className="meta muted">顯示碼: 0700.HK · 7203.T · 005930.KS · 600519.SS。查價唔用 Yahoo 後綴當 API key。</p>
+          <p className="field-hint">輸入代碼或公司名，例如 0700.HK 或 TSLA。</p>
         {hits[0] ? (
           <div className="row">
             <div>
@@ -159,7 +159,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
               {pendingSearch ? <span className="muted"> · …</span> : null}
             </div>
             <button className="btn btn-secondary" type="submit" disabled={addPending}>
-              {addPending ? "儲存中" : "+關注"}
+              {addPending ? "儲存中" : "加入關注"}
             </button>
           </div>
         ) : query.trim() ? (

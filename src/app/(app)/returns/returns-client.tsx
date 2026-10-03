@@ -12,7 +12,8 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "custom", label: "自訂" },
 ];
 
-const COLORS = ["var(--up)", "var(--text)", "var(--muted)", "var(--ink)"];
+const COLORS = ["var(--ink)", "color-mix(in srgb, var(--ink) 50%, var(--text))", "var(--text)", "var(--ink)"];
+const DASH = ["none", "7 4", "none", "4 3"];
 
 function signedMoney(value: string): string {
   return formatSignedUsd(value);
@@ -33,9 +34,9 @@ export function ReturnsClient({
   const [showPrincipal, setShowPrincipal] = useState(false);
 
   return (
-    <div className="stack">
+    <div className="page">
       <div className="page-head">
-        <h1 className="title">收益率</h1>
+        <h1 className="page-title">收益率</h1>
         <div className="submit-row">
           {!emptyBook ? (
             <button
@@ -85,15 +86,15 @@ export function ReturnsClient({
         ) : null}
       </form>
 
-      <div className="grid grid-metrics">
-        <section className="card">
+      <div className="grid-12">
+        <section className="card col-6">
           <div className="meta muted">期間淨值</div>
           <div className={`display ${Number(report.book.periodPnlUsd) < 0 ? "down" : "up"}`}>
             {signedMoney(report.book.periodPnlUsd)}
           </div>
           <p className="metric-sub">現金+持倉現價嘅變化 · {periodLabel(report)}</p>
         </section>
-        <section className="card">
+        <section className="card col-6">
           <div className="meta muted">Dietz</div>
           <div className={`display ${percentClass(report.book.dietzPercent)}`}>
             {formatDietzPercent(report.book.dietzPercent)}
@@ -122,7 +123,7 @@ export function ReturnsClient({
       <div className="returns-split">
         <section className="card stack">
           <div className="row">
-            <h2 className="title">累積%</h2>
+            <h2 className="card-title">累積%</h2>
             <div className="submit-row">
               {report.members.map((member, index) => (
                 <span key={member.memberId} className="meta" style={{ color: memberColor(index) }}>
@@ -139,22 +140,22 @@ export function ReturnsClient({
           </p>
         </section>
         <section className="card">
-          <h2 className="title">各人</h2>
+          <h2 className="card-title">各人</h2>
           <p className="meta muted">同一期間</p>
           <table className="table">
             <thead>
               <tr>
                 <th>人</th>
-                <th>期間 $</th>
-                <th>Dietz</th>
+                <th className="num">期間 $</th>
+                <th className="num">Dietz</th>
               </tr>
             </thead>
             <tbody>
               {report.members.map((member) => (
                 <tr key={member.memberId}>
                   <td>{member.displayName}</td>
-                  <td className="tabular">{signedShort(member.periodPnlUsd)}</td>
-                  <td className="tabular">{formatDietzPercent(member.dietzPercent)}</td>
+                  <td className="num">{signedShort(member.periodPnlUsd)}</td>
+                  <td className="num">{formatDietzPercent(member.dietzPercent)}</td>
                 </tr>
               ))}
             </tbody>
@@ -247,7 +248,7 @@ function ReturnsChart({
         const last = row.at(-1);
         return (
           <g key={members[seriesIndex].memberId}>
-            <path d={d} fill="none" stroke={memberColor(seriesIndex)} strokeWidth="1.6" />
+            <path d={d} fill="none" stroke={memberColor(seriesIndex)} strokeWidth="2" strokeDasharray={DASH[seriesIndex % DASH.length]} strokeLinecap="round" />
             {last ? (
               <text x={width - pad.r + 6} y={y(last.value) + 4} fill={memberColor(seriesIndex)} fontSize="11">
                 {last.label}
@@ -259,7 +260,7 @@ function ReturnsChart({
       {dates.filter((_, index) => index === 0 || index === dates.length - 1 || index === Math.floor(dates.length / 2)).map((date) => {
         const index = dates.indexOf(date);
         return (
-          <text key={date} x={x(index)} y={height - 8} fill="var(--muted)" fontSize="10" textAnchor="middle">
+          <text key={date} x={x(index)} y={height - 8} fill="var(--muted)" fontSize="11" textAnchor="middle">
             {date.slice(5).replace("-", "/")}
           </text>
         );

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { deleteHoldingAction, type EntryState } from "@/app/actions/entry";
+import { Icon } from "./icons";
 import { SubmitButton } from "./submit-button";
 import { useUndoCommit } from "./undo-commit";
 
@@ -39,8 +40,8 @@ export function HoldingDelete({
 
   if (phase === "idle") {
     return (
-      <button className="btn btn-ghost" type="button" onClick={() => setPhase("confirm")}>
-        刪除
+      <button className="btn btn-ghost btn-icon" type="button" aria-label="刪除" onClick={() => setPhase("confirm")}>
+        <Icon name="delete-trash" size={16} />
       </button>
     );
   }

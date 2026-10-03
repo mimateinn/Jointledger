@@ -57,27 +57,27 @@ export function Icon({
 }
 
 export function IconOverview(props: IconProps) {
-  return <Icon name="overview" {...props} />;
+  return <Icon {...props} name="overview" />;
 }
 
 export function IconHoldings(props: IconProps) {
-  return <Icon name="holdings" {...props} />;
+  return <Icon {...props} name="holdings" />;
 }
 
 export function IconEntry(props: IconProps) {
-  return <Icon name="entry" {...props} />;
+  return <Icon {...props} name="entry" />;
 }
 
 export function IconReturns(props: IconProps) {
-  return <Icon name="returns" {...props} />;
+  return <Icon {...props} name="returns" />;
 }
 
 export function IconLedger(props: IconProps) {
-  return <Icon name="ledger" {...props} />;
+  return <Icon {...props} name="ledger" />;
 }
 
 export function IconAccount(props: IconProps) {
-  return <Icon name="account" {...props} />;
+  return <Icon {...props} name="account" />;
 }
 
 export const ICON_NAMES = [

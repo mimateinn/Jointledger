@@ -2,14 +2,27 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createBookkeepingAction, createBuyAction, createDepositAction, type EntryState } from "@/app/actions/entry";
+import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { deriveAmountUsd } from "@/ledger/create-cash-flow";
 import { formatUsd } from "@/lib/format";
+
+const COPY = {
+  title: "記一筆",
+  emptyHint: "空表都可以用。可以先入金，或者直接加持倉。",
+  first: "第一次：先入金，再轉買入記已有持股。",
+  later: "賣出同出金之後開放",
+  laterBody: "呢頁而家用入金／買入。賣出同出金之後再開放",
+  disclaimer: "記帳唔係下單。唔會連接任何券商。",
+  preview: "預覽",
+  afterCash: "記入後美金",
+};
 
 const initial: EntryState = {};
 const TABS = ["入金", "買入", "賣出", "出金", "調整"] as const;
 type Tab = (typeof TABS)[number];
 type BookkeepingKind = "adjustment" | "split";
+const CLOSED = new Set<Tab>(["賣出", "出金"]);
 
 export function EntryForm({
   members,
@@ -34,6 +47,7 @@ export function EntryForm({
   const [symbol, setSymbol] = useState("");
   const [qty, setQty] = useState("");
   const [price, setPrice] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
 
   const usd = useMemo(() => {
     try {
@@ -44,15 +58,19 @@ export function EntryForm({
     }
   }, [hkd, fx]);
 
+  const ok = depositState.ok ?? buyState.ok ?? bookState.ok;
+
   return (
-    <div className="stack">
-      <h1 className="title">記一筆</h1>
-      {depositState.ok || buyState.ok || bookState.ok ? (
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">{COPY.title}</h1>
+      </div>
+      {ok ? (
         <p className="ok" role="status">
-          {depositState.ok ?? buyState.ok ?? bookState.ok}
+          {ok}
         </p>
       ) : (
-        <p className="muted">空表都可以用。可以先入金，或者直接加持倉。</p>
+        <p className="muted">{COPY.emptyHint}</p>
       )}
 
       <div className="tabs-line">
@@ -61,98 +79,125 @@ export function EntryForm({
             key={item}
             type="button"
             className={tab === item ? "tab tab-active" : "tab"}
-            onClick={() => setTab(item)}
+            aria-disabled={CLOSED.has(item) || undefined}
+            onClick={() => {
+              if (CLOSED.has(item)) {
+                setToast(COPY.later);
+                return;
+              }
+              setTab(item);
+            }}
           >
             {item}
+            {CLOSED.has(item) ? <span className="chip" style={{ marginLeft: 8 }}>{COPY.later}</span> : null}
           </button>
         ))}
       </div>
 
+      {toast ? (
+        <div className="banner" role="status">
+          <Icon name="info" />
+          <span>{toast}</span>
+        </div>
+      ) : null}
+
+      <div className="grid-12">
+        <div className="col-7">
       {tab === "入金" ? (
         <form key="deposit" className="card form-grid" action={depositAction}>
-          <div className="field">
-            <label htmlFor="memberId">邊個倉</label>
-            <select className="select" id="memberId" name="memberId" defaultValue={defaultMemberId}>
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName}
-                </option>
-              ))}
-            </select>
+          <p className="banner">
+            <Icon name="info" />
+            {COPY.first}
+          </p>
+          <div className="grid-12">
+            <div className="field col-6">
+              <label htmlFor="memberId">邊個倉</label>
+              <select className="select" id="memberId" name="memberId" defaultValue={defaultMemberId}>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field col-6">
+              <label htmlFor="occurredOn">日期</label>
+              <input className="input" id="occurredOn" name="occurredOn" type="date" required defaultValue={today} />
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="occurredOn">日期</label>
-            <input className="input" id="occurredOn" name="occurredOn" type="date" required defaultValue={today} />
-          </div>
-          <div className="field">
-            <label htmlFor="amountHkd">港幣</label>
-            <input
-              className="input"
-              id="amountHkd"
-              name="amountHkd"
-              inputMode="decimal"
-              required
-              value={hkd}
-              onChange={(e) => setHkd(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="fxRate">匯率</label>
-            <input
-              className="input"
-              id="fxRate"
-              name="fxRate"
-              inputMode="decimal"
-              required
-              placeholder="7.82"
-              value={fx}
-              onChange={(e) => setFx(e.target.value)}
-              autoComplete="off"
-            />
-            <p className="meta muted">港紙兌美金，例如 7.82。填 1 即當美金入帳。</p>
+          <div className="grid-12">
+            <div className="field col-6">
+              <label htmlFor="amountHkd">港幣</label>
+              <input
+                className="input input-num"
+                id="amountHkd"
+                name="amountHkd"
+                inputMode="decimal"
+                required
+                value={hkd}
+                onChange={(e) => setHkd(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="field col-6">
+              <label htmlFor="fxRate">匯率</label>
+              <input
+                className="input input-num"
+                id="fxRate"
+                name="fxRate"
+                inputMode="decimal"
+                required
+                placeholder="7.82"
+                value={fx}
+                onChange={(e) => setFx(e.target.value)}
+                autoComplete="off"
+              />
+              <p className="field-hint">港紙兌美金，例如 7.82。填 1 即當美金入帳。</p>
+            </div>
           </div>
           <div className="field">
             <label htmlFor="amountUsd">美金</label>
-            <input className="input" id="amountUsd" readOnly value={usd} tabIndex={-1} />
-            <p className="meta muted">會一齊存做美金。</p>
+            <input className="input input-num" id="amountUsd" readOnly value={usd} tabIndex={-1} />
+            <p className="field-hint">會一齊存做美金。</p>
           </div>
-          {depositState.error ? <p className="alert">{depositState.error}</p> : null}
+          {depositState.error ? <p className="field-error">{depositState.error}</p> : null}
           {depositState.ok ? <p className="ok">{depositState.ok}</p> : null}
-          <div className="submit-row">
+          <div className="submit-row entry-sticky">
             <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
-            <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
+            <p className="meta muted">{COPY.disclaimer}</p>
           </div>
         </form>
       ) : null}
 
       {tab === "買入" ? (
         <form key="buy" className="card form-grid" action={buyAction}>
-          <div className="field">
-            <label htmlFor="ledgerAccountId">邊個倉</label>
-            <select
-              className="select"
-              id="ledgerAccountId"
-              name="ledgerAccountId"
-              defaultValue={defaultAccountId}
-            >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="occurredOnBuy">日期</label>
-            <input
-              className="input"
-              id="occurredOnBuy"
-              name="occurredOn"
-              type="date"
-              required
-              defaultValue={today}
-            />
+          <div className="grid-12">
+            <div className="field col-6">
+              <label htmlFor="ledgerAccountId">邊個倉</label>
+              <select
+                className="select"
+                id="ledgerAccountId"
+                name="ledgerAccountId"
+                defaultValue={defaultAccountId}
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field col-6">
+              <label htmlFor="occurredOnBuy">日期</label>
+              <input
+                className="input"
+                id="occurredOnBuy"
+                name="occurredOn"
+                type="date"
+                required
+                defaultValue={today}
+              />
+            </div>
           </div>
           <div className="field">
             <label htmlFor="symbol">代碼</label>
@@ -167,37 +212,39 @@ export function EntryForm({
               autoComplete="off"
             />
           </div>
-          <div className="field">
-            <label htmlFor="quantity">數量</label>
-            <input
-              className="input"
-              id="quantity"
-              name="quantity"
-              inputMode="decimal"
-              required
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              autoComplete="off"
-            />
+          <div className="grid-12">
+            <div className="field col-6">
+              <label htmlFor="quantity">數量</label>
+              <input
+                className="input input-num"
+                id="quantity"
+                name="quantity"
+                inputMode="decimal"
+                required
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="field col-6">
+              <label htmlFor="price">價格</label>
+              <input
+                className="input input-num"
+                id="price"
+                name="price"
+                inputMode="decimal"
+                required
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="price">價格</label>
-            <input
-              className="input"
-              id="price"
-              name="price"
-              inputMode="decimal"
-              required
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              autoComplete="off"
-            />
-          </div>
-          {buyState.error ? <p className="alert">{buyState.error}</p> : null}
+          {buyState.error ? <p className="field-error">{buyState.error}</p> : null}
           {buyState.ok ? <p className="ok">{buyState.ok}</p> : null}
-          <div className="submit-row">
+          <div className="submit-row entry-sticky">
             <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
-            <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
+            <p className="meta muted">{COPY.disclaimer}</p>
           </div>
         </form>
       ) : null}
@@ -217,31 +264,33 @@ export function EntryForm({
               <option value="split">拆股</option>
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="ledgerAccountIdAdj">邊個倉</label>
-            <select
-              className="select"
-              id="ledgerAccountIdAdj"
-              name="ledgerAccountId"
-              defaultValue={defaultAccountId}
-            >
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="occurredOnAdj">日期</label>
-            <input
-              className="input"
-              id="occurredOnAdj"
-              name="occurredOn"
-              type="date"
-              required
-              defaultValue={today}
-            />
+          <div className="grid-12">
+            <div className="field col-6">
+              <label htmlFor="ledgerAccountIdAdj">邊個倉</label>
+              <select
+                className="select"
+                id="ledgerAccountIdAdj"
+                name="ledgerAccountId"
+                defaultValue={defaultAccountId}
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field col-6">
+              <label htmlFor="occurredOnAdj">日期</label>
+              <input
+                className="input"
+                id="occurredOnAdj"
+                name="occurredOn"
+                type="date"
+                required
+                defaultValue={today}
+              />
+            </div>
           </div>
           {bookKind === "split" ? (
             <>
@@ -249,14 +298,16 @@ export function EntryForm({
                 <label htmlFor="symbolSplit">代碼</label>
                 <input className="input" id="symbolSplit" name="symbol" required placeholder="NVDA" autoComplete="off" />
               </div>
-              <div className="field">
-                <label htmlFor="newShares">新股</label>
-                <input className="input" id="newShares" name="newShares" inputMode="decimal" required placeholder="2" autoComplete="off" />
-                <p className="meta muted">2 對 1 就填新股 2、舊股 1。只改股數，成本不變。</p>
-              </div>
-              <div className="field">
-                <label htmlFor="oldShares">舊股</label>
-                <input className="input" id="oldShares" name="oldShares" inputMode="decimal" required placeholder="1" autoComplete="off" />
+              <div className="grid-12">
+                <div className="field col-6">
+                  <label htmlFor="newShares">新股</label>
+                  <input className="input input-num" id="newShares" name="newShares" inputMode="decimal" required placeholder="2" autoComplete="off" />
+                  <p className="field-hint">2 對 1 就填新股 2、舊股 1。只改股數，成本不變。</p>
+                </div>
+                <div className="field col-6">
+                  <label htmlFor="oldShares">舊股</label>
+                  <input className="input input-num" id="oldShares" name="oldShares" inputMode="decimal" required placeholder="1" autoComplete="off" />
+                </div>
               </div>
             </>
           ) : (
@@ -267,19 +318,37 @@ export function EntryForm({
               </div>
               <div className="field">
                 <label htmlFor="amountUsdAdj">美金</label>
-                <input className="input" id="amountUsdAdj" name="amountUsd" inputMode="decimal" placeholder="可空，負數扣現金" autoComplete="off" />
-                <p className="meta muted">人手記一筆。唔係入金、亦唔係買賣。</p>
+                <input className="input input-num" id="amountUsdAdj" name="amountUsd" inputMode="decimal" placeholder="可空，負數扣現金" autoComplete="off" />
+                <p className="field-hint">人手記一筆。唔係入金、亦唔係買賣。</p>
               </div>
             </>
           )}
-          {bookState.error ? <p className="alert">{bookState.error}</p> : null}
+          {bookState.error ? <p className="field-error">{bookState.error}</p> : null}
           {bookState.ok ? <p className="ok">{bookState.ok}</p> : null}
-          <div className="submit-row">
+          <div className="submit-row entry-sticky">
             <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
-            <p className="meta muted">記帳唔係下單。唔會連接任何券商。</p>
+            <p className="meta muted">{COPY.disclaimer}</p>
           </div>
         </form>
       ) : null}
+
+      {CLOSED.has(tab) ? (
+        <section className="card state-panel">
+          <Icon name="lock" />
+          <h2 className="card-title">{COPY.later}</h2>
+          <p>{COPY.laterBody}</p>
+        </section>
+      ) : null}
+        </div>
+        <aside className="card col-5 sticky-kline">
+          <h2 className="card-title">{COPY.preview}</h2>
+          <div className="preview-row">
+            <span className="meta muted">{COPY.afterCash}</span>
+            <span className="num">{usd || "—"}</span>
+          </div>
+          <p className="meta muted" style={{ marginTop: 12 }}>{COPY.disclaimer}</p>
+        </aside>
+      </div>
     </div>
   );
 }

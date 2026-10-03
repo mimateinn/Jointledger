@@ -158,7 +158,7 @@ export function InstrumentKline({
       ) : null}
       {canChart ? (
         <div className="kline-toolbar">
-          <button type="button" className="btn btn-ghost" onClick={toggleSize}>
+          <button type="button" className="btn btn-ghost btn-icon" onClick={toggleSize} aria-label={enlarged ? "還原" : "放大"}>
             {enlarged ? "還原" : "放大"}
           </button>
         </div>
