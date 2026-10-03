@@ -1,0 +1,347 @@
+/* ==========================================================================
+   聯倉 joint-ledger · motion.css  (design v3)
+   放入 src/app/motion.css，並喺 globals.css 頂部 @import "./motion.css"; （tokens.css 之後）
+   原則：只動 transform / opacity（另有 SVG stroke-dashoffset 畫勾，無 layout 影響）；
+   時長 120–240ms 為主，頁面轉場 ≤ 280ms；全部尊重 prefers-reduced-motion，
+   亦提供 <html class="is-reduced"> 手動開關（例如帳戶頁「減少動態」）。
+   ========================================================================== */
+
+:root {
+  /* 時長階梯 */
+  --dur-instant: 80ms;   /* reduced-motion 替代、hover 顏色 */
+  --dur-fast: 120ms;     /* 按壓、hover、chip、勾選 */
+  --dur-base: 180ms;     /* 列表項、tab 滑塊、toast 出 */
+  --dur-slow: 240ms;     /* 對話框、抽屜、toast 入、圖表淡入 */
+  --dur-page: 260ms;     /* 頁面轉場（硬上限 280ms） */
+  --dur-number: 320ms;   /* 數字 tween（唯一允許 >240ms 嘅互動動畫） */
+  --dur-shimmer: 1400ms; /* 骨架 shimmer 一圈 */
+  --dur-spin: 800ms;     /* spinner 一圈 */
+
+  /* easing 命名 token */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);      /* 進場、位移、通用 */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);          /* 離場（加速離開） */
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1); /* 頁面／對話框進場（尾段長、無回彈） */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);    /* 滑塊、toggle thumb */
+  --ease-pop: cubic-bezier(0.34, 1.35, 0.64, 1);    /* 勾選／成功小回彈（<=8% overshoot） */
+  --ease-linear: linear;                            /* spinner、shimmer */
+
+  /* 位移量（reduced-motion 時全部歸零） */
+  --mv-y: 8px;        /* 進場上移 */
+  --mv-y-page: 6px;   /* 頁面進場 */
+  --mv-x: 8px;        /* 列表離場側移 */
+  --mv-s: 0.97;       /* 對話框起始縮放 */
+  --press-scale: 0.98;/* 按壓縮放 */
+  --hover-lift: -1px; /* 可按卡 hover 上浮 */
+  --stagger: 24ms;    /* 列表進場錯開（最多 8 項） */
+}
+
+/* ---------------- keyframes ---------------- */
+@keyframes jl-fade-in   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes jl-fade-out  { from { opacity: 1; } to { opacity: 0; } }
+@keyframes jl-page-in {
+  from { opacity: 0; transform: translateY(var(--mv-y-page)); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes jl-rise-in {
+  from { opacity: 0; transform: translateY(var(--mv-y)); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes jl-item-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(calc(var(--mv-x) * -1)); }
+}
+@keyframes jl-dialog-in {
+  from { opacity: 0; transform: translateY(var(--mv-y)) scale(var(--mv-s)); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes jl-dialog-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: scale(var(--mv-s)); }
+}
+@keyframes jl-sheet-in  { from { transform: translateY(var(--sheet-from, 100%)); } to { transform: none; } }
+@keyframes jl-sheet-out { from { transform: none; } to { transform: translateY(var(--sheet-from, 100%)); } }
+@keyframes jl-drawer-in  { from { transform: translateX(var(--drawer-from, 100%)); } to { transform: none; } }
+@keyframes jl-drawer-out { from { transform: none; } to { transform: translateX(var(--drawer-from, 100%)); } }
+@keyframes jl-toast-in {
+  from { opacity: 0; transform: translateY(calc(var(--mv-y) * 2)); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes jl-toast-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(var(--mv-y)); }
+}
+@keyframes jl-spin { to { transform: rotate(360deg); } }
+@keyframes jl-shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+@keyframes jl-flash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes jl-check-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes jl-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes jl-rotate-once { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes jl-pulse-soft { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+
+/* ---------------- 頁面轉場 ----------------
+   app/(app)/template.tsx 包一層 <div className="page-enter">{children}</div>
+   （template 每次導航重新掛載，故每次都播；唔做離場動畫，避免延遲導航） */
+.page-enter { animation: jl-page-in var(--dur-page) var(--ease-emphasized) both; }
+
+/* ---------------- 按壓／hover 回饋 ---------------- */
+.btn,
+.chip,
+.tab,
+.nav-item,
+.mobile-bar a,
+.theme-toggle {
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard),
+    border-color var(--dur-fast) var(--ease-standard),
+    transform var(--dur-fast) var(--ease-standard),
+    opacity var(--dur-fast) var(--ease-standard);
+}
+.btn:active:not(:disabled):not([aria-disabled="true"]),
+.chip:active,
+.theme-toggle:active { transform: scale(var(--press-scale)); }
+.mobile-bar a:active { transform: scale(0.94); }
+
+.card-link,
+.choice-card.is-link {
+  transition: transform var(--dur-base) var(--ease-standard), box-shadow var(--dur-base) var(--ease-standard), border-color var(--dur-base) var(--ease-standard);
+}
+@media (hover: hover) {
+  .card-link:hover,
+  .choice-card.is-link:hover { transform: translateY(var(--hover-lift)); box-shadow: var(--shadow-1); border-color: var(--border-strong); }
+}
+.card-link:active,
+.choice-card.is-link:active { transform: scale(var(--press-scale)); }
+
+/* 表格行：背景色淡入，唔位移 */
+.table tbody tr { transition: background-color var(--dur-fast) var(--ease-standard); }
+
+/* 側欄 active 指示條由中間展開（transform，唔係 border 跳） */
+.nav-item { position: relative; }
+.nav-item::before {
+  content: "";
+  position: absolute; left: 0; top: 6px; bottom: 6px; width: 2px;
+  background: var(--ink); border-radius: var(--radius-pill);
+  transform: scaleY(0); transition: transform var(--dur-base) var(--ease-standard);
+}
+.nav-item-active::before,
+.nav-item[aria-current="page"]::before { transform: scaleY(1); }
+
+/* 手機底欄：active 頂線 */
+.mobile-bar a { position: relative; }
+.mobile-bar a::before {
+  content: ""; position: absolute; top: -8px; left: 25%; right: 25%; height: 2px;
+  background: var(--ink); border-radius: var(--radius-pill);
+  transform: scaleX(0); transition: transform var(--dur-base) var(--ease-standard);
+}
+.mobile-bar a.active::before { transform: scaleX(1); }
+
+/* ---------------- 列表項進出 ----------------
+   進場：.list-enter > * { --i: <index> }（最多計到 8）；離場：加 .is-leaving，animationend 後才移出 DOM */
+.list-enter > * {
+  animation: jl-rise-in var(--dur-base) var(--ease-standard) both;
+  animation-delay: calc(min(var(--i, 0), 8) * var(--stagger));
+}
+.is-entering { animation: jl-rise-in var(--dur-base) var(--ease-standard) both; }
+.is-leaving  { animation: jl-item-out var(--dur-base) var(--ease-exit) both; pointer-events: none; }
+/* 表格行 <tr> 唔好 transform：用 opacity 版 */
+tr.is-entering { animation: jl-fade-in var(--dur-base) var(--ease-standard) both; }
+tr.is-leaving  { animation: jl-fade-out var(--dur-fast) var(--ease-exit) both; }
+/* FLIP 補位：JS 對剩餘行先設 transform: translateY(Δ)，下一幀加 .flip-run */
+.flip-run { transition: transform var(--dur-base) var(--ease-standard); transform: none !important; }
+
+/* ---------------- 數字變動（總資產／損益） ----------------
+   寬度鎖定：.num 一律 tabular；容器用 min-width: calc(var(--digits) * 1ch) 預留位 */
+/* .num（tabular）定義喺 components-patch.css；呢度只加「鎖寬」：獨立數字 <span class="num num-lock" style="--digits:10">。
+   唔好喺 <td> 上加 .num-lock（會破表格排版） */
+.num-lock {
+  display: inline-block;
+  min-width: calc(var(--digits, 0) * 1ch);
+}
+.num-flash { position: relative; }
+.num-flash::after {
+  content: ""; position: absolute; inset: -2px -4px; border-radius: var(--radius-sm);
+  background: var(--flash-color, var(--up-bg)); opacity: 0; pointer-events: none;
+}
+.num-flash.is-up   { --flash-color: var(--up-bg); }
+.num-flash.is-down { --flash-color: var(--down-bg); }
+.num-flash.is-up::after,
+.num-flash.is-down::after { animation: jl-flash 600ms var(--ease-standard) both; opacity: 1; }
+
+/* ---------------- 載入：骨架、按鈕、圖表 ---------------- */
+.skeleton { position: relative; overflow: hidden; background: var(--skeleton-base); border-radius: var(--radius-xs); animation: none; }
+.skeleton::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%, var(--skeleton-shine) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: jl-shimmer var(--dur-shimmer) var(--ease-linear) infinite;
+}
+/* 離開可視範圍嘅骨架暫停（IntersectionObserver 加 .is-offscreen，可選） */
+.is-offscreen .skeleton::after { animation-play-state: paused; }
+/* 骨架換內容：內容 .is-entering 淡入 */
+.btn[aria-busy="true"] { position: relative; }
+.btn[aria-busy="true"]::before {
+  content: ""; width: 14px; height: 14px; flex: none;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  animation: jl-spin var(--dur-spin) var(--ease-linear) infinite;
+}
+.spin { animation: jl-spin var(--dur-spin) var(--ease-linear) infinite; transform-origin: 50% 50%; }
+.chart-enter { animation: jl-fade-in var(--dur-slow) var(--ease-standard) both; }
+
+/* ---------------- toast／記完提示 ---------------- */
+.toast { animation: jl-toast-in var(--dur-slow) var(--ease-emphasized) both; }
+.toast.is-leaving { animation: jl-toast-out var(--dur-base) var(--ease-exit) both; }
+
+/* ---------------- 對話框／抽屜 ---------------- */
+.scrim { animation: jl-fade-in var(--dur-slow) var(--ease-standard) both; }
+.scrim.is-leaving { animation: jl-fade-out var(--dur-base) var(--ease-exit) both; }
+.dialog { animation: jl-dialog-in var(--dur-slow) var(--ease-emphasized) both; }
+.dialog.is-leaving { animation: jl-dialog-out var(--dur-base) var(--ease-exit) both; }
+.sheet { animation: jl-sheet-in var(--dur-slow) var(--ease-emphasized) both; }
+.sheet.is-leaving { animation: jl-sheet-out var(--dur-base) var(--ease-exit) both; }
+.drawer { animation: jl-drawer-in var(--dur-slow) var(--ease-emphasized) both; }
+.drawer.is-leaving { animation: jl-drawer-out var(--dur-base) var(--ease-exit) both; }
+
+/* ---------------- tab／分段掣滑塊 ----------------
+   .tabs-line 內放 <span class="tab-indicator" style="--tab-x:<offsetLeft>;--tab-w:<offsetWidth>"> （單位 px，唔帶單位） */
+.tabs-line { position: relative; }
+.tab-indicator {
+  position: absolute; left: 0; bottom: -1px; width: 1px; height: 2px;
+  background: var(--text); transform-origin: 0 50%;
+  transform: translateX(calc(var(--tab-x, 0) * 1px)) scaleX(var(--tab-w, 0));
+  transition: transform var(--dur-base) var(--ease-in-out);
+}
+/* 有滑塊時，.tab-active 本身唔再畫底線 */
+.tabs-line.has-indicator .tab-active { border-bottom-color: transparent; }
+/* 等寬分段掣（我／全體／Hey… 以外嘅 2–3 項，如 出入金｜買賣）：thumb 以 index 位移 */
+.seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
+.seg > button { position: relative; z-index: 1; min-height: 32px; padding: 0 var(--sp-4); border: 0; background: transparent; color: var(--muted); font-weight: var(--fw-medium); transition: color var(--dur-fast) var(--ease-standard); }
+.seg > button[aria-pressed="true"],
+.seg > button[aria-selected="true"] { color: var(--text); }
+.seg-thumb {
+  position: absolute; z-index: 0; top: 2px; bottom: 2px; left: 2px;
+  width: calc((100% - 4px) / var(--seg-n, 2));
+  background: var(--surface); border: 1px solid var(--border); border-radius: calc(var(--radius-sm) - 1px);
+  transform: translateX(calc(var(--seg-i, 0) * 100%));
+  transition: transform var(--dur-base) var(--ease-in-out);
+}
+
+/* ---------------- 圖示微互動 ---------------- */
+/* 檢查更新：loading 時圖示轉圈；成功後勾 pop。React：data-state="idle|loading|ok" 掛喺按鈕 */
+.btn-update[data-state="loading"] .icon { animation: jl-spin var(--dur-spin) var(--ease-linear) infinite; transform-origin: 50% 50%; }
+.btn-update[data-state="ok"] .icon-ok { animation: jl-pop var(--dur-base) var(--ease-pop) both; }
+/* 勾選：<path class="check-path" d="…" pathLength="24"> */
+.check-path { stroke-dasharray: 24; stroke-dashoffset: 0; }
+.is-checking .check-path { animation: jl-check-draw var(--dur-base) var(--ease-standard) both; }
+/* 重新整理：按下轉一圈 */
+.btn-refresh:active .icon,
+.btn-refresh.is-refreshing .icon { animation: jl-rotate-once var(--dur-slow) var(--ease-in-out) both; }
+/* 主題切換：圖示 swap（舊 fade-out 80ms → 新 rise-in） */
+.theme-toggle .icon { transition: transform var(--dur-base) var(--ease-in-out), opacity var(--dur-fast) var(--ease-standard); }
+.theme-toggle:active .icon { transform: rotate(20deg); }
+/* chevron 展開／收起 */
+.chev { transition: transform var(--dur-base) var(--ease-in-out); }
+[aria-expanded="true"] > .chev,
+.chev.is-open { transform: rotate(180deg); }
+/* 星（關注）加入：pop 一下 */
+.watch-on .icon { animation: jl-pop var(--dur-base) var(--ease-pop) both; }
+
+/* ---------------- 跑馬燈（現有 .tape-track 80s linear）----------------
+   reduced：停止捲動，容器改為可橫向手動捲動 */
+
+/* ==========================================================================
+   reduced-motion：全套。兩段內容完全相同：
+   (1) @media (prefers-reduced-motion: reduce)  —— 跟系統
+   (2) .is-reduced                               —— 手動開關（<html class="is-reduced">）
+   規則：位移／縮放歸零；進場改 ≤80ms 純 opacity；無限動畫停止；
+        spinner 改靜態＋文字（按鈕本身已有「儲存中」「檢查中…」字）。
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 80ms;
+    --dur-base: 80ms;
+    --dur-slow: 80ms;
+    --dur-page: 80ms;
+    --dur-number: 0ms;
+    --mv-y: 0px;
+    --mv-y-page: 0px;
+    --mv-x: 0px;
+    --mv-s: 1;
+    --press-scale: 1;
+    --hover-lift: 0px;
+    --stagger: 0ms;
+    --sheet-from: 0%;
+    --drawer-from: 0%;
+  }
+  .tape-track { animation: none !important; transform: none !important; }
+  .tape-viewport { overflow-x: auto; }
+  .skeleton::after { animation: none !important; display: none; }
+  .skeleton { opacity: 0.8; }
+  .btn[aria-busy="true"]::before { animation: none !important; border-right-color: currentColor; opacity: 0.55; }
+  .spin,
+  .btn-update[data-state="loading"] .icon { animation: none !important; opacity: 0.55; }
+  .btn-refresh:active .icon,
+  .btn-refresh.is-refreshing .icon { animation: none !important; }
+  .num-flash.is-up::after,
+  .num-flash.is-down::after { animation: none !important; opacity: 0; }
+  .check-path,
+  .is-checking .check-path { animation: none !important; stroke-dashoffset: 0; }
+  .btn-update[data-state="ok"] .icon-ok,
+  .watch-on .icon { animation: jl-fade-in var(--dur-fast) linear both; }
+  .nav-item::before,
+  .mobile-bar a::before,
+  .tab-indicator,
+  .seg-thumb,
+  .chev,
+  .theme-toggle .icon { transition: none; }
+  .flip-run { transition: none; }
+  .is-leaving { animation-duration: var(--dur-fast); }
+}
+
+/* (2) 手動：<html class="is-reduced"> */
+.is-reduced {
+  --dur-fast: 80ms;
+  --dur-base: 80ms;
+  --dur-slow: 80ms;
+  --dur-page: 80ms;
+  --dur-number: 0ms;
+  --mv-y: 0px;
+  --mv-y-page: 0px;
+  --mv-x: 0px;
+  --mv-s: 1;
+  --press-scale: 1;
+  --hover-lift: 0px;
+  --stagger: 0ms;
+  --sheet-from: 0%;
+  --drawer-from: 0%;
+}
+.is-reduced .tape-track { animation: none !important; transform: none !important; }
+.is-reduced .tape-viewport { overflow-x: auto; }
+.is-reduced .skeleton::after { animation: none !important; display: none; }
+.is-reduced .skeleton { opacity: 0.8; }
+.is-reduced .btn[aria-busy="true"]::before { animation: none !important; border-right-color: currentColor; opacity: 0.55; }
+.is-reduced .spin,
+.is-reduced .btn-update[data-state="loading"] .icon { animation: none !important; opacity: 0.55; }
+.is-reduced .btn-refresh:active .icon,
+.is-reduced .btn-refresh.is-refreshing .icon { animation: none !important; }
+.is-reduced .num-flash.is-up::after,
+.is-reduced .num-flash.is-down::after { animation: none !important; opacity: 0; }
+.is-reduced .check-path,
+.is-reduced .is-checking .check-path { animation: none !important; stroke-dashoffset: 0; }
+.is-reduced .btn-update[data-state="ok"] .icon-ok,
+.is-reduced .watch-on .icon { animation: jl-fade-in var(--dur-fast) linear both; }
+.is-reduced .nav-item::before,
+.is-reduced .mobile-bar a::before,
+.is-reduced .tab-indicator,
+.is-reduced .seg-thumb,
+.is-reduced .chev,
+.is-reduced .theme-toggle .icon { transition: none; }
+.is-reduced .flip-run { transition: none; }
+.is-reduced .is-leaving { animation-duration: var(--dur-fast); }

@@ -1,4 +1,6 @@
 @import "./tokens.css";
+@import "./motion.css";
+@import "./components.css";
 
 * {
   box-sizing: border-box;
@@ -225,7 +227,8 @@ button {
   animation: tape-scroll 80s linear infinite;
 }
 
-.tape:hover .tape-track {
+.tape:hover .tape-track,
+.tape:focus-within .tape-track {
   animation-play-state: paused;
 }
 
@@ -817,10 +820,14 @@ button {
 }
 
 .footer-note {
-  text-align: center;
+  text-align: left;
   color: var(--muted);
   font-size: var(--meta-size);
   font-weight: 500;
+}
+
+.footer-note-center {
+  text-align: center;
 }
 
 .own-map {
