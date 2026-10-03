@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useTransition, type CSSProperties } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EmptyPanel } from "@/components/empty-panel";
 import { Icon } from "@/components/icons";
 import { InstrumentLabel } from "@/components/instrument-label";
@@ -13,6 +13,7 @@ import {
   kindsForView,
   ledgerFiltersActive,
   ledgerFiltersToSearch,
+  parseLedgerFilters,
   type FilterableLedgerRow,
   type LedgerFilters,
   type LedgerKind,
@@ -61,34 +62,39 @@ export function LedgerClient({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const current = useMemo(
+    () => (searchParams.toString() ? parseLedgerFilters(searchParams) : filters),
+    [searchParams, filters],
+  );
   const [pending, start] = useTransition();
   const allRows = useMemo(() => [...cashFlows, ...trades], [cashFlows, trades]);
-  const shown = useMemo(() => filterLedgerRows(allRows, filters), [allRows, filters]);
-  const active = ledgerFiltersActive(filters);
+  const shown = useMemo(() => filterLedgerRows(allRows, current), [allRows, current]);
+  const active = ledgerFiltersActive(current);
   const emptyBook = cashFlows.length === 0 && trades.length === 0;
 
   function replace(next: LedgerFilters) {
     start(() => {
-      router.replace(`${pathname}${ledgerFiltersToSearch(next)}`, { scroll: false });
+      router.push(`${pathname}${ledgerFiltersToSearch(next)}`, { scroll: false });
     });
   }
 
   function patch(part: Partial<LedgerFilters>) {
-    replace({ ...filters, ...part });
+    replace({ ...current, ...part });
   }
 
-  const kinds = kindsForView(filters.view);
+  const kinds = kindsForView(current.view);
 
   return (
     <div className="page">
       <div className="page-head">
         <h1 className="page-title">{COPY.title}</h1>
-        <div className="seg" style={{ "--seg-n": 2, "--seg-i": filters.view === "trades" ? 1 : 0 } as CSSProperties}>
+        <div className="seg" style={{ "--seg-n": 2, "--seg-i": current.view === "trades" ? 1 : 0 } as CSSProperties}>
           <span className="seg-thumb" aria-hidden />
-          <button type="button" aria-pressed={filters.view === "cash"} onClick={() => patch({ view: "cash", type: "" })}>
+          <button type="button" aria-pressed={current.view === "cash"} onClick={() => patch({ view: "cash", type: "" })}>
             {COPY.cash}
           </button>
-          <button type="button" aria-pressed={filters.view === "trades"} onClick={() => patch({ view: "trades", type: "" })}>
+          <button type="button" aria-pressed={current.view === "trades"} onClick={() => patch({ view: "trades", type: "" })}>
             {COPY.trades}
           </button>
         </div>
@@ -100,7 +106,7 @@ export function LedgerClient({
         <>
           <div className="card stack">
             <form
-              key={ledgerFiltersToSearch(filters)}
+              key={ledgerFiltersToSearch(current)}
               className="filter-bar"
               onSubmit={(event) => {
                 event.preventDefault();
@@ -119,12 +125,12 @@ export function LedgerClient({
                 <input
                   className="input"
                   name="q"
-                  defaultValue={filters.q}
+                  defaultValue={current.q}
                   placeholder={COPY.search}
                   aria-label={COPY.search}
                 />
               </div>
-              <select className="select" name="type" defaultValue={filters.type} aria-label={COPY.type}>
+              <select className="select" name="type" defaultValue={current.type} aria-label={COPY.type}>
                 <option value="">{COPY.all}</option>
                 {kinds.map((kind) => (
                   <option key={kind} value={kind}>
@@ -132,7 +138,7 @@ export function LedgerClient({
                   </option>
                 ))}
               </select>
-              <select className="select" name="member" defaultValue={filters.member} aria-label={COPY.member}>
+              <select className="select" name="member" defaultValue={current.member} aria-label={COPY.member}>
                 <option value="">{COPY.all}</option>
                 {members.map((member) => (
                   <option key={member.id} value={member.id}>
@@ -140,14 +146,14 @@ export function LedgerClient({
                   </option>
                 ))}
               </select>
-              <input className="input" type="date" name="from" defaultValue={filters.from} aria-label={COPY.from} />
-              <input className="input" type="date" name="to" defaultValue={filters.to} aria-label={COPY.to} />
+              <input className="input" type="date" name="from" defaultValue={current.from} aria-label={COPY.from} />
+              <input className="input" type="date" name="to" defaultValue={current.to} aria-label={COPY.to} />
               <button className="btn btn-secondary" type="submit">
                 <Icon name="filter" size={16} />
                 {COPY.filter}
               </button>
               {active ? (
-                <button className="btn btn-ghost" type="button" onClick={() => replace({ ...emptyLedgerFilters(filters.view) })}>
+                <button className="btn btn-ghost" type="button" onClick={() => replace({ ...emptyLedgerFilters(current.view) })}>
                   {COPY.clear}
                 </button>
               ) : null}
@@ -157,16 +163,16 @@ export function LedgerClient({
             </form>
             {active ? (
               <div className="chip-row">
-                {filters.q ? <span className="chip chip-active">「{filters.q}」</span> : null}
-                {filters.type ? <span className="chip chip-active">{LEDGER_KIND_LABEL[filters.type]}</span> : null}
-                {filters.member ? (
+                {current.q ? <span className="chip chip-active">「{current.q}」</span> : null}
+                {current.type ? <span className="chip chip-active">{LEDGER_KIND_LABEL[current.type]}</span> : null}
+                {current.member ? (
                   <span className="chip chip-active">
-                    {members.find((member) => member.id === filters.member)?.displayName ?? filters.member}
+                    {members.find((member) => member.id === current.member)?.displayName ?? current.member}
                   </span>
                 ) : null}
-                {filters.from || filters.to ? (
+                {current.from || current.to ? (
                   <span className="chip chip-active">
-                    {filters.from || "…"} – {filters.to || "…"}
+                    {current.from || "…"} – {current.to || "…"}
                   </span>
                 ) : null}
               </div>
@@ -178,11 +184,11 @@ export function LedgerClient({
               <div className="state-panel">
                 <Icon name="search" size={24} />
                 <h2>{COPY.noMatch}</h2>
-                <button className="btn btn-primary" type="button" onClick={() => replace({ ...emptyLedgerFilters(filters.view) })}>
+                <button className="btn btn-primary" type="button" onClick={() => replace({ ...emptyLedgerFilters(current.view) })}>
                   {COPY.clear}
                 </button>
               </div>
-            ) : filters.view === "cash" ? (
+            ) : current.view === "cash" ? (
               <CashTable rows={shown as CashRow[]} />
             ) : (
               <TradeTable rows={shown as TradeRow[]} />
