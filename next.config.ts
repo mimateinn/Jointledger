@@ -5,6 +5,7 @@ const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
   swDest: "public/sw.js",
   disable: process.env.NODE_ENV === "development",
+  additionalPrecacheEntries: [{ url: "/icons/icons-sprite.svg", revision: "v3" }],
 });
 
 const nextConfig: NextConfig = {

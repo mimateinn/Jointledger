@@ -1,5 +1,11 @@
 "use client";
 
+import { Icon } from "./icons";
+
+const COPY = {
+  retry: "再試",
+};
+
 export function FailurePanel({
   sentence,
   onRetry,
@@ -8,11 +14,13 @@ export function FailurePanel({
   onRetry: () => void;
 }) {
   return (
-    <div className="card stack" role="alert">
-      <p className="body">{sentence}</p>
-      <div>
-        <button className="btn btn-primary" type="button" onClick={onRetry}>
-          再試
+    <div className="card state-panel state-panel-error" role="alert">
+      <Icon name="warning" />
+      <p>{sentence}</p>
+      <div className="state-actions">
+        <button className="btn btn-primary btn-refresh" type="button" onClick={onRetry}>
+          <Icon name="refresh" size={16} />
+          {COPY.retry}
         </button>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -36,6 +36,15 @@ export function KlineChart({
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const [themeKey, setThemeKey] = useState("dark");
+
+  useEffect(() => {
+    const read = () => document.documentElement.getAttribute("data-theme") ?? "dark";
+    setThemeKey(read());
+    const observer = new MutationObserver(() => setThemeKey(read()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -46,8 +55,8 @@ export function KlineChart({
     const bg = readToken("--bg", "#121411");
     const text = readToken("--muted", "#9aa196");
     const border = readToken("--border", "#2c2f2a");
-    const up = readToken("--up", "#3d9b6e");
-    const down = readToken("--down", "#e06b63");
+    const up = readToken("--up", "#42a375");
+    const down = readToken("--down", "#e6746c");
     const format = priceFormatFromBars(bars);
     const paneCount = computePanes(bars, active).length;
     const frame = host.parentElement;
@@ -166,7 +175,7 @@ export function KlineChart({
       chart.remove();
       chartRef.current = null;
     };
-  }, [bars, active, expanded]);
+  }, [bars, active, expanded, themeKey]);
 
   if (bars.length === 0) {
     return (
@@ -177,5 +186,5 @@ export function KlineChart({
     );
   }
 
-  return <div ref={hostRef} className="kline" role="img" aria-label="日線圖" />;
+  return <div ref={hostRef} className="kline chart-enter" role="img" aria-label="日線圖" />;
 }
