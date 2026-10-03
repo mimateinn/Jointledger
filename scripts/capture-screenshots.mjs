@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveChrome } from "./chrome-path.mjs";
 
 const puppeteer = createRequire(import.meta.url)("puppeteer-core");
 
@@ -14,7 +15,7 @@ const OUT = join(ROOT, "docs/screenshots");
 const BASE = process.env.SHOT_BASE ?? "http://127.0.0.1:3000";
 const USER = process.env.SHOT_USER ?? "Member A";
 const PASS = process.env.SHOT_PASS ?? "demo-pass-1";
-const CHROME = process.env.CHROME_PATH ?? "/usr/bin/google-chrome-stable";
+const CHROME = resolveChrome();
 
 mkdirSync(OUT, { recursive: true });
 

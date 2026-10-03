@@ -70,10 +70,12 @@ export function LedgerClient({
   const shown = useMemo(() => filterLedgerRows(allRows, current, members), [allRows, current, members]);
   const active = ledgerFiltersActive(current);
   const emptyBook = cashFlows.length === 0 && trades.length === 0;
-  const memberOptions = useMemo(
-    () => [...members, { id: JOINT_MEMBER, displayName: COPY.joint }],
-    [members],
-  );
+  const memberOptions = useMemo(() => {
+    if (current.view !== "trades") {
+      return members;
+    }
+    return [...members, { id: JOINT_MEMBER, displayName: COPY.joint }];
+  }, [members, current.view]);
 
   useEffect(() => {
     setCurrent(filters);
@@ -92,13 +94,32 @@ export function LedgerClient({
 
   function commit(next: LedgerFilters, mode: "push" | "replace" = "push") {
     const url = `${window.location.pathname}${ledgerFiltersToSearch(next)}`;
-    if (mode === "push") {
-      window.history.pushState(null, "", url);
-    } else {
+    const same = url === `${window.location.pathname}${window.location.search}`;
+    if (same || mode === "replace") {
       window.history.replaceState(null, "", url);
+    } else {
+      window.history.pushState(null, "", url);
     }
     setCurrent(next);
     setDraft(next);
+  }
+
+  function switchView(view: LedgerFilters["view"]) {
+    const kept = { q: draft.q, member: draft.member, from: draft.from, to: draft.to };
+    const next = {
+      ...current,
+      view,
+      type: "" as const,
+      member: view === "cash" && kept.member === JOINT_MEMBER ? "" : current.member,
+    };
+    commit(next);
+    setDraft({
+      ...next,
+      q: kept.q,
+      from: kept.from,
+      to: kept.to,
+      member: view === "cash" && kept.member === JOINT_MEMBER ? "" : kept.member,
+    });
   }
 
   function applyFromForm(event: FormEvent<HTMLFormElement>) {
@@ -124,10 +145,10 @@ export function LedgerClient({
         <h1 className="page-title">{COPY.title}</h1>
         <div className="seg" style={{ "--seg-n": 2, "--seg-i": current.view === "trades" ? 1 : 0 } as CSSProperties}>
           <span className="seg-thumb" aria-hidden />
-          <button type="button" aria-pressed={current.view === "cash"} onClick={() => commit({ ...current, view: "cash", type: "" })}>
+          <button type="button" aria-pressed={current.view === "cash"} onClick={() => switchView("cash")}>
             {COPY.cash}
           </button>
-          <button type="button" aria-pressed={current.view === "trades"} onClick={() => commit({ ...current, view: "trades", type: "" })}>
+          <button type="button" aria-pressed={current.view === "trades"} onClick={() => switchView("trades")}>
             {COPY.trades}
           </button>
         </div>

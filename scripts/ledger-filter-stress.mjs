@@ -8,12 +8,12 @@
  * click is dropped (URL or input unchanged).
  */
 import { createRequire } from "node:module";
+import { resolveChrome } from "./chrome-path.mjs";
 
 const puppeteer = createRequire(import.meta.url)("puppeteer-core");
 const BASE = process.env.SHOT_BASE ?? "http://127.0.0.1:3000";
 const USER = process.env.SHOT_USER ?? "Member A";
 const PASS = process.env.SHOT_PASS ?? "demo-pass-1";
-const CHROME = process.env.CHROME_PATH ?? "/usr/bin/google-chrome-stable";
 
 const dropped = [];
 const notes = [];
@@ -35,7 +35,7 @@ async function waitFor(page, check, label, timeout = 2000) {
 }
 
 const browser = await puppeteer.launch({
-  executablePath: CHROME,
+  executablePath: resolveChrome(),
   headless: "new",
   args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
 });

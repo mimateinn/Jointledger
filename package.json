@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:ledger-filter": "node scripts/ledger-filter-stress.mjs",
     "test:scroll-width": "node scripts/measure-scroll-width.mjs",
+    "test:sticky": "node scripts/measure-sticky.mjs",
     "db:generate": "drizzle-kit generate",
     "db:generate:sqlite": "drizzle-kit generate --config drizzle.config.sqlite.ts",
     "db:migrate": "tsx src/db/migrate.ts"

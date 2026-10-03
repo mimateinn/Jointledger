@@ -28,6 +28,9 @@ describe("reduced-motion cascade", () => {
     expect(reduce).toMatch(/\.mobile-bar a:active[\s\S]*transform:\s*none\s*!important/);
     expect(reduce).toMatch(/\.theme-toggle:active \.icon[\s\S]*transform:\s*none\s*!important/);
     expect(motion).toMatch(/\.mobile-bar a:active\s*\{\s*transform:\s*scale\(var\(--press-scale\)\)/);
+    expect(reduce).toMatch(/--press-scale:\s*1/);
+    expect(motion).toMatch(/\.is-reduced\s*\{[^}]*--press-scale:\s*1/s);
+    expect(motion).toMatch(/\.is-reduced \.skeleton,\s*\n\s*\.is-reduced \.skeleton::after\s*\{\s*animation:\s*none\s*!important/);
     expect(motion).toMatch(/\.is-reduced \.mobile-bar a:active[\s\S]*transform:\s*none\s*!important/);
   });
 });
