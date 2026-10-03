@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="t-empty-ledger">
+  <title id="t-empty-ledger">空帳本</title>
+  <path d="M18 7h28a4 4 0 0 1 4 4v42a4 4 0 0 1-4 4h-28a4 4 0 0 1-4-4v-42a4 4 0 0 1 4-4z"/>
+  <path d="M22 19h20M22 29h20M22 39h11"/>
+  <path d="M14 15h-3M14 25h-3M14 35h-3"/>
+  <path d="M38.5 45a3 3 0 1 0 6 0a3 3 0 1 0-6 0z" style="fill:var(--icon-accent,#2F5D56)" stroke="none"/>
+</svg>

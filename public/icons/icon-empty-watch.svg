@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="t-empty-watch">
+  <title id="t-empty-watch">未有關注</title>
+  <path d="M32 10L37.88 24.91L53.87 25.89L41.51 36.09L45.52 51.61L32 43L18.48 51.61L22.49 36.09L10.13 25.89L26.12 24.91z"/>
+  <path d="M29 33a3 3 0 1 0 6 0a3 3 0 1 0-6 0z" style="fill:var(--icon-accent,#2F5D56)" stroke="none"/>
+  <path d="M12 56h40"/>
+</svg>

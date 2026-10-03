@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="t-empty-holdings">
+  <title id="t-empty-holdings">未有持倉</title>
+  <path d="M32 10a22 22 0 1 0 22 22H32z"/>
+  <path d="M39 7.5A22 22 0 0 1 56.5 25H39z"/>
+  <path d="M41 19a3 3 0 1 0 6 0a3 3 0 1 0-6 0z" style="fill:var(--icon-accent,#2F5D56)" stroke="none"/>
+  <path d="M14 56h36"/>
+</svg>

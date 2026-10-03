@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-labelledby="t-news">
+  <title id="t-news">新聞</title>
+  <path d="M17 20H6.5A2.5 2.5 0 0 1 4 17.5v-12A1.5 1.5 0 0 1 5.5 4h10A1.5 1.5 0 0 1 17 5.5V20z"/>
+  <path d="M17 9h3v8.5a2.5 2.5 0 0 1-2.5 2.5H17"/>
+  <path d="M7.5 8h6M7.5 12h6M7.5 16h3"/>
+</svg>

@@ -1,0 +1,292 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <!-- 聯倉 icon sprite. Use: <svg class="icon" aria-hidden="true"><use href="/icons/icons-sprite.svg#icon-add"/></svg> -->
+  <symbol id="icon-overview" viewBox="0 0 24 24"><title>總覽</title>
+    <path d="M4.5 3h5a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-7a1.5 1.5 0 0 1 1.5-1.5z"/>
+    <path d="M14.5 3h5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-3a1.5 1.5 0 0 1 1.5-1.5z"/>
+    <path d="M14.5 11h5a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-7a1.5 1.5 0 0 1 1.5-1.5z"/>
+    <path d="M4.5 15h5a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-5a1.5 1.5 0 0 1-1.5-1.5v-3a1.5 1.5 0 0 1 1.5-1.5z"/>
+  </symbol>
+  <symbol id="icon-holdings" viewBox="0 0 24 24"><title>持倉</title>
+    <path d="M12 3a9 9 0 1 0 9 9h-9z"/>
+    <path d="M15 3.4A9 9 0 0 1 20.6 9H15z"/>
+  </symbol>
+  <symbol id="icon-entry" viewBox="0 0 24 24"><title>記一筆</title>
+    <path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-12a3 3 0 0 1-3-3v-12a3 3 0 0 1 3-3z"/>
+    <path d="M12 8v8M8 12h8"/>
+  </symbol>
+  <symbol id="icon-returns" viewBox="0 0 24 24"><title>收益率</title>
+    <path d="M3 17l6-6 4 4 8-8"/>
+    <path d="M15 7h6v6"/>
+  </symbol>
+  <symbol id="icon-ledger" viewBox="0 0 24 24"><title>流水</title>
+    <path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2v-14a2 2 0 0 1 2-2z"/>
+    <path d="M9 8h6M9 12h6M9 16h3"/>
+  </symbol>
+  <symbol id="icon-account" viewBox="0 0 24 24"><title>帳戶</title>
+    <path d="M8.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0z"/>
+    <path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>
+  </symbol>
+  <symbol id="icon-add" viewBox="0 0 24 24"><title>新增</title>
+    <path d="M12 5v14M5 12h14"/>
+  </symbol>
+  <symbol id="icon-close" viewBox="0 0 24 24"><title>關閉</title>
+    <path d="M6 6l12 12M18 6L6 18"/>
+  </symbol>
+  <symbol id="icon-delete-trash" viewBox="0 0 24 24"><title>刪除</title>
+    <path d="M4 7h16"/>
+    <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/>
+    <path d="M10 11v6M14 11v6"/>
+  </symbol>
+  <symbol id="icon-edit" viewBox="0 0 24 24"><title>編輯</title>
+    <path d="M4 20l4-1L19.5 7.5a2.1 2.1 0 0 0-3-3L5 16l-1 4z"/>
+    <path d="M14.5 6.5l3 3"/>
+  </symbol>
+  <symbol id="icon-undo" viewBox="0 0 24 24"><title>還原</title>
+    <path d="M9 14L4 9l5-5"/>
+    <path d="M4 9h10a6 6 0 0 1 0 12h-3"/>
+  </symbol>
+  <symbol id="icon-upload-import" viewBox="0 0 24 24"><title>匯入</title>
+    <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+    <path d="M12 15V4M8.5 7.5L12 4l3.5 3.5"/>
+  </symbol>
+  <symbol id="icon-download" viewBox="0 0 24 24"><title>下載</title>
+    <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>
+    <path d="M12 4v11M8.5 11.5L12 15l3.5-3.5"/>
+  </symbol>
+  <symbol id="icon-export-sheet" viewBox="0 0 24 24"><title>匯出到試算表</title>
+    <path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2"/>
+    <path d="M3 9h12M9 9v12"/>
+    <path d="M14 12h7M18 8.5l3.5 3.5-3.5 3.5"/>
+  </symbol>
+  <symbol id="icon-link-sheet" viewBox="0 0 24 24"><title>連結試算表</title>
+    <path d="M10 8H7a4 4 0 0 0 0 8h3"/>
+    <path d="M14 8h3a4 4 0 0 1 0 8h-3"/>
+    <path d="M8.5 12h7"/>
+  </symbol>
+  <symbol id="icon-share" viewBox="0 0 24 24"><title>分享</title>
+    <path d="M12 15V4M8.5 7.5L12 4l3.5 3.5"/>
+    <path d="M8 10H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-2"/>
+  </symbol>
+  <symbol id="icon-logout" viewBox="0 0 24 24"><title>登出</title>
+    <path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/>
+    <path d="M9 12h11M16.5 8.5L20 12l-3.5 3.5"/>
+  </symbol>
+  <symbol id="icon-expand" viewBox="0 0 24 24"><title>展開</title>
+    <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+  </symbol>
+  <symbol id="icon-collapse" viewBox="0 0 24 24"><title>收起</title>
+    <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>
+  </symbol>
+  <symbol id="icon-copy" viewBox="0 0 24 24"><title>複製</title>
+    <path d="M10 8h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z"/>
+    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>
+  </symbol>
+  <symbol id="icon-more-horizontal" viewBox="0 0 24 24"><title>更多</title>
+    <path d="M4 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0z" fill="currentColor" stroke="none"/>
+    <path d="M10.5 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0z" fill="currentColor" stroke="none"/>
+    <path d="M17 12a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0z" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-chevron-left" viewBox="0 0 24 24"><title>向左</title>
+    <path d="M14.5 6l-6 6 6 6"/>
+  </symbol>
+  <symbol id="icon-chevron-right" viewBox="0 0 24 24"><title>向右</title>
+    <path d="M9.5 6l6 6-6 6"/>
+  </symbol>
+  <symbol id="icon-chevron-up" viewBox="0 0 24 24"><title>向上</title>
+    <path d="M6 14.5l6-6 6 6"/>
+  </symbol>
+  <symbol id="icon-chevron-down" viewBox="0 0 24 24"><title>向下</title>
+    <path d="M6 9.5l6 6 6-6"/>
+  </symbol>
+  <symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><title>升</title>
+    <path d="M7 17L17 7M9 7h8v8"/>
+  </symbol>
+  <symbol id="icon-search" viewBox="0 0 24 24"><title>搜尋</title>
+    <path d="M4 10.5a6.5 6.5 0 1 0 13 0a6.5 6.5 0 1 0-13 0z"/>
+    <path d="M15.3 15.3L20 20"/>
+  </symbol>
+  <symbol id="icon-filter" viewBox="0 0 24 24"><title>篩選</title>
+    <path d="M4 5h16l-6.2 7.6V19l-3.6 1.8v-8.2z"/>
+  </symbol>
+  <symbol id="icon-sort" viewBox="0 0 24 24"><title>排序</title>
+    <path d="M8 20V5M4.5 8.5L8 5l3.5 3.5"/>
+    <path d="M16 4v15M12.5 15.5L16 19l3.5-3.5"/>
+  </symbol>
+  <symbol id="icon-calendar" viewBox="0 0 24 24"><title>日期</title>
+    <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-12a2 2 0 0 1 2-2z"/>
+    <path d="M3 10h18M8 3v4M16 3v4"/>
+  </symbol>
+  <symbol id="icon-clock-delay" viewBox="0 0 24 24"><title>延遲</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M12 7v5l3.5 2"/>
+  </symbol>
+  <symbol id="icon-refresh" viewBox="0 0 24 24"><title>重新整理</title>
+    <path d="M4.48 9.26A8 8 0 0 1 19.52 9.26"/>
+    <path d="M20.87 5.93L19.52 9.26L16.34 7.57"/>
+    <path d="M19.52 14.74A8 8 0 0 1 4.48 14.74"/>
+    <path d="M3.13 18.07L4.48 14.74L7.66 16.43"/>
+  </symbol>
+  <symbol id="icon-check-update" viewBox="0 0 24 24"><title>檢查更新</title>
+    <path d="M3.84 8.2A9 9 0 0 1 20.16 8.2"/>
+    <path d="M21.21 4.75L20.16 8.2L16.84 6.79"/>
+    <path d="M20.16 15.8A9 9 0 0 1 3.84 15.8"/>
+    <path d="M2.79 19.25L3.84 15.8L7.16 17.21"/>
+    <path d="M9 12.2l2.2 2.2L15.2 10"/>
+  </symbol>
+  <symbol id="icon-sync" viewBox="0 0 24 24"><title>同步</title>
+    <path d="M4 8h14M14.5 4.5L18 8l-3.5 3.5"/>
+    <path d="M20 16H6M9.5 12.5L6 16l3.5 3.5"/>
+  </symbol>
+  <symbol id="icon-loading" viewBox="0 0 24 24"><title>載入中</title>
+    <path d="M12 3a9 9 0 1 0 9 9"/>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z" opacity=".22"/>
+  </symbol>
+  <symbol id="icon-info" viewBox="0 0 24 24"><title>資訊</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M12 11v5.5"/>
+    <path d="M11 7.9a1 1 0 1 0 2 0a1 1 0 1 0-2 0z" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-warning" viewBox="0 0 24 24"><title>警告</title>
+    <path d="M12 3.5L21 19.5H3z"/>
+    <path d="M12 10v4.5"/>
+    <path d="M11 17.3a1 1 0 1 0 2 0a1 1 0 1 0-2 0z" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-error" viewBox="0 0 24 24"><title>錯誤</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/>
+  </symbol>
+  <symbol id="icon-success-check" viewBox="0 0 24 24"><title>完成</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M8 12.2l2.9 2.9 5.3-5.6"/>
+  </symbol>
+  <symbol id="icon-help" viewBox="0 0 24 24"><title>說明</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M9.6 9.6a2.5 2.5 0 0 1 4.9.7c0 1.7-2.5 2.1-2.5 3.7"/>
+    <path d="M11 17a1 1 0 1 0 2 0a1 1 0 1 0-2 0z" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-offline" viewBox="0 0 24 24"><title>離線</title>
+    <path d="M2.1 10.1A14 14 0 0 1 21.9 10.1"/>
+    <path d="M5.28 13.28A9.5 9.5 0 0 1 18.72 13.28"/>
+    <path d="M8.46 16.46A5 5 0 0 1 15.54 16.46"/>
+    <path d="M10.8 20a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0-2.4 0z" fill="currentColor" stroke="none"/>
+    <path d="M4 4l16 16"/>
+  </symbol>
+  <symbol id="icon-lock" viewBox="0 0 24 24"><title>鎖</title>
+    <path d="M7 10.5h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z"/>
+    <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>
+    <path d="M10.8 15.5a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0-2.4 0z" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-eye" viewBox="0 0 24 24"><title>顯示</title>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/>
+    <path d="M9.2 12a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0-5.6 0z"/>
+  </symbol>
+  <symbol id="icon-eye-off" viewBox="0 0 24 24"><title>隱藏</title>
+    <path d="M2.5 12S6 5.5 12 5.5c1.6 0 3 .4 4.2 1M21.5 12S18 18.5 12 18.5c-1.6 0-3-.4-4.2-1"/>
+    <path d="M9.2 12a2.8 2.8 0 1 0 5.6 0a2.8 2.8 0 1 0-5.6 0z"/>
+    <path d="M4 4l16 16"/>
+  </symbol>
+  <symbol id="icon-key-ai" viewBox="0 0 24 24"><title>AI 金鑰</title>
+    <path d="M4 16.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0z"/>
+    <path d="M10 14L20 4M16.5 7.5l3 3M13.5 10.5l2 2"/>
+    <path d="M6 2.5c.4 2.2 1.3 3.1 3.5 3.5-2.2.4-3.1 1.3-3.5 3.5-.4-2.2-1.3-3.1-3.5-3.5C4.7 5.6 5.6 4.7 6 2.5z"/>
+  </symbol>
+  <symbol id="icon-theme-sun" viewBox="0 0 24 24"><title>淺色主題</title>
+    <path d="M8 12a4 4 0 1 0 8 0a4 4 0 1 0-8 0z"/>
+    <path d="M18.8 12L21.6 12M16.81 16.81L18.79 18.79M12 18.8L12 21.6M7.19 16.81L5.21 18.79M5.2 12L2.4 12M7.19 7.19L5.21 5.21M12 5.2L12 2.4M16.81 7.19L18.79 5.21"/>
+  </symbol>
+  <symbol id="icon-theme-moon" viewBox="0 0 24 24"><title>深色主題</title>
+    <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.7 6.7 0 0 0 10.5 10.5z"/>
+  </symbol>
+  <symbol id="icon-language" viewBox="0 0 24 24"><title>語言</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M12 3c-2.8 2.5-4.2 5.5-4.2 9s1.4 6.5 4.2 9c2.8-2.5 4.2-5.5 4.2-9S14.8 5.5 12 3z"/>
+    <path d="M3 12h18"/>
+  </symbol>
+  <symbol id="icon-user" viewBox="0 0 24 24"><title>成員</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M9 10a3 3 0 1 0 6 0a3 3 0 1 0-6 0z"/>
+    <path d="M6.5 18.5c1.2-2.4 3.1-3.5 5.5-3.5s4.3 1.1 5.5 3.5"/>
+  </symbol>
+  <symbol id="icon-users-joint" viewBox="0 0 24 24"><title>聯名</title>
+    <path d="M6 8a3 3 0 1 0 6 0a3 3 0 1 0-6 0z"/>
+    <path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/>
+    <path d="M15.6 5.2a3 3 0 0 1 0 5.6"/>
+    <path d="M17 14.3c2.2.4 3.7 2.1 4.2 4.7"/>
+  </symbol>
+  <symbol id="icon-member-add" viewBox="0 0 24 24"><title>加成員</title>
+    <path d="M6.5 8a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0z"/>
+    <path d="M3.5 20c.7-3.6 3.2-5.5 6.5-5.5s5.8 1.9 6.5 5.5"/>
+    <path d="M19 6v6M16 9h6"/>
+  </symbol>
+  <symbol id="icon-coin-usd" viewBox="0 0 24 24"><title>美元</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M14.6 9.2c-.5-1-1.5-1.5-2.7-1.5-1.6 0-2.7.9-2.7 2.1 0 1.3 1.1 1.8 2.9 2.2 1.8.4 2.9.9 2.9 2.2 0 1.2-1.2 2.1-2.8 2.1-1.3 0-2.4-.6-2.9-1.6"/>
+    <path d="M12 5.8v1.9M12 16.3v1.9"/>
+  </symbol>
+  <symbol id="icon-hkd" viewBox="0 0 24 24"><title>港元</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M8.5 8v8M15.5 8v8M8.5 12h7"/>
+  </symbol>
+  <symbol id="icon-percent" viewBox="0 0 24 24"><title>百分比</title>
+    <path d="M18 6L6 18"/>
+    <path d="M5.5 7.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0z"/>
+    <path d="M14.5 16.5a2 2 0 1 0 4 0a2 2 0 1 0-4 0z"/>
+  </symbol>
+  <symbol id="icon-chart-line" viewBox="0 0 24 24"><title>走勢圖</title>
+    <path d="M4 4v14a2 2 0 0 0 2 2h14"/>
+    <path d="M8 15l3.5-4 3 2.5L20 7"/>
+  </symbol>
+  <symbol id="icon-chart-candle" viewBox="0 0 24 24"><title>陰陽燭</title>
+    <path d="M8 3v3M8 15v3"/>
+    <path d="M7 6h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/>
+    <path d="M16 5v3M16 18v3"/>
+    <path d="M15 8h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z"/>
+  </symbol>
+  <symbol id="icon-indicator" viewBox="0 0 24 24"><title>技術指標</title>
+    <path d="M3 12h3.5l2.5-6 3 12 3-9 1.5 3H21"/>
+  </symbol>
+  <symbol id="icon-news" viewBox="0 0 24 24"><title>新聞</title>
+    <path d="M17 20H6.5A2.5 2.5 0 0 1 4 17.5v-12A1.5 1.5 0 0 1 5.5 4h10A1.5 1.5 0 0 1 17 5.5V20z"/>
+    <path d="M17 9h3v8.5a2.5 2.5 0 0 1-2.5 2.5H17"/>
+    <path d="M7.5 8h6M7.5 12h6M7.5 16h3"/>
+  </symbol>
+  <symbol id="icon-watch" viewBox="0 0 24 24"><title>關注</title>
+    <path d="M12 3.2L14.41 9.28L20.94 9.7L15.9 13.87L17.53 20.2L12 16.7L6.47 20.2L8.1 13.87L3.06 9.7L9.59 9.28z"/>
+  </symbol>
+  <symbol id="icon-bell" viewBox="0 0 24 24"><title>提醒</title>
+    <path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/>
+    <path d="M10 21.5h4"/>
+  </symbol>
+  <symbol id="icon-tag" viewBox="0 0 24 24"><title>標籤</title>
+    <path d="M3.5 4.5v6.6a2 2 0 0 0 .6 1.4l7.9 7.9a2 2 0 0 0 2.8 0l5.6-5.6a2 2 0 0 0 0-2.8L12.5 4.1a2 2 0 0 0-1.4-.6H4.5a1 1 0 0 0-1 1z"/>
+    <path d="M6.8 8.5a1.2 1.2 0 1 0 2.4 0a1.2 1.2 0 1 0-2.4 0z" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-target" viewBox="0 0 24 24"><title>目標</title>
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0z"/>
+    <path d="M7 12a5 5 0 1 0 10 0a5 5 0 1 0-10 0z"/>
+    <path d="M10.7 12a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0-2.6 0z" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="icon-print" viewBox="0 0 24 24"><title>列印</title>
+    <path d="M7 9V3.5h10V9"/>
+    <path d="M5 9h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-14a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2z"/>
+    <path d="M7 14h10v6.5H7z"/>
+  </symbol>
+  <symbol id="icon-empty-ledger" viewBox="0 0 64 64"><title>空帳本</title>
+    <path d="M18 7h28a4 4 0 0 1 4 4v42a4 4 0 0 1-4 4h-28a4 4 0 0 1-4-4v-42a4 4 0 0 1 4-4z"/>
+    <path d="M22 19h20M22 29h20M22 39h11"/>
+    <path d="M14 15h-3M14 25h-3M14 35h-3"/>
+    <path d="M38.5 45a3 3 0 1 0 6 0a3 3 0 1 0-6 0z" style="fill:var(--icon-accent,#2F5D56)" stroke="none"/>
+  </symbol>
+  <symbol id="icon-empty-holdings" viewBox="0 0 64 64"><title>未有持倉</title>
+    <path d="M32 10a22 22 0 1 0 22 22H32z"/>
+    <path d="M39 7.5A22 22 0 0 1 56.5 25H39z"/>
+    <path d="M41 19a3 3 0 1 0 6 0a3 3 0 1 0-6 0z" style="fill:var(--icon-accent,#2F5D56)" stroke="none"/>
+    <path d="M14 56h36"/>
+  </symbol>
+  <symbol id="icon-empty-watch" viewBox="0 0 64 64"><title>未有關注</title>
+    <path d="M32 10L37.88 24.91L53.87 25.89L41.51 36.09L45.52 51.61L32 43L18.48 51.61L22.49 36.09L10.13 25.89L26.12 24.91z"/>
+    <path d="M29 33a3 3 0 1 0 6 0a3 3 0 1 0-6 0z" style="fill:var(--icon-accent,#2F5D56)" stroke="none"/>
+    <path d="M12 56h40"/>
+  </symbol>
+</svg>
