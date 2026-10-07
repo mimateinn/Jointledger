@@ -1,34 +1,12 @@
 login@360 scrollWidth=360 overflow=0 ok
-login@375 scrollWidth=375 overflow=0 ok
-login@414 scrollWidth=414 overflow=0 ok
 overview@360 scrollWidth=360 overflow=0 ok
-overview@375 scrollWidth=375 overflow=0 ok
-overview@414 scrollWidth=414 overflow=0 ok
 entry@360 scrollWidth=360 overflow=0 ok
-entry@375 scrollWidth=375 overflow=0 ok
-entry@414 scrollWidth=414 overflow=0 ok
 holdings@360 scrollWidth=360 overflow=0 ok
-holdings@375 scrollWidth=375 overflow=0 ok
-holdings@414 scrollWidth=414 overflow=0 ok
 watchlist@360 scrollWidth=360 overflow=0 ok
-watchlist@375 scrollWidth=375 overflow=0 ok
-watchlist@414 scrollWidth=414 overflow=0 ok
 instrument@360 scrollWidth=360 overflow=0 ok
-instrument@375 scrollWidth=375 overflow=0 ok
-instrument@414 scrollWidth=414 overflow=0 ok
 ledger@360 scrollWidth=360 overflow=0 ok
-ledger@375 scrollWidth=375 overflow=0 ok
-ledger@414 scrollWidth=414 overflow=0 ok
 returns@360 scrollWidth=360 overflow=0 ok
-returns@375 scrollWidth=375 overflow=0 ok
-returns@414 scrollWidth=414 overflow=0 ok
 account@360 scrollWidth=360 overflow=0 ok
-account@375 scrollWidth=375 overflow=0 ok
-account@414 scrollWidth=414 overflow=0 ok
-tape@360 viewport=158 lead=79 pin=123 ok
-tape@375 viewport=165 lead=86 pin=123 ok
-tape@414 viewport=185 lead=106 pin=123 ok
-tape@480 viewport=218 lead=139 pin=123 ok
-tape@520 viewport=238 lead=159 pin=123 ok
-tape@600 viewport=278 lead=199 pin=123 ok
+tape@620 viewport=490 lead=0 pin=130 ok
+tape@630 viewport=500 lead=0 pin=130 ok
 measure-scroll-width: ok

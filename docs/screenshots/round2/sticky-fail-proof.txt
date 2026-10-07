@@ -1,5 +1,3 @@
-entry@375x812 scroll=0 .entry-sticky top=883 pageH=1235 ancestor=div.app-frame overflow-x=hidden overflow-y=auto FAIL ancestor div.app-frame overflow-x=hidden overflow-y=auto
-entry@375x812 scroll=211 .entry-sticky top=672 pageH=1235 ancestor=div.app-frame overflow-x=hidden overflow-y=auto FAIL ancestor div.app-frame overflow-x=hidden overflow-y=auto
-entry@375x667 scroll=0 .entry-sticky top=883 pageH=1235 ancestor=div.app-frame overflow-x=hidden overflow-y=auto FAIL ancestor div.app-frame overflow-x=hidden overflow-y=auto
-entry@375x667 scroll=284 .entry-sticky top=599 pageH=1235 ancestor=div.app-frame overflow-x=hidden overflow-y=auto FAIL ancestor div.app-frame overflow-x=hidden overflow-y=auto
+entry@375x812 scroll=0 .entry-sticky top=914 ancestor=div.app-frame overflow-x=hidden FAIL
 measure-sticky: inject-overflow-hidden failures=2
+exit 2

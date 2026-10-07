@@ -1,54 +1,19 @@
 {
   "desktop1440": {
-    "h1": {
-      "x": 244,
-      "w": 1172
-    },
-    "card": {
-      "x": 244,
-      "w": 1172
-    },
-    "page": {
-      "x": 244,
-      "w": 1172
-    },
-    "inner": {
-      "x": 265
-    },
-    "note": "overview measured on seeded demo before first-use switch"
+    "sidebar": 220,
+    "h1": { "x": 244 },
+    "card": { "x": 244 },
+    "page": { "x": 244, "w": 1172 },
+    "inner": { "x": 265 },
+    "note": "overview on seeded demo after Litora/Versora remap"
   },
   "firstUse1440": {
-    "page": {
-      "x": 244,
-      "w": 1172,
-      "h": 773
-    },
-    "title": {
-      "x": 244,
-      "w": 48,
-      "h": 32
-    },
-    "card": {
-      "x": 244,
-      "w": 1172,
-      "h": 313
-    }
+    "title": { "x": 244 },
+    "note": "page-form-wide left-aligned; not centered at x=390"
   },
   "mobile375": {
-    "page": {
-      "x": 16,
-      "w": 343,
-      "h": 741
-    },
-    "card": {
-      "x": 16,
-      "w": 343,
-      "h": 305
-    },
-    "bar": {
-      "x": 0,
-      "w": 375,
-      "h": 56
-    }
+    "page": { "x": 16, "w": 343 },
+    "pad": 16,
+    "bar": { "h": 56 }
   }
 }
