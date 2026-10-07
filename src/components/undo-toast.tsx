@@ -16,7 +16,9 @@ export function UndoToast({
   pending?: boolean;
   label?: string;
 }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
+  const [host, setHost] = useState<HTMLElement | null>(() =>
+    typeof document === "undefined" ? null : ensureToastHost(),
+  );
   useEffect(() => {
     setHost(ensureToastHost());
   }, []);

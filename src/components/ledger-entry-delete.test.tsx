@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 
+import React from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -36,11 +37,13 @@ describe("ledger entry delete undo and reject", () => {
     );
 
     await openConfirm(user);
-    expect(screen.getByText("已刪除・還原")).toBeTruthy();
+    expect(await screen.findByText("已刪除・還原")).toBeTruthy();
     expect(screen.getByText("買入 AAPL")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "還原" }));
-    expect(screen.queryByText("已刪除・還原")).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByText("已刪除・還原")).toBeNull();
+    });
     expect(screen.getByRole("button", { name: "刪除 買入 AAPL" })).toBeTruthy();
   });
 
@@ -78,7 +81,7 @@ describe("ledger entry delete undo and reject", () => {
     );
 
     await openConfirm(user);
-    expect(screen.getByText("已刪除・還原")).toBeTruthy();
+    expect(await screen.findByText("已刪除・還原")).toBeTruthy();
     await waitFor(() => {
       expect(screen.queryByText("已刪除・還原")).toBeNull();
       expect(screen.getByRole("alert").textContent).toContain(DELETE_BLOCKED_BY_LATER);
