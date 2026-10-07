@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WatchActions, WatchlistPanel, type WatchRow } from "./watchlist-panel";
@@ -78,6 +78,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  document.getElementById("toast-host")?.remove();
   vi.unstubAllGlobals();
 });
 
@@ -123,5 +124,64 @@ describe("watchlist mute pending", () => {
       expect(button.textContent).toContain(expected);
     }
     expect(muteAction).toHaveBeenCalledTimes(20);
+  });
+
+  it("reverts the optimistic mute label and shows an error toast when the action throws", async () => {
+    const user = userEvent.setup();
+    const muteAction = vi.fn(async () => {
+      throw new Error("Failed to fetch");
+    });
+    render(<WatchActions row={rows[0]!} muteAction={muteAction} />);
+
+    const button = screen.getByRole("button", { name: "靜音新聞" });
+    await user.click(button);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("更新失敗");
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain("靜音新聞");
+  });
+
+  it("does not let a stale mute response overwrite a newer toggle", async () => {
+    let rejectFirst!: (error: Error) => void;
+    const first = new Promise<never>((_, reject) => {
+      rejectFirst = reject;
+    });
+    const muteAction = vi
+      .fn()
+      .mockImplementationOnce(() => first)
+      .mockImplementationOnce(async () => ({}));
+    render(<WatchActions row={rows[0]!} muteAction={muteAction} />);
+
+    const button = screen.getByRole("button", { name: "靜音新聞" });
+    act(() => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    await waitFor(() => {
+      expect(muteAction).toHaveBeenCalledTimes(2);
+    });
+    expect(button.textContent).toContain("恢復新聞");
+
+    rejectFirst(new Error("aborted"));
+    await waitFor(() => {
+      expect(button.disabled).toBe(false);
+    });
+    expect(button.textContent).toContain("恢復新聞");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("re-enables the unwatch button in finally after the action throws", async () => {
+    const user = userEvent.setup();
+    const removeAction = vi.fn(async () => {
+      throw new Error("aborted");
+    });
+    render(<WatchActions row={rows[0]!} removeAction={removeAction} />);
+
+    const button = screen.getByRole("button", { name: "取消關注" });
+    await user.click(button);
+    await waitFor(() => {
+      expect(button.disabled).toBe(false);
+    });
+    expect(removeAction).toHaveBeenCalledTimes(1);
   });
 });

@@ -124,6 +124,11 @@ function getSqliteClient() {
   return client;
 }
 
+export async function reconnectSqliteClient() {
+  const client = getSqliteClient();
+  await client.reconnect();
+}
+
 export function getDb(): PgDatabase {
   const url = getDatabaseUrl();
   if (isPostgresUrl(url)) {

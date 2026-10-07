@@ -30,6 +30,16 @@ describe("round 3 mobile and display fixes", () => {
     expect(src("src/components/theme-toggle.tsx")).not.toContain("addEventListener");
   });
 
+  it("keeps mobile main padding-bottom above the toast stack and hides the unused watch layout", () => {
+    const css = src("src/app/components.css");
+    const globals = src("src/app/globals.css");
+    expect(css).toContain("main.main");
+    expect(globals).toContain("main.main");
+    expect(globals).toContain("8rem");
+    expect(css).toContain(".watch-table { display: none; }");
+    expect(css).toContain(".watch-list { display: none; }");
+  });
+
   it("restores the mobile holdings kline and uses the selected-surface token", () => {
     const css = src("src/app/components.css");
     const globals = src("src/app/globals.css");

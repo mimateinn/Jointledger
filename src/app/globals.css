@@ -453,6 +453,11 @@ button {
   min-width: 0;
   padding: var(--page-pad);
 }
+@media (max-width: 800px) {
+  main.main {
+    padding-bottom: calc(var(--bottom-bar-h) + var(--sp-6) + 8rem + env(safe-area-inset-bottom));
+  }
+}
 
 .page-head {
   display: flex;

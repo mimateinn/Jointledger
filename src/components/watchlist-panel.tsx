@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { ErrorToast } from "./error-toast";
 import { FailurePanel } from "./failure-panel";
 import { InstrumentLabel } from "./instrument-label";
 import {
@@ -56,6 +57,13 @@ function changeClass(change: string | null): string | undefined {
 
 export type WatchMutateFn = (prev: WatchState, formData: FormData) => Promise<WatchState>;
 
+const WATCH_COPY = {
+  mute: "靜音新聞",
+  unmute: "恢復新聞",
+  remove: "取消關注",
+  failed: "更新失敗",
+};
+
 export function WatchActions({
   row,
   muteAction = muteWatchAction,
@@ -68,6 +76,7 @@ export function WatchActions({
   const [muted, setMuted] = useState(row.muted);
   const [mutePending, setMutePending] = useState(false);
   const [removePending, setRemovePending] = useState(false);
+  const [muteError, setMuteError] = useState<string | null>(null);
   const muteGen = useRef(0);
   const removeGen = useRef(0);
 
@@ -76,8 +85,12 @@ export function WatchActions({
   }, [row.muted]);
 
   async function onMute() {
+    if (mutePending) {
+      return;
+    }
     const next = !muted;
     const generation = (muteGen.current += 1);
+    setMuteError(null);
     setMuted(next);
     setMutePending(true);
     try {
@@ -87,9 +100,13 @@ export function WatchActions({
       const result = await muteAction({}, fd);
       if (result.error && generation === muteGen.current) {
         setMuted(!next);
+        setMuteError(result.error);
       }
     } catch {
-      // Refresh/abort must not revert the optimistic label or leave the row stuck.
+      if (generation === muteGen.current) {
+        setMuted(!next);
+        setMuteError(WATCH_COPY.failed);
+      }
     } finally {
       if (generation === muteGen.current) {
         setMutePending(false);
@@ -98,6 +115,9 @@ export function WatchActions({
   }
 
   async function onRemove() {
+    if (removePending) {
+      return;
+    }
     const generation = (removeGen.current += 1);
     setRemovePending(true);
     try {
@@ -105,7 +125,7 @@ export function WatchActions({
       fd.set("id", row.id);
       await removeAction({}, fd);
     } catch {
-      // same as mute: do not bind pending to a refresh that may never settle
+      // pending still clears in finally so an aborted refresh cannot stick
     } finally {
       if (generation === removeGen.current) {
         setRemovePending(false);
@@ -116,11 +136,12 @@ export function WatchActions({
   return (
     <div className="watch-actions">
       <button className="btn btn-secondary" type="button" disabled={mutePending} onClick={() => void onMute()}>
-        {muted ? "恢復新聞" : "靜音新聞"}
+        {muted ? WATCH_COPY.unmute : WATCH_COPY.mute}
       </button>
       <button className="btn btn-ghost" type="button" disabled={removePending} onClick={() => void onRemove()}>
-        取消關注
+        {WATCH_COPY.remove}
       </button>
+      {muteError ? <ErrorToast message={muteError} label={row.displayCode} onDismiss={() => setMuteError(null)} /> : null}
     </div>
   );
 }
@@ -155,8 +176,8 @@ function WatchNews({
   );
 }
 
-function useWatchLayout(): "table" | "list" {
-  const [layout, setLayout] = useState<"table" | "list">("table");
+function useWatchLayout(): "table" | "list" | null {
+  const [layout, setLayout] = useState<"table" | "list" | null>(null);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 800px)");
     const sync = () => setLayout(mq.matches ? "list" : "table");
@@ -293,12 +314,13 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
       ) : null}
       {items.length === 0 ? null : visible.length === 0 ? (
         <p className="empty">呢個市場未有關注。</p>
-      ) : layout === "list" ? (
+      ) : (
+        <>
         <ul className="watch-list">
           {visible.map((row) => {
             const item = news[row.displayCode]?.[0];
             return (
-              <li className="watch-card" key={row.id}>
+              <li className="watch-card" key={`list-${row.id}`}>
                 <div className="watch-card-head">
                   <InstrumentLabel ticker={row.displayCode} name={row.name} />
                   <div className="watch-card-quote">
@@ -316,12 +338,11 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
                   <span className="meta muted">最新新聞</span>
                   <WatchNews row={row} item={item} newsVia={newsVia} />
                 </div>
-                <WatchActions row={row} />
+                {layout === "list" ? <WatchActions row={row} /> : <div className="watch-actions watch-actions-slot" aria-hidden="true" />}
               </li>
             );
           })}
         </ul>
-      ) : (
         <div className="table-scroll watch-table">
         <table className="table">
           <thead>
@@ -339,7 +360,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
             {visible.map((row) => {
               const item = news[row.displayCode]?.[0];
               return (
-              <tr key={row.id}>
+              <tr key={`table-${row.id}`}>
                 <td>
                   <InstrumentLabel ticker={row.displayCode} name={row.name} />
                 </td>
@@ -353,7 +374,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
                 </td>
                 <td className="meta muted">{row.muted ? "已靜音" : "僅關注"}</td>
                 <td>
-                  <WatchActions row={row} />
+                  {layout === "table" ? <WatchActions row={row} /> : <div className="watch-actions watch-actions-slot" aria-hidden="true" />}
                 </td>
               </tr>
               );
@@ -361,6 +382,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
           </tbody>
         </table>
         </div>
+        </>
       )}
     </section>
   );

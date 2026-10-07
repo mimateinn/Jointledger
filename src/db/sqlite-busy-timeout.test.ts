@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
-import { getDb, resetDbClients, SQLITE_BUSY_TIMEOUT_MS } from "./client";
+import { getDb, reconnectSqliteClient, resetDbClients, SQLITE_BUSY_TIMEOUT_MS } from "./client";
 
 const prevUrl = process.env.DATABASE_URL;
 
@@ -37,6 +37,17 @@ describe("sqlite busy_timeout", () => {
       await tx.execute(sql`SELECT 1`);
     });
 
+    const rows = await db.all(sql`PRAGMA busy_timeout`);
+    expect(timeoutFromRows(rows)).toBe(SQLITE_BUSY_TIMEOUT_MS);
+  });
+
+  it("keeps PRAGMA busy_timeout at 5000 on queries after reconnect()", async () => {
+    dir = mkdtempSync(join(tmpdir(), "joint-ledger-busy-re-"));
+    process.env.DATABASE_URL = `file:${join(dir, "joint-ledger.sqlite")}`;
+    resetDbClients();
+    const db = getDb();
+    await db.all(sql`SELECT 1`);
+    await reconnectSqliteClient();
     const rows = await db.all(sql`PRAGMA busy_timeout`);
     expect(timeoutFromRows(rows)).toBe(SQLITE_BUSY_TIMEOUT_MS);
   });

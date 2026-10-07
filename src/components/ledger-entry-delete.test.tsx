@@ -131,7 +131,7 @@ describe("ledger entry delete undo and reject", () => {
                 label="列 A"
                 checkDelete={async () => ({ ok: "可以刪" })}
                 deleteAction={deleteA}
-                undoMs={80}
+                undoMs={1000}
               />
             </td>
           </tr>
@@ -143,7 +143,7 @@ describe("ledger entry delete undo and reject", () => {
                 label="列 B"
                 checkDelete={async () => ({ ok: "可以刪" })}
                 deleteAction={deleteB}
-                undoMs={200}
+                undoMs={3000}
               />
             </td>
           </tr>
@@ -169,7 +169,33 @@ describe("ledger entry delete undo and reject", () => {
 
     await waitFor(() => {
       expect(deleteB).toHaveBeenCalledTimes(1);
-    });
+    }, { timeout: 4000 });
     expect(deleteA).not.toHaveBeenCalled();
+  });
+
+  it("shows 刪除失敗 when the delete throws after the countdown", async () => {
+    const user = userEvent.setup();
+    const deleteAction = vi.fn(async () => {
+      throw new Error("Failed to fetch");
+    });
+    render(
+      <LedgerEntryDelete
+        id="t1"
+        kind="trade"
+        label="買入 AAPL"
+        checkDelete={async () => ({ ok: "可以刪" })}
+        deleteAction={deleteAction}
+        undoMs={20}
+      />,
+    );
+
+    await confirmDelete(user, "買入 AAPL");
+    expect(await screen.findByText("已刪除・還原")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByText("已刪除・還原")).toBeNull();
+      expect(screen.getByRole("alert").textContent).toContain("刪除失敗");
+    });
+    expect(deleteAction).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "刪除 買入 AAPL" })).toBeTruthy();
   });
 });
