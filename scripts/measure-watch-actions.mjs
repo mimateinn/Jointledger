@@ -19,38 +19,41 @@ const INJECT_WATCH_HEIGHT_20 = process.argv.includes("--inject-watch-height-20")
 const MIN = 44;
 const WIDTHS = [320, 375];
 
-function declaredPx(el, prop) {
-  let value = null;
-  for (const sheet of document.styleSheets) {
-    let rules;
-    try {
-      rules = [...sheet.cssRules];
-    } catch {
-      continue;
-    }
-    for (const rule of rules) {
-      if (!(rule instanceof CSSStyleRule)) {
-        continue;
-      }
+function measureWatchActions() {
+  const declaredPx = (el, prop) => {
+    let value = null;
+    for (const sheet of document.styleSheets) {
+      let rules;
       try {
-        if (!el.matches(rule.selectorText)) {
-          continue;
-        }
+        rules = [...sheet.cssRules];
       } catch {
         continue;
       }
-      const raw = rule.style.getPropertyValue(prop);
-      if (raw) {
-        value = raw;
+      for (const rule of rules) {
+        if (!(rule instanceof CSSStyleRule)) {
+          continue;
+        }
+        try {
+          if (!el.matches(rule.selectorText)) {
+            continue;
+          }
+        } catch {
+          continue;
+        }
+        const raw = rule.style.getPropertyValue(prop);
+        if (raw) {
+          value = raw;
+        }
       }
     }
-  }
-  const n = value ? parseFloat(value) : NaN;
-  return Number.isFinite(n) ? n : null;
-}
-
-function measureWatchActions() {
-  const buttons = [...document.querySelectorAll(".watch-actions .btn")];
+    const n = value ? parseFloat(value) : NaN;
+    return Number.isFinite(n) ? n : null;
+  };
+  const buttons = [...document.querySelectorAll(".watch-list .watch-actions .btn")].filter((btn) => {
+    const rect = btn.getBoundingClientRect();
+    const cs = getComputedStyle(btn);
+    return rect.width >= 1 && rect.height >= 1 && cs.visibility !== "hidden" && cs.display !== "none";
+  });
   return buttons.map((btn) => {
     const rect = btn.getBoundingClientRect();
     const cs = getComputedStyle(btn);
@@ -86,7 +89,7 @@ for (const width of WIDTHS) {
   await page.evaluate(() => {
     [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "關注")?.click();
   });
-  await page.waitForSelector(".watch-actions .btn", { timeout: 15000 });
+  await page.waitForSelector(".watch-list .watch-actions .btn", { timeout: 15000 });
   if (INJECT_HIT_MIN_30) {
     await page.addStyleTag({ content: ":root { --hit-min: 30px !important; }" });
   }
