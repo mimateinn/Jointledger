@@ -9,14 +9,17 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "test:ledger-filter": "node scripts/ledger-filter-stress.mjs",
+    "test:scroll-width": "node scripts/measure-scroll-width.mjs",
+    "test:sticky": "node scripts/measure-sticky.mjs",
     "db:generate": "drizzle-kit generate",
     "db:generate:sqlite": "drizzle-kit generate --config drizzle.config.sqlite.ts",
     "db:migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.15.15",
     "@node-rs/argon2": "^2.0.2",
     "@serwist/next": "^9.2.1",
-    "@libsql/client": "^0.15.15",
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.44.5",
     "exceljs": "^4.4.0",
@@ -36,6 +39,7 @@
     "drizzle-kit": "^0.31.4",
     "eslint": "^9.34.0",
     "eslint-config-next": "^15.5.2",
+    "puppeteer-core": "^25.12.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

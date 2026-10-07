@@ -1,6 +1,17 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Icon } from "./icons";
+
+const COPY = {
+  idle: "檢查更新",
+  loading: "檢查中…",
+  login: "請先登入再檢查更新",
+  latest: "已是最新官方版本",
+  restart: "已更新。請重新啟動應用（資料同資料庫唔會變）。",
+  fail: "檢查唔到更新，請稍後再試",
+  aria: "檢查更新",
+};
 
 type UpdateState =
   | { status: "idle" }
@@ -10,7 +21,6 @@ type UpdateState =
 
 export function UpdateCheckButton() {
   const [state, setState] = useState<UpdateState>({ status: "idle" });
-  const [pressed, setPressed] = useState(false);
 
   const onCheck = useCallback(async () => {
     if (state.status === "loading") return;
@@ -28,13 +38,13 @@ export function UpdateCheckButton() {
       };
 
       if (res.status === 401) {
-        setState({ status: "error", message: "請先登入（示範：小明 / demo@example.com）" });
+        setState({ status: "error", message: COPY.login });
         return;
       }
       if (!res.ok) {
         setState({
           status: "error",
-          message: data.message || data.error || `HTTP ${res.status}`,
+          message: COPY.fail,
         });
         return;
       }
@@ -42,72 +52,71 @@ export function UpdateCheckButton() {
       if (data.needRestart) {
         setState({
           status: "ok",
-          message: data.message || "已更新。請重新啟動（再跑 start.sh / start.bat），資料夾同資料庫唔變。",
+          message: COPY.restart,
           needRestart: true,
         });
       } else {
         setState({
           status: "ok",
-          message: data.message || "已是最新官方版本",
+          message: COPY.latest,
         });
       }
-    } catch (e) {
+    } catch {
       setState({
         status: "error",
-        message: e instanceof Error ? e.message : "網路錯誤",
+        message: COPY.fail,
       });
     }
   }, [state.status]);
 
+  useEffect(() => {
+    if (state.status !== "ok" || state.needRestart) {
+      return;
+    }
+    const id = window.setTimeout(() => setState({ status: "idle" }), 5000);
+    return () => window.clearTimeout(id);
+  }, [state]);
+
   const isLoading = state.status === "loading";
+  const dataState = state.status === "idle" ? "idle" : state.status;
 
   return (
     <div>
       <button
         type="button"
-        className="theme-toggle"
+        className="btn btn-secondary btn-update"
+        data-state={dataState}
         onClick={onCheck}
-        onMouseDown={() => setPressed(true)}
-        onMouseUp={() => setPressed(false)}
-        onMouseLeave={() => setPressed(false)}
-        onTouchStart={() => setPressed(true)}
-        onTouchEnd={() => setPressed(false)}
         disabled={isLoading}
-        aria-label="檢查更新"
-        title="檢查官方更新"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          transform: pressed || isLoading ? "translateY(2px) scale(0.98)" : undefined,
-          transition: "transform 100ms ease-out",
-        }}
+        aria-busy={isLoading}
+        aria-label={COPY.aria}
+        title={COPY.aria}
       >
-        <svg
-          width={18}
-          height={18}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          style={{ opacity: isLoading ? 0.45 : 1 }}
-        >
-          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-          <path d="M21 3v5h-5" />
-          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-          <path d="M8 16H3v5" />
-        </svg>
-        {isLoading ? "檢查中…" : "檢查更新"}
+        {state.status === "ok" ? (
+          <Icon name="success-check" className="icon-ok" />
+        ) : (
+          <Icon name="check-update" />
+        )}
+        {isLoading ? COPY.loading : COPY.idle}
       </button>
       {state.status === "ok" ? (
-        <p className={state.needRestart ? "ok" : "meta muted"} style={{ marginTop: 8 }}>
+        state.needRestart ? (
+          <div className="banner" style={{ marginTop: 8 }}>
+            <Icon name="info" />
+            <p className="meta">{state.message}</p>
+          </div>
+        ) : (
+          <p className="field-hint" style={{ marginTop: 8 }}>
+            {state.message}
+          </p>
+        )
+      ) : null}
+      {state.status === "error" ? (
+        <p className="field-error" style={{ marginTop: 8 }}>
+          <Icon name="error" size={16} />
           {state.message}
         </p>
       ) : null}
-      {state.status === "error" ? <p className="alert" style={{ marginTop: 8 }}>{state.message}</p> : null}
     </div>
   );
 }

@@ -101,7 +101,7 @@ describe("split and adjustment stay on the book path", () => {
     const entry = readFileSync(join(process.cwd(), "src/app/actions/entry.ts"), "utf8");
     expect(holdings).toContain("splitLabel");
     expect(holdings).toContain("拆股");
-    expect(ledger).toContain("tradeSideLabel");
+    expect(ledger).toContain("LEDGER_KIND_LABEL");
     expect(labels).toContain('side === "adjustment"');
     expect(entry).toContain("createAdjustment");
     expect(entry).toContain("createSplit");

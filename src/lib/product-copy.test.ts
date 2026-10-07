@@ -117,7 +117,7 @@ describe("product copy", () => {
     const chrome = readFileSync("src/components/app-chrome.tsx", "utf8");
     const account = readFileSync("src/app/(app)/account/account-client.tsx", "utf8");
     const tape = readFileSync("src/components/ticker-tape.tsx", "utf8");
-    expect(overview).toContain('h1 className="title"');
+    expect(overview).toContain('h1 className="page-title"');
     expect(overview).not.toContain('h1 className="display"');
     expect(overview).toContain("邊個倉");
     expect(overview).toContain("未計持股");
@@ -146,7 +146,7 @@ describe("product copy", () => {
     expect(readFileSync("src/app/(auth)/login/login-form.tsx", "utf8")).not.toContain("ThemeToggle");
     expect(account).toContain("設定");
     expect(account).toContain("ThemeToggle");
-    expect(account).toContain("暖紙白");
+    expect(account).toContain("暖紙");
     expect(tape).toContain("tape-symbol");
     expect(tape).toContain("tape-lead");
     expect(overview).not.toContain("延遲 15 分");

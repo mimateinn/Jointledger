@@ -5,11 +5,42 @@ import { changePasswordAction, logoutAction, type AuthState } from "@/app/action
 import { addMemberAction, issueInviteAction, type MemberState } from "@/app/actions/members";
 import { ImportWizard } from "@/app/(app)/first-use/import-wizard";
 import { EmptyPanel } from "@/components/empty-panel";
+import { Icon } from "@/components/icons";
 import { MemberDelete } from "@/components/member-delete";
+import { PasswordField } from "@/components/password-field";
 import { SubmitButton } from "@/components/submit-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UpdateCheckButton } from "@/components/update-check-button";
 import { formatRelativeDate, formatSchedulePercent } from "@/lib/format";
+
+const COPY = {
+  title: "帳戶",
+  me: "我是誰",
+  others: "其他人",
+  none: "未有其他人。",
+  add: "加成員",
+  displayName: "顯示名",
+  email: "電郵（可選）",
+  inviteHint: "認領只綁呢個成員，唔會開新表。",
+  joint: "聯名分帳",
+  export: "資料",
+  exportHelp: "下載而家呢本記帳表。預設開新檔，名為「聯倉」加日期；唔會改到你而家用緊嘅表。",
+  download: "下載試算表",
+  reimport: "再匯入",
+  reimportHelp: "把試算表寫返入而家呢本記帳。要先揀追加定取代，確認之後先會改資料。",
+  startImport: "再匯入試算表",
+  settings: "設定",
+  look: "外觀",
+  lookHelp: "暖紙／墨紙。唔同六個導覽項搶位。",
+  update: "官方更新",
+  updateHelp: "檢查最新官方版本。資料同資料庫唔會消失。",
+  password: "改密碼",
+  logout: "登出",
+  empty: "未有持倉或流水 · 記一筆",
+  you: "你",
+  in: "已登入",
+  out: "未設密碼",
+};
 
 const initial: MemberState = {};
 const passwordInitial: AuthState = {};
@@ -35,7 +66,7 @@ function MemberRow({
   lastUser,
   inviteAction,
 }: {
-  member: { id: string; displayName: string; email: string | null; userId: string | null };
+  member: { id: string; displayName: string; userId: string | null };
   you: boolean;
   lastUser: boolean;
   inviteAction: (formData: FormData) => void | Promise<void>;
@@ -46,11 +77,13 @@ function MemberRow({
       <div style={{ flex: 1 }}>
         <div>
           {member.displayName}
-          {you ? <span className="meta muted"> · 你</span> : null}
+          {you ? <span className="chip" style={{ marginLeft: 8 }}>{COPY.you}</span> : null}
         </div>
-        {member.email ? <div className="meta muted">{member.email}</div> : null}
+        <div className="meta muted">
+          <span className={member.userId ? "status-dot" : "status-dot status-dot-empty"} />{" "}
+          {member.userId ? COPY.in : COPY.out}
+        </div>
       </div>
-      <div className="meta muted">{member.userId ? "已登入" : "未設密碼"}</div>
       <MemberDelete memberId={member.id} displayName={member.displayName} lastUser={lastUser} />
       {!member.userId ? (
         <form action={inviteAction}>
@@ -71,7 +104,7 @@ export function AccountClient({
   emptyLedger,
 }: {
   currentUserId: string;
-  members: { id: string; displayName: string; email: string | null; userId: string | null }[];
+  members: { id: string; displayName: string; userId: string | null }[];
   emptyLedger: boolean;
   schedules: {
     effectiveOn: string;
@@ -94,166 +127,158 @@ export function AccountClient({
   }
 
   return (
-    <div className="stack">
-      <h1 className="title">帳戶</h1>
+    <div className="page">
+      <div className="page-head">
+        <h1 className="page-title">{COPY.title}</h1>
+      </div>
       {emptyLedger ? (
-        <EmptyPanel sentence="未有持倉或流水，記一筆就可以開始。" actionLabel="記一筆" />
+        <div className="banner">
+          <Icon name="info" />
+          {COPY.empty}
+        </div>
       ) : null}
 
-      <section className="card">
-        <h2 className="title">我是誰</h2>
-        {me ? (
-          <MemberRow member={me} you lastUser={lastUser && Boolean(me.userId)} inviteAction={inviteAction} />
-        ) : (
-          <p className="muted">未對上而家呢個帳戶。</p>
-        )}
-      </section>
-
-      <section className="card">
-        <h2 className="title">其他人</h2>
-        {others.length === 0 ? <p className="muted">未有其他人。</p> : null}
-        {others.map((member) => (
-          <MemberRow
-            key={member.id}
-            member={member}
-            you={false}
-            lastUser={lastUser && Boolean(member.userId)}
-            inviteAction={inviteAction}
-          />
-        ))}
-        <p className="meta muted" style={{ marginTop: 16 }}>
-          加成員會發一次性邀請密鑰。對方要用顯示名或電郵 + 密鑰 + 自己設嘅密碼認領。認領只綁呢個成員，唔會開新表。
-        </p>
-        <InviteOnce state={shown} />
-        <form className="form-grid" action={addAction} style={{ marginTop: 16 }}>
-          <div className="field">
-            <label htmlFor="displayName">顯示名</label>
-            <input className="input" id="displayName" name="displayName" required />
-          </div>
-          <div className="field">
-            <label htmlFor="email">電郵（可選）</label>
-            <input className="input" id="email" name="email" type="email" />
-          </div>
-          {addState.error ? <p className="alert">{addState.error}</p> : null}
-          {inviteState.error ? <p className="alert">{inviteState.error}</p> : null}
-          {shown.ok ? <p className="ok">{shown.ok}</p> : null}
-          <SubmitButton className="btn btn-secondary" pendingLabel="加緊…">
-            加成員
-          </SubmitButton>
-        </form>
-      </section>
-
-      {current ? (
-        <section className="card">
-          <div className="row" style={{ marginBottom: 8 }}>
-            <h2 className="title">聯名分帳</h2>
-            <span className="meta muted">{current.legs.map((leg) => leg.displayName).join(" + ")}</span>
-          </div>
-          <p className="body">
-            自 {formatRelativeDate(current.effectiveOn)} ·{" "}
-            {current.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
-          </p>
-          <p className="meta muted">按買入日比例·改完只影響新單</p>
-          <ul className="muted" style={{ marginTop: 12 }}>
-            {schedules.map((row) => (
-              <li key={row.effectiveOn}>
-                {formatRelativeDate(row.effectiveOn)}{" "}
-                {row.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
-                {row.current ? " · 而家" : ""}
-              </li>
+      <div className="grid-12 account-grid">
+        <div className="col-7 stack">
+          <section className="card">
+            <h2 className="card-title">{COPY.me}</h2>
+            {me ? (
+              <MemberRow member={me} you lastUser={lastUser && Boolean(me.userId)} inviteAction={inviteAction} />
+            ) : (
+              <p className="muted">未對上而家呢個帳戶。</p>
+            )}
+            <h2 className="card-title" style={{ marginTop: 16 }}>{COPY.others}</h2>
+            {others.length === 0 ? <p className="muted">{COPY.none}</p> : null}
+            {others.map((member) => (
+              <MemberRow
+                key={member.id}
+                member={member}
+                you={false}
+                lastUser={lastUser && Boolean(member.userId)}
+                inviteAction={inviteAction}
+              />
             ))}
-          </ul>
-        </section>
-      ) : null}
+            <p className="meta muted" style={{ marginTop: 16 }}>
+              加成員會發一次性邀請密鑰。對方要用顯示名或電郵 + 密鑰 + 自己設嘅密碼認領。認領只綁呢個成員，唔會開新表。
+            </p>
+            <InviteOnce state={shown} />
+            <details style={{ marginTop: 16 }}>
+              <summary className="btn btn-secondary">
+                <Icon name="member-add" size={16} />
+                {COPY.add}
+              </summary>
+              <form className="form-grid" action={addAction} style={{ marginTop: 16 }}>
+                <div className="field">
+                  <label htmlFor="displayName">{COPY.displayName}</label>
+                  <input className="input" id="displayName" name="displayName" required />
+                </div>
+                <div className="field">
+                  <label htmlFor="email">{COPY.email}</label>
+                  <input className="input" id="email" name="email" type="email" />
+                </div>
+                {addState.error ? <p className="field-error">{addState.error}</p> : null}
+                {inviteState.error ? <p className="field-error">{inviteState.error}</p> : null}
+                {shown.ok ? <p className="ok">{shown.ok}</p> : null}
+                <SubmitButton className="btn btn-secondary" pendingLabel="加緊…">
+                  {COPY.add}
+                </SubmitButton>
+              </form>
+            </details>
+          </section>
 
-      <section className="card stack">
-        <h2 className="title">匯出</h2>
-        <p className="muted">下載而家呢本記帳表嘅兩頁試算表，之後可以用再匯入寫返入去。</p>
-        <a className="btn btn-secondary" href="/api/export" download="book-export.xlsx">
-          匯出試算表
-        </a>
-      </section>
-
-      <section className="card stack">
-        <h2 className="title">再匯入</h2>
-        <p className="muted">只寫入而家呢本記帳表。要明示追加或取代。經現有 createCashFlow／createTrade。</p>
-        <button className="btn btn-secondary" type="button" onClick={() => setReimport(true)}>
-          再匯入試算表
-        </button>
-      </section>
-
-      <section className="card stack">
-        <h2 className="title">設定</h2>
-        <div className="row">
-          <div>
-            <div className="body">外觀</div>
-            <p className="meta muted">暖紙白／炭橄欖。唔同六個導覽項搶位。</p>
-          </div>
-          <ThemeToggle />
+          {current ? (
+            <section className="card">
+              <div className="row" style={{ marginBottom: 8 }}>
+                <h2 className="card-title">{COPY.joint}</h2>
+                <span className="meta muted">{current.legs.map((leg) => leg.displayName).join(" + ")}</span>
+              </div>
+              <div className="joint-bar" aria-hidden>
+                {current.legs.map((leg) => (
+                  <span key={leg.memberId} style={{ width: `${Number(leg.percent) * 100}%` }} />
+                ))}
+              </div>
+              <p className="body" style={{ marginTop: 8 }}>
+                自 {formatRelativeDate(current.effectiveOn)} ·{" "}
+                {current.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
+              </p>
+              <p className="meta muted">按買入日比例·改完只影響新單</p>
+              <ul className="muted" style={{ marginTop: 12 }}>
+                {schedules.map((row) => (
+                  <li key={row.effectiveOn}>
+                    {formatRelativeDate(row.effectiveOn)}{" "}
+                    {row.legs.map((leg) => `${leg.displayName} ${formatSchedulePercent(leg.percent)}`).join(" / ")}
+                    {row.current ? " · 而家" : ""}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : (
+            <section className="card">
+              <h2 className="card-title">{COPY.joint}</h2>
+              <p className="muted">尚未設立聯名</p>
+            </section>
+          )}
         </div>
-        <div className="row">
-          <div>
-            <div className="body">官方更新</div>
-            <p className="meta muted">檢查最新官方 Release。資料同資料庫唔會消失。</p>
-          </div>
-          <UpdateCheckButton />
+
+        <div className="col-5 stack">
+          <section className="card stack">
+            <h2 className="card-title">{COPY.export}</h2>
+            <p className="muted">{COPY.exportHelp}</p>
+            <a className="btn btn-secondary" href="/api/export" download="book-export.xlsx">
+              <Icon name="download" size={16} />
+              {COPY.download}
+            </a>
+            <p className="muted">{COPY.reimportHelp}</p>
+            <button className="btn btn-secondary" type="button" onClick={() => setReimport(true)}>
+              <Icon name="upload-import" size={16} />
+              {COPY.startImport}
+            </button>
+          </section>
+
+          <section className="card stack">
+            <h2 className="card-title">{COPY.settings}</h2>
+            <div className="row">
+              <div>
+                <div className="body">{COPY.look}</div>
+                <p className="meta muted">{COPY.lookHelp}</p>
+              </div>
+              <ThemeToggle />
+            </div>
+            <div className="row">
+              <div>
+                <div className="body">{COPY.update}</div>
+                <p className="meta muted">{COPY.updateHelp}</p>
+              </div>
+              <UpdateCheckButton />
+            </div>
+          </section>
+
+          <section className="card stack">
+            <h2 className="card-title">{COPY.password}</h2>
+            <form className="form-grid" action={passwordAction}>
+              <PasswordField id="currentPassword" name="currentPassword" label="而家嘅密碼" autoComplete="current-password" />
+              <PasswordField id="newPassword" name="newPassword" label="新密碼 · 至少 8 個字" autoComplete="new-password" />
+              <PasswordField id="confirmPassword" name="confirmPassword" label="再輸入新密碼" autoComplete="new-password" />
+              {passwordState.error ? <p className="field-error">{passwordState.error}</p> : null}
+              {passwordState.ok ? <p className="ok">{passwordState.ok}</p> : null}
+              <SubmitButton className="btn btn-secondary" pendingLabel="改緊…">
+                {COPY.password}
+              </SubmitButton>
+            </form>
+          </section>
+
+          <section className="card stack">
+            <h2 className="card-title">{COPY.logout}</h2>
+            <form action={logoutAction}>
+              <SubmitButton className="btn btn-danger" pendingLabel="登出緊…">
+                <Icon name="logout" size={16} />
+                {COPY.logout}
+              </SubmitButton>
+            </form>
+          </section>
         </div>
-      </section>
-
-      <section className="card stack">
-        <h2 className="title">改密碼</h2>
-        <form className="form-grid" action={passwordAction}>
-          <div className="field">
-            <label htmlFor="currentPassword">而家嘅密碼</label>
-            <input
-              className="input"
-              id="currentPassword"
-              name="currentPassword"
-              type="password"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="newPassword">新密碼 · 至少 8 個字</label>
-            <input
-              className="input"
-              id="newPassword"
-              name="newPassword"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="confirmPassword">再輸入新密碼</label>
-            <input
-              className="input"
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              required
-              minLength={8}
-              autoComplete="new-password"
-            />
-          </div>
-          {passwordState.error ? <p className="alert">{passwordState.error}</p> : null}
-          {passwordState.ok ? <p className="ok">{passwordState.ok}</p> : null}
-          <SubmitButton className="btn btn-secondary" pendingLabel="改緊…">
-            改密碼
-          </SubmitButton>
-        </form>
-      </section>
-
-      <section className="card stack">
-        <h2 className="title">登出</h2>
-        <form action={logoutAction}>
-          <SubmitButton className="btn btn-secondary" pendingLabel="登出緊…">
-            登出
-          </SubmitButton>
-        </form>
-      </section>
+      </div>
+      {emptyLedger ? <EmptyPanel sentence="未有持倉或流水，記一筆就可以開始。" actionLabel="記一筆" /> : null}
     </div>
   );
 }

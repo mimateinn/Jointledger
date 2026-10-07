@@ -94,17 +94,12 @@ export default async function HoldingsPage() {
   });
 
   return (
-    <div className="stack">
-      <div className="page-head">
-        <h1 className="title">持倉</h1>
-      </div>
-      <HoldingsWorkspace
-        lots={lots}
-        closedLots={closedLots}
-        watchItems={watchItems}
-        delayLabel={delayLabel}
-        partialNav={view.all.partial && view.lots.length > 0}
-      />
-    </div>
+    <HoldingsWorkspace
+      lots={lots}
+      closedLots={closedLots}
+      watchItems={watchItems}
+      delayLabel={delayLabel}
+      partialNav={view.all.partial && view.lots.length > 0}
+    />
   );
 }

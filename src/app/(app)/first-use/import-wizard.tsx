@@ -64,7 +64,7 @@ export function ImportWizard({
   return (
     <div className="stack">
       <div>
-        <h1 className="display">{reimport ? "再匯入" : "匯入而家用緊嘅試算表"}</h1>
+        <h1 className="page-title">{reimport ? "再匯入" : "匯入而家用緊嘅試算表"}</h1>
         <p className="muted" style={{ marginTop: 12 }}>
           {reimport
             ? "寫入而家呢本記帳表。要明示追加或取代。認領唔會開新表，亦唔會當匯入解鎖。"

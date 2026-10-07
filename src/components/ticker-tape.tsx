@@ -35,7 +35,7 @@ function TapeCell({ item }: { item: TapeItem }) {
       {item.isEtfProxy ? <span className="tape-proxy">代理</span> : null}
       <span className="tape-last tabular">{item.last ?? "—"}</span>
       {item.last && item.percentChange ? (
-        <span className={`chip tape-chg tabular ${changeClass(item.percentChange)}`}>
+        <span className={`chip tape-chg tabular ${item.percentChange?.startsWith("+") ? "chip-up" : item.percentChange?.startsWith("-") ? "chip-down" : changeClass(item.percentChange)}`}>
           {item.percentChange}
         </span>
       ) : null}
@@ -115,7 +115,7 @@ export function TickerTape({
         ) : null}
         {failed ? (
           <button type="button" className="btn btn-ghost" onClick={() => setReloadKey((n) => n + 1)}>
-            行情暫時載唔到，再試
+            行情暫時載唔到
           </button>
         ) : (
           <span className="chip chip-delay" title={tape.fx?.lastUpdateLabel ?? undefined}>

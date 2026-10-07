@@ -1,4 +1,6 @@
 @import "./tokens.css";
+@import "./motion.css";
+@import "./components.css";
 
 * {
   box-sizing: border-box;
@@ -207,6 +209,10 @@ button {
   display: flex;
   align-items: stretch;
   height: 40px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
@@ -225,12 +231,15 @@ button {
   animation: tape-scroll 80s linear infinite;
 }
 
-.tape:hover .tape-track {
+.tape:hover .tape-track,
+.tape:focus-within .tape-track {
   animation-play-state: paused;
 }
 
 .tape-lead {
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   border-right: 1px solid var(--border);
   background: var(--surface);
 }
@@ -295,7 +304,9 @@ button {
   padding: 0 12px;
   border-left: 1px solid var(--border);
   background: var(--surface);
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .tape-fx {
@@ -744,22 +755,11 @@ button {
   color: var(--muted);
 }
 
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-
 .skeleton {
   display: block;
-  background: color-mix(in srgb, var(--border) 80%, var(--surface));
-  border-radius: 4px;
+  background: var(--skeleton-base);
+  border-radius: var(--radius-xs);
   min-height: 1em;
-  animation: skeleton-pulse 1.2s ease-in-out infinite;
 }
 
 .skeleton-title {
@@ -817,10 +817,14 @@ button {
 }
 
 .footer-note {
-  text-align: center;
+  text-align: left;
   color: var(--muted);
   font-size: var(--meta-size);
   font-weight: 500;
+}
+
+.footer-note-center {
+  text-align: center;
 }
 
 .own-map {
@@ -836,6 +840,35 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+@media (max-width: 600px) {
+  .tape-lead {
+    flex: 1 1 0;
+    max-width: 58%;
+    min-width: 0;
+  }
+  .tape-lead .tape-name,
+  .tape-lead .tape-proxy {
+    display: none;
+  }
+  .tape-cell {
+    padding: 0 10px;
+    gap: 6px;
+  }
+  .tape-pin {
+    flex: 0 1 auto;
+    padding: 0 8px;
+    gap: 6px;
+    min-width: 0;
+  }
+  .tape-pin .chip-delay {
+    display: none;
+  }
+  .tape-viewport {
+    flex: 1 1 80px;
+    min-width: 80px;
+  }
 }
 
 @media (max-width: 800px) {

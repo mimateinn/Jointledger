@@ -44,6 +44,9 @@ const themeBoot = `
 try {
   var t = localStorage.getItem("jl-theme") || "dark";
   document.documentElement.setAttribute("data-theme", t);
+  if (localStorage.getItem("jl-reduced") === "1") {
+    document.documentElement.classList.add("is-reduced");
+  }
 } catch (e) {
   document.documentElement.setAttribute("data-theme", "dark");
 }
