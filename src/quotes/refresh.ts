@@ -3,9 +3,11 @@ import { nextUtcMinute, packTtlMs, utcDateString } from "./market-hours";
 import { withPackLock, type PackLockTx } from "./pack-lock";
 import { buildUniverse, flightKey, isDeniedSymbol, resolveInstrument } from "./symbol-map";
 import {
+  claimQuoteRefreshLease,
   clearLastGoodForDisplays,
   loadQuoteRows,
   loadRefreshState,
+  releaseQuoteRefreshLease,
   saveQuoteRow,
   saveRefreshState,
   upsertInstruments,
@@ -147,6 +149,10 @@ async function prepareRefresh(
     return null;
   }
 
+  if (!(await claimQuoteRefreshLease(now, tx))) {
+    return null;
+  }
+
   return { ids, previous, due, via, today, creditsUsed, state };
 }
 
@@ -195,6 +201,7 @@ async function persistRefresh(
     },
     tx,
   );
+  await releaseQuoteRefreshLease(tx);
 }
 
 export async function ensureQuotes(

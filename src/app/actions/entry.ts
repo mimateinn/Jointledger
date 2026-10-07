@@ -215,7 +215,7 @@ export async function deleteHoldingAction(
       }),
     );
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "刪持倉失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : "刪持倉失敗") };
   }
   revalidatePath("/overview");
   revalidatePath("/holdings");
@@ -250,7 +250,7 @@ export async function deleteLedgerEntryAction(
       }),
     );
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "刪除失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : "刪除失敗") };
   }
   revalidatePath("/overview");
   revalidatePath("/holdings");
@@ -281,7 +281,7 @@ export async function checkDeleteLedgerEntryAction(
       id: String(formData.get("entryId") ?? ""),
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "刪除失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : "刪除失敗") };
   }
   return { ok: "可以刪" };
 }

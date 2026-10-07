@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,18 +24,45 @@ function sleep(ms: number) {
 }
 
 async function holdWriteLock(url: string): Promise<{ release: () => Promise<void> }> {
-  const locker = createClient({ url });
-  await locker.execute("PRAGMA journal_mode = WAL");
-  await locker.execute("PRAGMA busy_timeout = 5000");
-  await locker.execute("BEGIN IMMEDIATE");
-  await locker.execute("UPDATE watch_items SET muted = muted");
+  const child = spawn(process.execPath, [join(process.cwd(), "scripts/busy-lock-child.mjs"), url, String(LOCK_MS)], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stderr?.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+  await new Promise<void>((resolve, reject) => {
+    let locked = false;
+    const timer = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`lock child did not print LOCKED: ${stderr || "timeout"}`));
+    }, 5000);
+    child.stdout?.on("data", (chunk) => {
+      if (!String(chunk).includes("LOCKED") || locked) {
+        return;
+      }
+      locked = true;
+      clearTimeout(timer);
+      resolve();
+    });
+    child.on("exit", (code) => {
+      if (locked) {
+        return;
+      }
+      clearTimeout(timer);
+      reject(new Error(`lock child exited ${code}: ${stderr}`));
+    });
+  });
   return {
     release: async () => {
-      try {
-        await locker.execute("COMMIT");
-      } finally {
-        locker.close();
+      if (child.exitCode != null) {
+        return;
       }
+      child.kill("SIGTERM");
+      await new Promise<void>((resolve) => {
+        child.once("exit", () => resolve());
+        setTimeout(resolve, 2000);
+      });
     },
   };
 }

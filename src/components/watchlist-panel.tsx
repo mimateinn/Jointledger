@@ -104,9 +104,6 @@ export function WatchActions({
       return;
     }
     muteInFlight.current = true;
-    queueMicrotask(() => {
-      muteInFlight.current = false;
-    });
     const next = !muted;
     const generation = (muteGen.current += 1);
     setMuteError(null);
@@ -160,6 +157,7 @@ export function WatchActions({
       <button
         className="btn btn-secondary"
         type="button"
+        disabled={mutePending}
         aria-busy={mutePending || undefined}
         onClick={() => void onMute()}
       >

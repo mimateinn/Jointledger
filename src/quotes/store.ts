@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { getDb, type Database } from "@/db/client";
 import { instruments, quoteRefreshState, quotes } from "@/db/tables";
 import { TAPE_CANON } from "./symbol-map";
@@ -14,6 +14,8 @@ function asQuoteSource(value: string): QuoteSource {
 export type QuoteExecutor = Pick<Database, "insert" | "select" | "update">;
 
 const STATE_ID = "pack";
+const LEASE_ID = "quote_lease";
+export const QUOTE_LEASE_MS = 15_000;
 
 export type RefreshState = {
   lastPackAt: Date | null;
@@ -185,7 +187,45 @@ export async function saveQuoteRow(
         status: row.status,
         source,
       },
+      setWhere: sql`${quotes.fetchedAt} <= ${row.fetchedAt}`,
     });
+}
+
+/** Short claim + expiry in quote_refresh_state. No schema change. */
+export async function claimQuoteRefreshLease(
+  now: Date,
+  db: QuoteExecutor = getDb(),
+  ttlMs = QUOTE_LEASE_MS,
+): Promise<boolean> {
+  const [row] = await db.select().from(quoteRefreshState).where(eq(quoteRefreshState.id, LEASE_ID)).limit(1);
+  if (row?.rateLimitedUntil && row.rateLimitedUntil.getTime() > now.getTime()) {
+    return false;
+  }
+  const until = new Date(now.getTime() + ttlMs);
+  await db
+    .insert(quoteRefreshState)
+    .values({
+      id: LEASE_ID,
+      lastPackAt: now,
+      rateLimitedUntil: until,
+      creditUtcDate: null,
+      creditsUsed: 0,
+    })
+    .onConflictDoUpdate({
+      target: quoteRefreshState.id,
+      set: {
+        lastPackAt: now,
+        rateLimitedUntil: until,
+      },
+    });
+  return true;
+}
+
+export async function releaseQuoteRefreshLease(db: QuoteExecutor = getDb()): Promise<void> {
+  await db
+    .update(quoteRefreshState)
+    .set({ rateLimitedUntil: new Date(0) })
+    .where(eq(quoteRefreshState.id, LEASE_ID));
 }
 
 export async function loadRefreshState(db: QuoteExecutor = getDb()): Promise<RefreshState> {

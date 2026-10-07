@@ -13,6 +13,8 @@
     "test:scroll-width": "node scripts/measure-scroll-width.mjs",
     "test:sticky": "node scripts/measure-sticky.mjs",
     "test:watch-actions": "node scripts/measure-watch-actions.mjs",
+    "test:toast-geometry": "node scripts/measure-toast-geometry.mjs",
+    "test:busy-e2e": "BUSY_E2E=1 vitest run src/db/sqlite-busy-write-e2e.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:generate:sqlite": "drizzle-kit generate --config drizzle.config.sqlite.ts",
     "db:migrate": "tsx src/db/migrate.ts"

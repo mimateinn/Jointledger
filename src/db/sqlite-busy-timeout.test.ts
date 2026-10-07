@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sql } from "drizzle-orm";
@@ -47,8 +47,12 @@ describe("sqlite busy_timeout", () => {
     resetDbClients();
     const db = getDb();
     await db.all(sql`SELECT 1`);
+    await db.all(sql`PRAGMA busy_timeout = 1`);
+    expect(timeoutFromRows(await db.all(sql`PRAGMA busy_timeout`))).toBe(1);
     await reconnectSqliteClient();
     const rows = await db.all(sql`PRAGMA busy_timeout`);
     expect(timeoutFromRows(rows)).toBe(SQLITE_BUSY_TIMEOUT_MS);
+    const src = readFileSync(new URL("./client.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/client\.reconnect = \(\(\) =>\s*enqueue\(async \(\) => \{\s*await reconnect\(\);\s*await applySqliteConnectionPragmas\(execute\);/s);
   });
 });

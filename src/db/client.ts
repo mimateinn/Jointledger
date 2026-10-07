@@ -187,10 +187,21 @@ function serializeSqliteClient(client: Client) {
         const commit = tx.commit.bind(tx);
         const rollback = tx.rollback.bind(tx);
         const closeTx = (tx as { close?: () => void }).close?.bind(tx);
-        const finish = async (op: () => ReturnType<typeof commit>) => {
+        let settled = false;
+        let commitError: unknown;
+        const finish = async (op: () => ReturnType<typeof commit>, kind: "commit" | "rollback") => {
+          if (settled && kind === "rollback") {
+            if (commitError) {
+              throw commitError;
+            }
+            return undefined as Awaited<ReturnType<typeof commit>>;
+          }
           try {
             return await op();
           } catch (error) {
+            if (kind === "commit") {
+              commitError = error;
+            }
             try {
               closeTx?.();
             } catch {
@@ -201,18 +212,20 @@ function serializeSqliteClient(client: Client) {
             } catch {
               // still surface the original error
             }
-            throw error;
+            throw kind === "rollback" && commitError ? commitError : error;
           } finally {
+            settled = true;
             release();
           }
         };
-        tx.commit = () => finish(commit);
-        tx.rollback = () => finish(rollback);
+        tx.commit = () => finish(commit, "commit");
+        tx.rollback = () => finish(rollback, "rollback");
         if (closeTx) {
           (tx as { close: () => void }).close = () => {
             try {
               return closeTx();
             } finally {
+              settled = true;
               release();
             }
           };

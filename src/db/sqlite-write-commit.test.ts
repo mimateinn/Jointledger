@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
@@ -236,6 +236,46 @@ describe("sqlite write commit", () => {
     },
     20_000,
   );
+
+  it("closes the tx handle after a failed COMMIT so the next write still persists", async () => {
+    const src = readFileSync(new URL("./client.ts", import.meta.url), "utf8");
+    expect(src).toMatch(/closeTx\?\.\(\)/);
+    expect(src).toMatch(/tx\.commit = \(\) => finish\(commit, "commit"\)/);
+
+    const store = createDrizzleStore();
+    const { book } = await createBook(store, {
+      name: "測試簿",
+      createdByUserId: "user-demo",
+      creatorDisplayName: "小明",
+      creatorEmail: "demo@example.com",
+    });
+    const nvda = await addWatchItem(book.id, "NVDA");
+    const db = getDb();
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(sql`PRAGMA defer_foreign_keys = ON`);
+        await tx.execute(sql`
+          INSERT INTO quotes (
+            instrument_id, last, percent_change, previous_close, quoted_at, fetched_at, delay_seconds, status, source
+          ) VALUES ('missing-instrument', null, null, null, null, 1, 900, 'empty', 'yahoo')
+        `);
+      });
+      throw new Error("expected COMMIT FOREIGN KEY failure");
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("expected COMMIT")) {
+        throw error;
+      }
+      const message = errorChain(error);
+      expect(message).toMatch(/FOREIGN KEY|foreign key/i);
+      expect(message).not.toMatch(/TRANSACTION_CLOSED/i);
+      expect(message).not.toMatch(/BUSY/i);
+    }
+
+    const second = await settle(setWatchMuted(book.id, nvda.id, true));
+    expect(second.ok).toBe(true);
+    await assertCommittedMute(url, nvda.id);
+    await assertExternalWriterUnblocked(url);
+  });
 
   it("throws on nested getDb().transaction while a transaction is open", async () => {
     const db = getDb();

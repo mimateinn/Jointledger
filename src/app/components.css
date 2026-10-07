@@ -214,8 +214,11 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
   }
   .toast-host,
   .toast {
-    top: calc(var(--tape-h) + var(--sp-3) + env(safe-area-inset-top));
+    top: calc(var(--tape-h) + env(safe-area-inset-top) + var(--sp-2));
     bottom: auto;
+  }
+  body:has(.toast) main.main {
+    padding-top: calc(var(--page-pad) + var(--toast-reserve));
   }
 }
 @media (min-width: 801px) { .toast { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }

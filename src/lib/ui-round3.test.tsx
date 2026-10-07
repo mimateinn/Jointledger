@@ -93,10 +93,41 @@ describe("round 3 layout behaviour", () => {
   });
 
   it("keeps extra main padding-bottom and leaves the hidden watch layout non-interactive", async () => {
-    const css = src("src/app/components.css") + src("src/app/globals.css");
-    expect(css).toMatch(
-      /main\.main \{ padding(?:-bottom)?:.*var\(--bottom-bar-h\).*8rem/,
+    const globals = src("src/app/globals.css");
+    const match = globals.match(
+      /@media \(max-width: 800px\) \{\s*main\.main \{\s*padding-bottom:\s*([^;]+);/,
     );
+    expect(match?.[1]).toMatch(/var\(--bottom-bar-h\).*8rem/);
+    const decl = (match?.[1] ?? "").replace(/env\([^)]+\)/g, "0px");
+    expect(decl).toContain("8rem");
+
+    document.documentElement.style.fontSize = "16px";
+    const resolved = decl
+      .replace(/var\(--bottom-bar-h\)/g, "56px")
+      .replace(/var\(--sp-6\)/g, "24px")
+      .replace(/([0-9.]+)rem/g, (_, n) => `${Number(n) * 16}px`);
+    const style = document.createElement("style");
+    style.textContent = `main.main { padding-bottom: ${resolved}; }`;
+    document.head.appendChild(style);
+    const main = document.createElement("main");
+    main.className = "main";
+    document.body.appendChild(main);
+    let paddingBottom = getComputedStyle(main).paddingBottom;
+    if (!Number.isFinite(parseFloat(paddingBottom))) {
+      const sum = resolved
+        .replace(/^calc\(/, "")
+        .replace(/\)$/, "")
+        .split("+")
+        .map((part) => parseFloat(part.trim()))
+        .reduce((a, b) => a + b, 0);
+      main.style.paddingBottom = `${sum}px`;
+      paddingBottom = getComputedStyle(main).paddingBottom;
+    }
+    const px = parseFloat(paddingBottom);
+    expect(Number.isFinite(px), `computed padding-bottom was ${paddingBottom}`).toBe(true);
+    expect(px).toBeGreaterThan(56 + 24 + 80);
+    style.remove();
+    main.remove();
 
     const { container } = render(<WatchlistPanel items={rows} />);
     await waitFor(() => {

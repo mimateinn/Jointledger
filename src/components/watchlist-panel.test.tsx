@@ -96,6 +96,7 @@ describe("watchlist mute pending", () => {
     await waitFor(() => {
       expect(buttons[0]!.getAttribute("aria-busy")).toBe("true");
     });
+    expect(buttons[0]!.disabled).toBe(true);
     expect(buttons[1]!.getAttribute("aria-busy")).not.toBe("true");
     expect(buttons[1]!.disabled).toBe(false);
     expect(buttons[1]!.textContent).toContain("靜音新聞");
@@ -164,15 +165,12 @@ describe("watchlist mute pending", () => {
     expect(button.textContent).toContain("恢復新聞");
   });
 
-  it("does not let a stale mute response overwrite a newer toggle", async () => {
+  it("holds the in-flight ref until the action settles so a second click cannot start", async () => {
     let rejectFirst!: (error: Error) => void;
     const first = new Promise<never>((_, reject) => {
       rejectFirst = reject;
     });
-    const muteAction = vi
-      .fn()
-      .mockImplementationOnce(() => first)
-      .mockImplementationOnce(async () => ({}));
+    const muteAction = vi.fn().mockImplementation(() => first);
     render(<WatchActions row={rows[0]!} muteAction={muteAction} />);
 
     const button = screen.getByRole("button", { name: "靜音新聞" });
@@ -182,23 +180,62 @@ describe("watchlist mute pending", () => {
     await waitFor(() => {
       expect(muteAction).toHaveBeenCalledTimes(1);
     });
+    await waitFor(() => {
+      expect(button.disabled).toBe(true);
+    });
     await act(async () => {
       await Promise.resolve();
     });
     act(() => {
       fireEvent.click(button);
     });
-    await waitFor(() => {
-      expect(muteAction).toHaveBeenCalledTimes(2);
-    });
-    expect(button.textContent).toContain("靜音新聞");
+    expect(muteAction).toHaveBeenCalledTimes(1);
 
     rejectFirst(new Error("aborted"));
     await waitFor(() => {
       expect(button.disabled).toBe(false);
     });
     expect(button.textContent).toContain("靜音新聞");
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("更新失敗");
+  });
+
+  it("does not let a stale result.error overwrite a newer toggle", async () => {
+    let resolveFirst!: (value: { error: string }) => void;
+    const first = new Promise<{ error: string }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const muteAction = vi
+      .fn()
+      .mockImplementationOnce(() => first)
+      .mockImplementationOnce(async () => ({}));
+    render(
+      <>
+        <WatchActions row={rows[0]!} muteAction={muteAction} />
+        <WatchActions row={{ ...rows[0]!, id: "w1-b" }} muteAction={muteAction} />
+      </>,
+    );
+
+    const buttons = screen.getAllByRole("button", { name: "靜音新聞" });
+    act(() => {
+      fireEvent.click(buttons[0]!);
+    });
+    await waitFor(() => {
+      expect(muteAction).toHaveBeenCalledTimes(1);
+    });
+    act(() => {
+      fireEvent.click(buttons[1]!);
+    });
+    await waitFor(() => {
+      expect(muteAction).toHaveBeenCalledTimes(2);
+    });
+    expect(buttons[1]!.textContent).toContain("恢復新聞");
+    resolveFirst({ error: "SQLITE_BUSY: database is locked" });
+    await waitFor(() => {
+      expect(buttons[0]!.disabled).toBe(false);
+    });
+    expect(buttons[1]!.textContent).toContain("恢復新聞");
+    expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
   });
 
   it("reverts the mute label and toasts 更新失敗 when the action returns a raw server error", async () => {

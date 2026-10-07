@@ -10,6 +10,21 @@ import { getDb, resetDbClients } from "./client";
 
 const prevUrl = process.env.DATABASE_URL;
 
+function errorChain(error: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+  for (let i = 0; i < 5 && current; i += 1) {
+    if (current instanceof Error) {
+      parts.push(current.message);
+      current = current.cause;
+      continue;
+    }
+    parts.push(String(current));
+    break;
+  }
+  return parts.join(" | ");
+}
+
 describe("sqlite transaction queue", () => {
   let dir: string;
 
@@ -67,6 +82,75 @@ describe("sqlite transaction queue", () => {
     },
     15_000,
   );
+
+  it("queues two overlapping transactions, one with an await inside, and both succeed", async () => {
+    const db = getDb();
+    let firstInside = false;
+    let releaseInner!: () => void;
+    const inner = new Promise<void>((resolve) => {
+      releaseInner = resolve;
+    });
+    const first = db.transaction(async (tx) => {
+      await tx.execute(
+        sql`INSERT INTO users (id, display_name, email, created_at) VALUES ('u-await-1', 'await-1', null, 1)`,
+      );
+      firstInside = true;
+      await inner;
+      return "first";
+    });
+    const started = Date.now();
+    while (!firstInside && Date.now() - started < 2000) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    expect(firstInside).toBe(true);
+    const second = db.transaction(async (tx) => {
+      await tx.execute(
+        sql`INSERT INTO users (id, display_name, email, created_at) VALUES ('u-await-2', 'await-2', null, 1)`,
+      );
+      return "second";
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    releaseInner();
+    await expect(Promise.all([first, second])).resolves.toEqual(["first", "second"]);
+  });
+
+  it("does not map UNIQUE/FK/CHECK inside a transaction to BUSY and keeps the COMMIT error", async () => {
+    const db = getDb();
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`INSERT INTO users (id, display_name, email, created_at) VALUES ('u-unique', 'unique-user', null, 1)`,
+      );
+    });
+    try {
+      await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`INSERT INTO users (id, display_name, email, created_at) VALUES ('u-unique-2', 'unique-user', null, 1)`,
+        );
+      });
+      throw new Error("expected UNIQUE failure");
+    } catch (error) {
+      const message = errorChain(error);
+      expect(message).toMatch(/UNIQUE|unique/i);
+      expect(message).not.toMatch(/BUSY|TRANSACTION_CLOSED/i);
+    }
+
+    await expect(
+      db.transaction(async (tx) => {
+        await tx.execute(sql`PRAGMA defer_foreign_keys = ON`);
+        await tx.execute(sql`
+          INSERT INTO quotes (
+            instrument_id, last, percent_change, previous_close, quoted_at, fetched_at, delay_seconds, status, source
+          ) VALUES ('missing-instrument', null, null, null, null, 1, 900, 'empty', 'yahoo')
+        `);
+      }),
+    ).rejects.toSatisfy((error) => /FOREIGN KEY|foreign key/i.test(errorChain(error)));
+
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`INSERT INTO users (id, display_name, email, created_at) VALUES ('u-after-check', 'after-check', null, 1)`,
+      );
+    });
+  });
 
   it("throws a clear error on true re-entrant nesting and still queues a sibling", async () => {
     const db = getDb();
