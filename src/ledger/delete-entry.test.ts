@@ -130,6 +130,102 @@ describe("deleteEntry", () => {
     expect(after.lots[0]?.quantity).toBe("10.00000000");
   });
 
+  it("rejects deleting a buy when a later sell of that instrument remains", async () => {
+    const store = createMemoryStore();
+    const { book, member, account } = await createBook(store, {
+      name: "測試簿",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Member A",
+    });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: member.id,
+      ledgerAccountId: account.id,
+      amountHkd: "1000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    const buy = await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "AAPL",
+      quantity: "10",
+      price: "50",
+      occurredOn: "2024-02-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "AAPL",
+      quantity: "10",
+      price: "60",
+      occurredOn: "2024-03-01",
+      side: "sell",
+    });
+
+    const before = await snap(store, book.id);
+    expect(before.ledger.cashUsd.toFixed(2)).toBe("1100.00");
+    await expect(deleteEntry(store, { bookId: book.id, kind: "trade", id: buy.trade.id })).rejects.toThrow(
+      "之後仲有呢隻嘅賣出／拆股／調整，要先刪或處理嗰啲先可以刪呢筆。",
+    );
+    const after = await snap(store, book.id);
+    expect(after.trades).toHaveLength(2);
+    expect(after.ledger.cashUsd.toFixed(2)).toBe("1100.00");
+  });
+
+  it("allows deleting a buy when leftover buys still cover later sells", async () => {
+    const store = createMemoryStore();
+    const { book, member, account } = await createBook(store, {
+      name: "測試簿",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Member A",
+    });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: member.id,
+      ledgerAccountId: account.id,
+      amountHkd: "2000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    const first = await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "AAPL",
+      quantity: "10",
+      price: "50",
+      occurredOn: "2024-02-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "AAPL",
+      quantity: "10",
+      price: "50",
+      occurredOn: "2024-02-15",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "AAPL",
+      quantity: "10",
+      price: "60",
+      occurredOn: "2024-03-01",
+      side: "sell",
+    });
+
+    await deleteEntry(store, { bookId: book.id, kind: "trade", id: first.trade.id });
+    const after = await snap(store, book.id);
+    expect(after.trades.filter((row) => row.side === "buy")).toHaveLength(1);
+    expect(after.trades.some((row) => row.side === "sell")).toBe(true);
+    expect(after.ledger.cashUsd.toFixed(2)).toBe("2100.00");
+  });
+
   it("rejects an id that is not in the book", async () => {
     const store = createMemoryStore();
     const { book } = await createBook(store, {

@@ -238,6 +238,18 @@ export async function applyImport(
     }
 
     if (trade.side === "adjustment") {
+      const amountUsd = trade.buyTotal && trade.buyTotal !== "0" ? trade.buyTotal : null;
+      const signed = amountUsd ? money(amountUsd) : null;
+      const legs =
+        trade.book === "joint" && signed && !signed.eq(0)
+          ? jointLegs(
+              schedule,
+              "0",
+              moneyString(signed.abs()),
+              lookup,
+              signed.gt(0) ? "proceeds" : "cost",
+            )
+          : undefined;
       await w.createAdjustment(store, {
         bookId,
         ledgerAccountId: accountId,
@@ -245,7 +257,8 @@ export async function applyImport(
         occurredOn: trade.buyDate,
         note: trade.note?.trim() || "匯入調整",
         symbol: trade.symbol,
-        amountUsd: trade.buyTotal && trade.buyTotal !== "0" ? trade.buyTotal : null,
+        amountUsd,
+        legs,
       });
       tradeCount += 1;
       rowLog.push({

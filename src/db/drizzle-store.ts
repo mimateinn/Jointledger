@@ -229,11 +229,11 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
       }
       await db.delete(trades).where(and(eq(trades.bookId, bookId), inArray(trades.id, unused)));
     },
-    async deleteCashFlows(ids: string[]) {
+    async deleteCashFlows(bookId: string, ids: string[]) {
       if (ids.length === 0) {
         return;
       }
-      await db.delete(cashFlows).where(inArray(cashFlows.id, ids));
+      await db.delete(cashFlows).where(and(eq(cashFlows.bookId, bookId), inArray(cashFlows.id, ids)));
     },
   };
 }

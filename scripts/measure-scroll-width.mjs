@@ -113,8 +113,11 @@ for (const item of PAGES) {
       await page.addStyleTag({
         content: [
           ".tape{overflow:visible!important}",
+          ".tape-lead{display:flex!important}",
           ".tape-lead,.tape-pin{flex:0 0 auto!important;flex-shrink:0!important;min-width:max-content!important;max-width:none!important;overflow:visible!important}",
-          ".tape-lead .tape-name,.tape-pin .chip-delay{display:inline-flex!important}",
+          ".tape-lead .tape-name,.tape-lead .tape-proxy,.tape-pin .chip-delay{display:inline-flex!important}",
+          ".tape-viewport{min-width:0!important;flex:1 1 auto!important}",
+          ".tape-cell{white-space:nowrap!important;padding:0 16px!important}",
         ].join(""),
       });
     }

@@ -154,10 +154,10 @@ export function createMemoryStore(): LedgerStore & {
         }
       }
     },
-    async deleteCashFlows(ids: string[]) {
+    async deleteCashFlows(bookId: string, ids: string[]) {
       const remove = new Set(ids);
       for (let i = cashFlows.length - 1; i >= 0; i -= 1) {
-        if (remove.has(cashFlows[i].id)) {
+        if (cashFlows[i].bookId === bookId && remove.has(cashFlows[i].id)) {
           cashFlows.splice(i, 1);
         }
       }

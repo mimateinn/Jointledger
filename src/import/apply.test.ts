@@ -254,4 +254,54 @@ describe("M4 import apply", () => {
     expect(lots[0]?.quantity).toBe("20.00000000");
     expect(lots[0]?.splitLabel).toBe("2:1");
   });
+
+  it("imports a joint dividend split by the 0.6/0.4 schedule", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Own", "Buy Date", "Buy Price", "Buy Total", "Kind"],
+      rows: [["AAPL", "", "F", "2024-07-01", "", "10", "股息"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.trades[0]?.book).toBe("joint");
+    expect(plan.trades[0]?.side).toBe("adjustment");
+
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.6" },
+        { memberId: sze.member.id, percent: "0.4" },
+      ],
+    });
+
+    await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: book.id,
+      decisions: { ...importAll(plan), reimportMode: "append" },
+    });
+    const trades = await store.listTrades(book.id);
+    const allocations = await store.listTradeAllocations(book.id);
+    const div = trades.find((row) => row.side === "adjustment");
+    expect(div).toBeTruthy();
+    const legs = allocations.filter((row) => row.tradeId === div?.id);
+    expect(legs).toHaveLength(2);
+    expect(legs.find((row) => row.memberId === hey.id)?.proceedsUsd).toBe("6.00000000");
+    expect(legs.find((row) => row.memberId === sze.member.id)?.proceedsUsd).toBe("4.00000000");
+  });
 });
