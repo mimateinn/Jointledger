@@ -30,28 +30,63 @@ a {
   color: var(--link-hover);
 }
 
-:root { --sb-w: 12px; }
-::-webkit-scrollbar { width: 12px; height: 12px; }
-::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
-::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
-::-webkit-scrollbar-thumb {
-  background-color: var(--sb-thumb);
-  border: 4px solid transparent;
-  border-radius: 999px;
+/* 12px gutter, inset capsule thumb. Quiet at rest; orange while the pointer
+   is on the thumb. Do not set scrollbar-width/color — Chromium then drops
+   the webkit rules. */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  inline-size: var(--sb-w);
+  block-size: var(--sb-w);
+}
+html::-webkit-scrollbar-track,
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-track,
+body::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: none;
+}
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button {
+  inline-size: 0;
+  block-size: 0;
+  display: none;
+}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
   background-clip: padding-box;
-  min-height: 36px;
-  min-width: 36px;
+  border: var(--sp-1) solid transparent;
+  border-radius: var(--radius-pill);
+  min-block-size: var(--sp-8);
+  min-inline-size: var(--sp-8);
 }
-:hover::-webkit-scrollbar-thumb { background-color: var(--sb-thumb-area); }
-::-webkit-scrollbar-thumb:hover {
+html:hover::-webkit-scrollbar-thumb,
+body:hover::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--sb-thumb-area);
+}
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
   border-width: 3px;
-  background-image: linear-gradient(180deg, var(--or-500), var(--or-400));
+  background-image: linear-gradient(to bottom, var(--ink), var(--ink-hover));
+  background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:horizontal:hover {
-  background-image: linear-gradient(90deg, var(--or-500), var(--or-400));
+html::-webkit-scrollbar-thumb:horizontal:hover,
+body::-webkit-scrollbar-thumb:horizontal:hover,
+*::-webkit-scrollbar-thumb:horizontal:hover {
+  background-image: linear-gradient(to right, var(--ink), var(--ink-hover));
+  background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:active {
-  background-image: linear-gradient(180deg, var(--or-600), var(--or-500));
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active,
+*::-webkit-scrollbar-thumb:active {
+  background-image: linear-gradient(to bottom, var(--ink-press), var(--ink));
+  background-clip: padding-box;
 }
 
 button,

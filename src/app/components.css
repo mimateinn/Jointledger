@@ -202,6 +202,12 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
   padding: var(--sp-3) 0 var(--sp-3) var(--sp-4);
   box-shadow: none;
 }
+p.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+}
 .ok { color: var(--st-ok); }
 
 /* Page chrome */

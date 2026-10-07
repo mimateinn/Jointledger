@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "多人股票記帳。純粹記帳，不連接券商。",
     start_url: "/",
     display: "standalone",
-    background_color: "#121411",
-    theme_color: "#121411",
+    background_color: "#0e1320",
+    theme_color: "#0e1320",
     lang: "zh-Hant",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },

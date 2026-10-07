@@ -52,9 +52,9 @@ export function KlineChart({
       return;
     }
 
-    const bg = readToken("--bg", "#121411");
-    const text = readToken("--muted", "#9aa196");
-    const border = readToken("--border", "#2c2f2a");
+    const bg = readToken("--bg", "#0e1320");
+    const text = readToken("--muted", "#8f9db8");
+    const border = readToken("--border", "#2a3550");
     const up = readToken("--up", "#42a375");
     const down = readToken("--down", "#e6746c");
     const format = priceFormatFromBars(bars);

@@ -109,7 +109,7 @@ export function EntryForm({
         <div className="col-7">
       {tab === "入金" ? (
         <form key="deposit" className="card form-grid" action={depositAction}>
-          <p className="banner">
+          <p className="notice">
             <Icon name="info" />
             {COPY.first}
           </p>
