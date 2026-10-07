@@ -96,6 +96,31 @@ for (const width of WIDTHS) {
   if (INJECT_WATCH_HEIGHT_20) {
     await page.addStyleTag({ content: ".watch-list .btn { height: 20px !important; }" });
   }
+  const layout = await page.evaluate(() => {
+    const main = document.querySelector("main.main");
+    const table = document.querySelector(".watch-table");
+    const tableStyle = table ? getComputedStyle(table) : null;
+    const pad = main ? Number.parseFloat(getComputedStyle(main).paddingBottom) : 0;
+    return {
+      paddingBottom: pad,
+      tableDisplay: tableStyle?.display ?? "missing",
+      tableButtons: table ? table.querySelectorAll("button").length : -1,
+    };
+  });
+  if (layout.paddingBottom < 180) {
+    bad += 1;
+    console.log(`watch-actions@${width} main padding-bottom=${layout.paddingBottom} FAIL`);
+  } else {
+    console.log(`watch-actions@${width} main padding-bottom=${Math.round(layout.paddingBottom)} ok`);
+  }
+  if (layout.tableDisplay !== "none" || layout.tableButtons !== 0) {
+    bad += 1;
+    console.log(
+      `watch-actions@${width} hidden table display=${layout.tableDisplay} buttons=${layout.tableButtons} FAIL`,
+    );
+  } else {
+    console.log(`watch-actions@${width} hidden table display=none buttons=0 ok`);
+  }
   const measured = await page.evaluate(measureWatchActions);
   if (measured.length === 0) {
     bad += 1;

@@ -10,7 +10,7 @@ import {
   saveRefreshState,
   upsertInstruments,
 } from "./store";
-import { fetchPublicQuotes, quotesVia } from "./public-source";
+import { fetchPublicQuotes, quotesVia, type PublicQuoteResult } from "./public-source";
 import { fetchTwelveDataBatch } from "./twelve-data";
 import type { CanonInstrument, QuoteRow, QuoteStatus, UpstreamOutcome } from "./types";
 
@@ -73,12 +73,22 @@ function needsFetch(row: QuoteRow | undefined, now: Date, ttl: number, hasKey: b
   return now.getTime() - row.fetchedAt.getTime() >= ttl;
 }
 
-async function refreshUniverse(
+type PreparedRefresh = {
+  ids: Map<string, string>;
+  previous: Map<string, QuoteRow>;
+  due: CanonInstrument[];
+  via: "twelve_data" | "public";
+  today: string;
+  creditsUsed: number;
+  state: Awaited<ReturnType<typeof loadRefreshState>>;
+};
+
+async function prepareRefresh(
   instruments: CanonInstrument[],
   now: Date,
   tx: PackLockTx,
   forceDisplays: readonly string[] = [],
-): Promise<void> {
+): Promise<PreparedRefresh | null> {
   const ids = await upsertInstruments(instruments, tx);
   const previous = await loadQuoteRows(
     instruments.map((row) => row.display),
@@ -89,10 +99,9 @@ async function refreshUniverse(
   const creditsUsed = state.creditUtcDate === today ? state.creditsUsed : 0;
   const ttl = packTtlMs(now);
   const cap = dailyCreditCap();
-
   const via = quotesVia();
   if (via === "twelve_data" && state.rateLimitedUntil && state.rateLimitedUntil.getTime() > now.getTime()) {
-    return;
+    return null;
   }
 
   const forced = new Set(forceDisplays.map((d) => d.trim().toUpperCase()).filter(Boolean));
@@ -131,52 +140,47 @@ async function refreshUniverse(
       },
       tx,
     );
-    return;
+    return null;
   }
 
-  if (via === "twelve_data") {
-    if (creditsUsed + due.length > cap - CREDIT_BUFFER) {
-      return;
-    }
-
-    const { results, rateLimited, credits } = await fetchTwelveDataBatch(due);
-    for (const row of due) {
-      const id = ids.get(row.display);
-      if (!id) {
-        continue;
-      }
-      const outcome = results.get(row.display) ?? { kind: "empty" as const };
-      const persist = outcomeToPersist(outcome, previous.get(row.display), now);
-      await saveQuoteRow(id, { ...persist, fetchedAt: now, source: "twelve_data" }, tx);
-    }
-
-    await saveRefreshState(
-      {
-        lastPackAt: now,
-        rateLimitedUntil: rateLimited ? nextUtcMinute(now) : state.rateLimitedUntil,
-        creditUtcDate: today,
-        creditsUsed: creditsUsed + credits,
-      },
-      tx,
-    );
-    return;
+  if (via === "twelve_data" && creditsUsed + due.length > cap - CREDIT_BUFFER) {
+    return null;
   }
 
-  const publicHits = await fetchPublicQuotes(due);
-  for (const row of due) {
-    const id = ids.get(row.display);
+  return { ids, previous, due, via, today, creditsUsed, state };
+}
+
+async function persistRefresh(
+  prepared: PreparedRefresh,
+  fetched: {
+    results: Map<string, UpstreamOutcome>;
+    rateLimited: boolean;
+    credits: number;
+    publicHits?: Map<string, PublicQuoteResult>;
+  },
+  now: Date,
+  tx: PackLockTx,
+): Promise<void> {
+  for (const row of prepared.due) {
+    const id = prepared.ids.get(row.display);
     if (!id) {
       continue;
     }
-    const hit = publicHits.get(row.display);
+    if (prepared.via === "twelve_data") {
+      const outcome = fetched.results.get(row.display) ?? { kind: "empty" as const };
+      const persist = outcomeToPersist(outcome, prepared.previous.get(row.display), now);
+      await saveQuoteRow(id, { ...persist, fetchedAt: now, source: "twelve_data" }, tx);
+      continue;
+    }
+    const hit = fetched.publicHits?.get(row.display);
     const outcome = hit?.outcome ?? { kind: "empty" as const };
-    const persist = outcomeToPersist(outcome, previous.get(row.display), now);
+    const persist = outcomeToPersist(outcome, prepared.previous.get(row.display), now);
     await saveQuoteRow(
       id,
       {
         ...persist,
         fetchedAt: now,
-        source: hit?.source ?? previous.get(row.display)?.source ?? "twelve_data",
+        source: hit?.source ?? prepared.previous.get(row.display)?.source ?? "twelve_data",
       },
       tx,
     );
@@ -185,9 +189,9 @@ async function refreshUniverse(
   await saveRefreshState(
     {
       lastPackAt: now,
-      rateLimitedUntil: state.rateLimitedUntil,
-      creditUtcDate: today,
-      creditsUsed,
+      rateLimitedUntil: fetched.rateLimited ? nextUtcMinute(now) : prepared.state.rateLimitedUntil,
+      creditUtcDate: prepared.today,
+      creditsUsed: prepared.creditsUsed + fetched.credits,
     },
     tx,
   );
@@ -201,7 +205,28 @@ export async function ensureQuotes(
   const universe = buildUniverse(openLotSymbols);
   const run = async () => {
     try {
-      await withPackLock((tx) => refreshUniverse(universe, now, tx, options?.forceDisplays));
+      const prepared = await withPackLock((tx) =>
+        prepareRefresh(universe, now, tx, options?.forceDisplays),
+      );
+      if (!prepared) {
+        return;
+      }
+      if (prepared.via === "twelve_data") {
+        const { results, rateLimited, credits } = await fetchTwelveDataBatch(prepared.due);
+        await withPackLock((tx) =>
+          persistRefresh(prepared, { results, rateLimited, credits }, now, tx),
+        );
+        return;
+      }
+      const publicHits = await fetchPublicQuotes(prepared.due);
+      await withPackLock((tx) =>
+        persistRefresh(
+          prepared,
+          { results: new Map(), rateLimited: false, credits: 0, publicHits },
+          now,
+          tx,
+        ),
+      );
     } catch {
       // Render last-good / em-dash. Never fail the page.
     }

@@ -214,7 +214,8 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
   }
   .toast-host,
   .toast {
-    bottom: calc(var(--bottom-bar-h) + var(--hit-min) + 4.5rem + env(safe-area-inset-bottom));
+    top: calc(var(--tape-h) + var(--sp-3) + env(safe-area-inset-top));
+    bottom: auto;
   }
 }
 @media (min-width: 801px) { .toast { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }

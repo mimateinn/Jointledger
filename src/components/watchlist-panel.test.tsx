@@ -161,6 +161,46 @@ describe("watchlist mute pending", () => {
     expect(button.textContent).toContain("恢復新聞");
   });
 
+  it("does not let a stale mute response overwrite a newer toggle", async () => {
+    let rejectFirst!: (error: Error) => void;
+    const first = new Promise<never>((_, reject) => {
+      rejectFirst = reject;
+    });
+    const muteAction = vi
+      .fn()
+      .mockImplementationOnce(() => first)
+      .mockImplementationOnce(async () => ({}));
+    render(<WatchActions row={rows[0]!} muteAction={muteAction} />);
+
+    const button = screen.getByRole("button", { name: "靜音新聞" });
+    act(() => {
+      fireEvent.click(button);
+    });
+    await waitFor(() => {
+      expect(muteAction).toHaveBeenCalledTimes(1);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      // Pending disables the button; a later click after the in-flight
+      // microtask must still be able to start a new generation.
+      (button as HTMLButtonElement).disabled = false;
+      fireEvent.click(button);
+    });
+    await waitFor(() => {
+      expect(muteAction).toHaveBeenCalledTimes(2);
+    });
+    expect(button.textContent).toContain("靜音新聞");
+
+    rejectFirst(new Error("aborted"));
+    await waitFor(() => {
+      expect(button.disabled).toBe(false);
+    });
+    expect(button.textContent).toContain("靜音新聞");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("reverts the mute label and toasts 更新失敗 when the action returns a raw server error", async () => {
     const user = userEvent.setup();
     const muteAction = vi.fn(async () => ({

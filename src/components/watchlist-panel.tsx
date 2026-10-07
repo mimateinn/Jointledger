@@ -91,6 +91,9 @@ export function WatchActions({
       return;
     }
     muteInFlight.current = true;
+    queueMicrotask(() => {
+      muteInFlight.current = false;
+    });
     const next = !muted;
     const generation = (muteGen.current += 1);
     setMuteError(null);

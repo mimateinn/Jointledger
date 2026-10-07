@@ -24,5 +24,8 @@ export function humanFormError(raw: string): string {
   if (raw === "調整要寫備註") {
     return "調整要寫備註";
   }
+  if (!/[\u4e00-\u9fff]/.test(raw)) {
+    return "儲存失敗";
+  }
   return raw;
 }

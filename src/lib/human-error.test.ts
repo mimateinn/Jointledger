@@ -9,5 +9,8 @@ describe("humanFormError", () => {
     expect(humanFormError("這代碼未有報價")).toBe("這檔未有報價");
     expect(humanFormError("拆股新股必須大於 0")).toBe("拆股比例不能是零");
     expect(humanFormError("調整要寫備註")).toBe("調整要寫備註");
+    expect(
+      humanFormError("SQLITE_BUSY: INSERT INTO cash_flows (id) VALUES ('550e8400-e29b-41d4-a716-446655440000')"),
+    ).toBe("儲存失敗");
   });
 });

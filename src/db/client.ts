@@ -82,20 +82,16 @@ async function applySqliteConnectionPragmas(execute: Client["execute"]) {
 }
 
 /**
- * libsql 0.15.15 `Sqlite3Client` keeps one live handle in `#db`.
- * `transaction()` runs `BEGIN IMMEDIATE` on that handle and only then
- * sets `#db = null` so the next `#getDb()` opens another connection.
- * A failed BEGIN leaves `#db` pointing at the same handle and does not
- * ROLLBACK. The 6b2f451 wrapper gated work with a shared `prepare`
- * promise (not a mutex), so a plain UPDATE could run on that handle
- * between BEGIN and `#db = null` (or after a busy BEGIN) and later be
- * rolled back by pack-lock / ledger-tx — success in JS, nothing committed.
+ * After SQLITE_BUSY / SQLITE_LOCKED, libsql native 0.5.29 (under
+ * @libsql/client 0.15.15) does not reset the failed statement. That
+ * statement stays active on the handle: later writes return ok but
+ * never commit, and they keep the write lock. A later COMMIT then
+ * gets BUSY and rolls back. ROLLBACK after a failed BEGIN is dead
+ * (inTx is already false). Discard the handle (reconnect + PRAGMAs)
+ * on any execute/batch/BEGIN/COMMIT error before reuse.
  *
- * All client-level execute/batch/transaction/reconnect calls are
- * serialised, and the mutex stays held until that transaction COMMITs
- * or ROLLBACKs. BEGIN errors always ROLLBACK that same handle before
- * reuse. Post-transaction PRAGMAs run on the new handle while the
- * mutex is held.
+ * The queue only covers the client call itself — never the drizzle
+ * callback — so quote fetches must not run inside a transaction.
  */
 function serializeSqliteClient(client: Client) {
   const execute = client.execute.bind(client);
@@ -104,6 +100,7 @@ function serializeSqliteClient(client: Client) {
   const reconnect = client.reconnect?.bind(client);
 
   let tail: Promise<unknown> = Promise.resolve();
+  let txOpen = 0;
   function enqueue<T>(fn: () => Promise<T>): Promise<T> {
     const run = tail.then(fn, fn);
     tail = run.then(
@@ -113,78 +110,79 @@ function serializeSqliteClient(client: Client) {
     return run;
   }
 
+  async function discardHandle() {
+    if (!reconnect) {
+      return;
+    }
+    await reconnect();
+    await applySqliteConnectionPragmas(execute);
+  }
+
+  async function runOrDiscard<T>(work: () => Promise<T>): Promise<T> {
+    try {
+      return await work();
+    } catch (error) {
+      try {
+        await discardHandle();
+      } catch {
+        // still surface the original error
+      }
+      throw error;
+    }
+  }
+
   tail = applySqliteConnectionPragmas(execute);
 
   client.execute = ((stmt: Parameters<Client["execute"]>[0], args?: Parameters<Client["execute"]>[1]) =>
-    enqueue(() => execute(stmt, args))) as Client["execute"];
+    enqueue(() => runOrDiscard(() => execute(stmt, args)))) as Client["execute"];
   if (batch) {
     client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
-      enqueue(() => batch(stmts, mode))) as Client["batch"];
+      enqueue(() => runOrDiscard(() => batch(stmts, mode)))) as Client["batch"];
   }
-  client.transaction = ((...args: unknown[]) => {
-    let released = false;
-    let release = () => {};
-    const held = new Promise<void>((resolve) => {
-      release = () => {
-        if (released) {
-          return;
-        }
-        released = true;
-        resolve();
-      };
-    });
-    const run = async () => {
+  client.transaction = ((...args: unknown[]) =>
+    enqueue(async () => {
+      if (txOpen > 0) {
+        throw new Error("nested SQLite transaction is not supported");
+      }
+      txOpen += 1;
       try {
         const tx = await (transaction as (...inner: unknown[]) => ReturnType<Client["transaction"]>)(...args);
-        try {
-          await applySqliteConnectionPragmas(execute);
-        } catch (error) {
-          try {
-            await tx.rollback();
-          } catch {
-            // already closed
-          }
-          throw error;
-        }
+        await applySqliteConnectionPragmas(execute);
         const commit = tx.commit.bind(tx);
         const rollback = tx.rollback.bind(tx);
+        const closeTx = (tx as { close?: () => void }).close?.bind(tx);
         const finish = async (op: () => ReturnType<typeof commit>) => {
           try {
             return await op();
+          } catch (error) {
+            try {
+              closeTx?.();
+            } catch {
+              // tx handle already closed
+            }
+            try {
+              await discardHandle();
+            } catch {
+              // still surface the original error
+            }
+            throw error;
           } finally {
-            release();
+            txOpen = Math.max(0, txOpen - 1);
           }
         };
         tx.commit = () => finish(commit);
         tx.rollback = () => finish(rollback);
-        const close = tx.close?.bind(tx);
-        if (close) {
-          tx.close = () => {
-            try {
-              return close();
-            } finally {
-              release();
-            }
-          };
-        }
         return tx;
       } catch (error) {
+        txOpen = Math.max(0, txOpen - 1);
         try {
-          await execute("ROLLBACK");
+          await discardHandle();
         } catch {
-          // not in a transaction
+          // still surface the original error
         }
-        release();
         throw error;
       }
-    };
-    const started = tail.then(run, run);
-    tail = started.then(
-      () => held,
-      () => held,
-    );
-    return started;
-  }) as Client["transaction"];
+    })) as Client["transaction"];
   if (reconnect) {
     client.reconnect = (() =>
       enqueue(async () => {

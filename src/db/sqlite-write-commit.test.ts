@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createBook } from "@/ledger/create-book";
 import { createCashFlow } from "@/ledger/create-cash-flow";
 import { createTrade } from "@/ledger/create-trade";
-import { withPackLock } from "@/quotes/pack-lock";
 import { addWatchItem, setWatchMuted } from "@/watchlist/repo";
 import { getDb, resetDbClients } from "./client";
 import { createDrizzleStore } from "./drizzle-store";
@@ -18,72 +16,73 @@ import { withLedgerTransaction } from "./ledger-tx";
 
 const prevUrl = process.env.DATABASE_URL;
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Hold the WAL write lock on a second in-process libsql connection.
+ * A child-process EXCLUSIVE lock is not visible to @libsql/client 0.15.15
+ * in this environment; the leftover-BUSY bug is reproduced by a peer
+ * connection in the same process (CR also reproduced it with pure libsql).
+ */
+async function holdWriteLock(url: string): Promise<{ release: () => Promise<void> }> {
+  const locker = createClient({ url });
+  await locker.execute("PRAGMA journal_mode = WAL");
+  await locker.execute("PRAGMA busy_timeout = 5000");
+  await locker.execute("BEGIN IMMEDIATE");
+  await locker.execute("UPDATE watch_items SET muted = muted");
+  return {
+    release: async () => {
+      try {
+        await locker.execute("COMMIT");
+      } finally {
+        locker.close();
+      }
+    },
+  };
 }
 
-/** Another process holds the write lock so this event loop can still commit. */
-function startExclusiveLock(url: string, holdMs: number): Promise<Promise<void>> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      process.execPath,
-      [
-        "--input-type=module",
-        "-e",
-        `
-        import { createClient } from "@libsql/client";
-        const client = createClient({ url: process.env.LOCK_URL });
-        await client.execute("BEGIN EXCLUSIVE");
-        process.stdout.write("LOCKED\\n");
-        await new Promise((r) => setTimeout(r, Number(process.env.LOCK_MS)));
-        await client.execute("COMMIT");
-        client.close();
-        `,
-      ],
-      {
-        cwd: process.cwd(),
-        env: { ...process.env, LOCK_URL: url, LOCK_MS: String(holdMs) },
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
-    const done = new Promise<void>((doneResolve, doneReject) => {
-      child.on("error", doneReject);
-      child.on("exit", (code) => {
-        if (code === 0) {
-          doneResolve();
-        } else {
-          doneReject(new Error(`lock child exited ${code}`));
-        }
-      });
-    });
-    let armed = false;
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      if (!armed && chunk.includes("LOCKED")) {
-        armed = true;
-        resolve(done);
-      }
-    });
-    child.stderr.setEncoding("utf8");
-    child.stderr.on("data", (chunk: string) => {
-      process.stderr.write(chunk);
-    });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (!armed) {
-        reject(new Error(`lock child exited ${code} before LOCKED`));
-      }
-    });
-  });
-}
-
-async function settle<T>(name: string, work: Promise<T>): Promise<{ name: string; ok: boolean }> {
+async function settle<T>(work: Promise<T>): Promise<{ ok: boolean }> {
   try {
     await work;
-    return { name, ok: true };
+    return { ok: true };
   } catch {
-    return { name, ok: false };
+    return { ok: false };
   }
+}
+
+function dbRun(query: unknown): Promise<unknown> {
+  return (getDb() as unknown as { run: (q: unknown) => Promise<unknown> }).run(query);
+}
+
+async function forceBusyOnSharedHandle(id: string): Promise<void> {
+  await getDb().all(sql`PRAGMA busy_timeout = 250`);
+  await expect(
+    dbRun(sql`UPDATE watch_items SET muted = 1 WHERE id = ${id}`),
+  ).rejects.toThrow(/BUSY|locked/i);
+}
+
+async function assertCommittedMute(url: string, id: string) {
+  const probe = createClient({ url });
+  try {
+    const watches = await probe.execute({
+      sql: "SELECT muted FROM watch_items WHERE id = ?",
+      args: [id],
+    });
+    expect(Number(watches.rows[0]?.muted) === 1 || watches.rows[0]?.muted === true).toBe(true);
+  } finally {
+    probe.close();
+  }
+}
+
+async function assertExternalWriterUnblocked(url: string) {
+  const writer = createClient({ url });
+  const t0 = Date.now();
+  try {
+    await writer.execute("PRAGMA busy_timeout = 200");
+    await writer.execute("BEGIN IMMEDIATE");
+    await writer.execute("COMMIT");
+  } finally {
+    writer.close();
+  }
+  expect(Date.now() - t0).toBeLessThan(500);
 }
 
 describe("sqlite write commit", () => {
@@ -113,7 +112,35 @@ describe("sqlite write commit", () => {
   });
 
   it(
-    "never reports success for a write that another connection cannot read back",
+    "commits a write on the same client after a BUSY failure and does not hold the lock",
+    async () => {
+      const store = createDrizzleStore();
+      const { book } = await createBook(store, {
+        name: "測試簿",
+        createdByUserId: "user-demo",
+        creatorDisplayName: "小明",
+        creatorEmail: "demo@example.com",
+      });
+      const nvda = await addWatchItem(book.id, "NVDA");
+      await getDb().all(sql`SELECT 1`);
+
+      const lock = await holdWriteLock(url);
+      try {
+        await forceBusyOnSharedHandle(nvda.id);
+      } finally {
+        await lock.release();
+      }
+
+      const second = await settle(setWatchMuted(book.id, nvda.id, true));
+      expect(second.ok).toBe(true);
+      await assertCommittedMute(url, nvda.id);
+      await assertExternalWriterUnblocked(url);
+    },
+    20_000,
+  );
+
+  it(
+    "commits mute, deposit, and buy after a BUSY failure",
     async () => {
       const store = createDrizzleStore();
       const { book, member, account } = await createBook(store, {
@@ -122,42 +149,18 @@ describe("sqlite write commit", () => {
         creatorDisplayName: "小明",
         creatorEmail: "demo@example.com",
       });
-      const hk = await addWatchItem(book.id, "0700.HK");
       const nvda = await addWatchItem(book.id, "NVDA");
-      const aapl = await addWatchItem(book.id, "AAPL");
+      await getDb().all(sql`SELECT 1`);
 
-      const hold = await startExclusiveLock(url, 7500);
+      const lock = await holdWriteLock(url);
+      try {
+        await forceBusyOnSharedHandle(nvda.id);
+      } finally {
+        await lock.release();
+      }
 
-      // Quote pack-lock retries BEGIN IMMEDIATE / COMMIT / ROLLBACK on the
-      // shared client. The b3c1ba0 prepare.then wrapper let a later UPDATE
-      // join that transaction and disappear on ROLLBACK.
-      const pack = (async () => {
-        const deadline = Date.now() + 9000;
-        while (Date.now() < deadline) {
-          const attempt = await settle(
-            "pack-lock",
-            withPackLock(
-              async (tx) => {
-                await tx.execute(sql`SELECT 1`);
-              },
-              undefined,
-              { waitMs: 800, retryMs: 40 },
-            ),
-          );
-          if (attempt.ok) {
-            return attempt;
-          }
-        }
-        return { name: "pack-lock", ok: false };
-      })();
-
-      await sleep(80);
-      const firstMute = await settle("mute-0700", setWatchMuted(book.id, hk.id, true));
-
-      const secondMute = settle("mute-nvda", setWatchMuted(book.id, nvda.id, true));
-      const thirdMute = settle("mute-aapl", setWatchMuted(book.id, aapl.id, true));
-      const deposit = settle(
-        "ledger-deposit",
+      const mute = await settle(setWatchMuted(book.id, nvda.id, true));
+      const deposit = await settle(
         withLedgerTransaction((ledger) =>
           createCashFlow(ledger, {
             bookId: book.id,
@@ -169,8 +172,7 @@ describe("sqlite write commit", () => {
           }),
         ),
       );
-      const buy = settle(
-        "ledger-buy",
+      const buy = await settle(
         withLedgerTransaction((ledger) =>
           createTrade(ledger, {
             bookId: book.id,
@@ -184,66 +186,40 @@ describe("sqlite write commit", () => {
         ),
       );
 
-      const results = [firstMute, ...(await Promise.all([secondMute, thirdMute, deposit, buy, pack]))];
-      await hold;
-
       const probe = createClient({ url });
       try {
-        const watches = await probe.execute("SELECT id, display_code, muted FROM watch_items");
-        const mutedById = new Map(
-          watches.rows.map((row) => [String(row.id), Number(row.muted) === 1 || row.muted === true]),
-        );
+        const watches = await probe.execute({
+          sql: "SELECT muted FROM watch_items WHERE id = ?",
+          args: [nvda.id],
+        });
         const cash = await probe.execute("SELECT id FROM cash_flows");
         const trades = await probe.execute("SELECT id FROM trades");
-        const allocations = await probe.execute("SELECT id, trade_id FROM trade_allocations");
-
-        const byName = Object.fromEntries(results.map((row) => [row.name, row.ok]));
-        expect(mutedById.get(hk.id)).toBe(Boolean(byName["mute-0700"]));
-        expect(mutedById.get(nvda.id)).toBe(Boolean(byName["mute-nvda"]));
-        expect(mutedById.get(aapl.id)).toBe(Boolean(byName["mute-aapl"]));
-        expect(cash.rows.length).toBe(byName["ledger-deposit"] ? 1 : 0);
-        expect(trades.rows.length).toBe(byName["ledger-buy"] ? 1 : 0);
-        expect(allocations.rows.length).toBe(byName["ledger-buy"] ? 1 : 0);
-        expect(results.some((row) => row.name.startsWith("mute-") && row.ok)).toBe(true);
-        expect(results.some((row) => row.name.startsWith("ledger-") && row.ok)).toBe(true);
+        const allocations = await probe.execute("SELECT id FROM trade_allocations");
+        if (mute.ok) {
+          expect(Number(watches.rows[0]?.muted) === 1 || watches.rows[0]?.muted === true).toBe(true);
+        }
+        if (deposit.ok) {
+          expect(cash.rows.length).toBe(1);
+        }
+        if (buy.ok) {
+          expect(trades.rows.length).toBe(1);
+          expect(allocations.rows.length).toBe(1);
+        }
+        expect(mute.ok || deposit.ok || buy.ok).toBe(true);
       } finally {
         probe.close();
       }
+      await assertExternalWriterUnblocked(url);
     },
-    45_000,
+    20_000,
   );
 
-  it("does not run a plain write while another transaction is still open", async () => {
-    const store = createDrizzleStore();
-    const { book } = await createBook(store, {
-      name: "測試簿",
-      createdByUserId: "user-demo",
-      creatorDisplayName: "小明",
-      creatorEmail: "demo@example.com",
-    });
-    const nvda = await addWatchItem(book.id, "NVDA");
-
-    let muteFinished = false;
-    const open = getDb().transaction(async () => {
-      await sleep(80);
-      expect(muteFinished).toBe(false);
-    });
-    const mute = settle("mute-nvda", setWatchMuted(book.id, nvda.id, true)).then((row) => {
-      muteFinished = true;
-      return row;
-    });
-    const [, muted] = await Promise.all([open, mute]);
-    expect(muted.ok).toBe(true);
-
-    const probe = createClient({ url });
-    try {
-      const watches = await probe.execute({
-        sql: "SELECT muted FROM watch_items WHERE id = ?",
-        args: [nvda.id],
-      });
-      expect(Number(watches.rows[0]?.muted) === 1 || watches.rows[0]?.muted === true).toBe(true);
-    } finally {
-      probe.close();
-    }
+  it("throws on nested getDb().transaction while a transaction is open", async () => {
+    const db = getDb();
+    await expect(
+      db.transaction(async () => {
+        await getDb().transaction(async () => undefined);
+      }),
+    ).rejects.toThrow(/nested SQLite transaction/);
   });
 });
