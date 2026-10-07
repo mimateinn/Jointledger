@@ -13,7 +13,7 @@ vi.mock("./refresh", async (importOriginal) => {
   };
 });
 
-import { emptyTapeViews, loadMarksForLots, refreshAndLoadTape } from "./service";
+import { emptyTapeViews, loadInstrumentView, loadMarksForLots, refreshAndLoadTape } from "./service";
 
 describe("first paint does not wait on live quotes", () => {
   afterEach(() => {
@@ -40,5 +40,15 @@ describe("first paint does not wait on live quotes", () => {
     ]);
     expect(result.marks.NVDA === null || typeof result.marks.NVDA === "string").toBe(true);
     expect(result.views.NVDA.last === null || typeof result.views.NVDA.last === "string").toBe(true);
+  });
+
+  it("loadInstrumentView returns last-good without waiting on ensureQuotes", async () => {
+    const view = await Promise.race([
+      loadInstrumentView("NVDA"),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("waited on live quotes")), 250);
+      }),
+    ]);
+    expect(view.display).toBe("NVDA");
   });
 });

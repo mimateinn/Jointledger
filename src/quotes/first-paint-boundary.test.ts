@@ -7,9 +7,13 @@ describe("first paint quote boundary", () => {
     const book = readFileSync("src/lib/book-view.ts", "utf8");
     const holdings = readFileSync("src/app/(app)/holdings/page.tsx", "utf8");
     const api = readFileSync("src/app/api/quotes/route.ts", "utf8");
+    const service = readFileSync("src/quotes/service.ts", "utf8");
+    const tape = readFileSync("src/components/ticker-tape.tsx", "utf8");
     expect(layout).toMatch(/refresh:\s*["']background["']/);
     expect(book).toMatch(/refresh:\s*["']background["']/);
     expect(holdings).toMatch(/refresh:\s*["']background["']/);
-    expect(api).not.toMatch(/refresh:\s*["']background["']/);
+    expect(api).toMatch(/refresh:\s*["']background["']/);
+    expect(service).toMatch(/void ensureQuotes\(\[\]\)/);
+    expect(tape).toMatch(/prefetch=\{false\}/);
   });
 });

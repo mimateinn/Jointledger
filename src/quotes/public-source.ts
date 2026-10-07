@@ -7,6 +7,7 @@ export const BINANCE_PUBLIC_BASE = "https://data-api.binance.vision/api/v3";
 export const COINGECKO_BASE = "https://api.coingecko.com/api/v3";
 export const YAHOO_CHART_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
 const TIMEOUT_MS = 8_000;
+export const QUOTE_FETCH_BUDGET_MS = 10_000;
 
 const COINGECKO_IDS: Record<string, string> = {
   "BTC/USD": "bitcoin",
@@ -345,8 +346,31 @@ export async function fetchPublicQuotes(
   instruments: CanonInstrument[],
 ): Promise<Map<string, PublicQuoteResult>> {
   const results = new Map<string, PublicQuoteResult>();
+  if (instruments.length === 0) {
+    return results;
+  }
+  const empty: PublicQuoteResult = { outcome: { kind: "upstream" }, source: null, delayed: false };
+  let budgetTimer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise<void>((resolve) => {
+    budgetTimer = setTimeout(resolve, QUOTE_FETCH_BUDGET_MS);
+  });
+  const work = Promise.all(
+    instruments.map(async (row) => {
+      try {
+        results.set(row.display, await fetchPublicQuote(row));
+      } catch {
+        results.set(row.display, empty);
+      }
+    }),
+  );
+  await Promise.race([work, budget]);
+  if (budgetTimer) {
+    clearTimeout(budgetTimer);
+  }
   for (const row of instruments) {
-    results.set(row.display, await fetchPublicQuote(row));
+    if (!results.has(row.display)) {
+      results.set(row.display, empty);
+    }
   }
   return results;
 }

@@ -4,6 +4,7 @@ import type { CanonInstrument, UpstreamOutcome } from "./types";
 
 const TD_BASE = "https://api.twelvedata.com";
 const TIMEOUT_MS = 8_000;
+const BATCH_BUDGET_MS = 10_000;
 
 export function getTwelveDataApiKey(): string | null {
   const key = process.env.TWELVE_DATA_API_KEY?.trim();
@@ -162,7 +163,16 @@ export async function fetchTwelveDataBatch(
 
   let rateLimited = false;
   let credits = 0;
+  const deadline = Date.now() + BATCH_BUDGET_MS;
   for (const group of groupForBatch(instruments)) {
+    if (Date.now() >= deadline) {
+      for (const row of group.instruments) {
+        if (!results.has(row.display)) {
+          results.set(row.display, { kind: "upstream" });
+        }
+      }
+      continue;
+    }
     if (rateLimited) {
       for (const row of group.instruments) {
         if (!results.has(row.display)) {

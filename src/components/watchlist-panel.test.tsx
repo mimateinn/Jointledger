@@ -99,6 +99,8 @@ describe("watchlist mute pending", () => {
     expect(buttons[1]!.getAttribute("aria-busy")).not.toBe("true");
     expect(buttons[1]!.disabled).toBe(false);
     expect(buttons[1]!.textContent).toContain("靜音新聞");
+    expect(screen.getAllByText("已靜音").length).toBeGreaterThan(0);
+    expect(buttons[0]!.textContent).toContain("恢復新聞");
   });
 
   it("re-enables each row and flips the label when the action resolves but refresh never does", async () => {

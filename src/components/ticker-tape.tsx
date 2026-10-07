@@ -29,7 +29,7 @@ function changeClass(change: string | null): string {
 function TapeCell({ item }: { item: TapeItem }) {
   const href = `/instrument/${encodeURIComponent(item.display)}`;
   return (
-    <Link href={href} prefetch className="tape-cell">
+    <Link href={href} prefetch={false} className="tape-cell">
       <span className="tape-symbol">{item.display}</span>
       {item.name ? <span className="tape-name">{item.name}</span> : null}
       {item.isEtfProxy ? <span className="tape-proxy">代理</span> : null}
@@ -107,7 +107,7 @@ export function TickerTape({
       </div>
       <div className="tape-pin">
         {tape.fx ? (
-          <Link href={`/instrument/${encodeURIComponent(tape.fx.display)}`} prefetch className="tape-fx">
+          <Link href={`/instrument/${encodeURIComponent(tape.fx.display)}`} prefetch={false} className="tape-fx">
             <span>{tape.fx.display}</span>
             <span className="tabular">{tape.fx.last ?? "—"}</span>
           </Link>

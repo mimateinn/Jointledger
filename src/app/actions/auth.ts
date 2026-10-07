@@ -100,6 +100,7 @@ export async function claimAction(
   }
 
   const db = getDb();
+  const passwordHash = await hashPassword(password);
   const result = await db.transaction(async (tx) => {
     await tx.execute(xactLockSql(87241002));
     const unclaimed = await tx.select().from(members).where(isNull(members.userId));
@@ -126,7 +127,7 @@ export async function claimAction(
       .values({
         displayName: member.displayName,
         email: member.email,
-        passwordHash: await hashPassword(password),
+        passwordHash,
       })
       .returning();
     await tx

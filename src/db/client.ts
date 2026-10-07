@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle as drizzleSqlite } from "drizzle-orm/libsql";
 import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
@@ -44,6 +45,7 @@ export function getSql() {
 }
 
 const sqlitePatched = new WeakSet<object>();
+const sqliteTxContext = new AsyncLocalStorage<true>();
 
 /** libsql 無 pg 嘅 execute；transaction 一定要 bind 返 Drizzle instance（要有 session）。 */
 function withSqliteExecute(db: object): PgDatabase {
@@ -67,8 +69,18 @@ function withSqliteExecute(db: object): PgDatabase {
   };
 
   const transaction = sqlite.transaction.bind(sqlite);
-  sqlite.transaction = (fn, config) =>
-    transaction((tx) => fn(withSqliteExecute(tx as object) as unknown as SqliteLike), config);
+  sqlite.transaction = (fn, config) => {
+    if (sqliteTxContext.getStore()) {
+      return Promise.reject(new Error("nested SQLite transaction is not supported"));
+    }
+    return transaction(
+      (tx) =>
+        sqliteTxContext.run(true, () =>
+          fn(withSqliteExecute(tx as object) as unknown as SqliteLike),
+        ),
+      config,
+    );
+  };
 
   return sqlite as unknown as PgDatabase;
 }
@@ -90,8 +102,10 @@ async function applySqliteConnectionPragmas(execute: Client["execute"]) {
  * (inTx is already false). Discard the handle (reconnect + PRAGMAs)
  * on any execute/batch/BEGIN/COMMIT error before reuse.
  *
- * The queue only covers the client call itself — never the drizzle
- * callback — so quote fetches must not run inside a transaction.
+ * Concurrent (non-nested) transactions and plain executes wait on this
+ * queue from BEGIN until COMMIT/ROLLBACK. True re-entrant nesting is
+ * detected with AsyncLocalStorage on drizzle db.transaction and throws.
+ * Do not run network or other slow async work inside a tx callback.
  */
 function serializeSqliteClient(client: Client) {
   const execute = client.execute.bind(client);
@@ -100,7 +114,6 @@ function serializeSqliteClient(client: Client) {
   const reconnect = client.reconnect?.bind(client);
 
   let tail: Promise<unknown> = Promise.resolve();
-  let txOpen = 0;
   function enqueue<T>(fn: () => Promise<T>): Promise<T> {
     const run = tail.then(fn, fn);
     tail = run.then(
@@ -139,15 +152,38 @@ function serializeSqliteClient(client: Client) {
     client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
       enqueue(() => runOrDiscard(() => batch(stmts, mode)))) as Client["batch"];
   }
-  client.transaction = ((...args: unknown[]) =>
-    enqueue(async () => {
-      if (txOpen > 0) {
-        throw new Error("nested SQLite transaction is not supported");
-      }
-      txOpen += 1;
+  client.transaction = ((...args: unknown[]) => {
+    let released = false;
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = () => {
+        if (released) {
+          return;
+        }
+        released = true;
+        resolve();
+      };
+    });
+    const run = async () => {
       try {
-        const tx = await (transaction as (...inner: unknown[]) => ReturnType<Client["transaction"]>)(...args);
-        await applySqliteConnectionPragmas(execute);
+        const tx = await runOrDiscard(() =>
+          (transaction as (...inner: unknown[]) => ReturnType<Client["transaction"]>)(...args),
+        );
+        try {
+          await applySqliteConnectionPragmas(execute);
+        } catch (error) {
+          try {
+            await tx.rollback();
+          } catch {
+            // already closed
+          }
+          try {
+            await discardHandle();
+          } catch {
+            // still surface the original error
+          }
+          throw error;
+        }
         const commit = tx.commit.bind(tx);
         const rollback = tx.rollback.bind(tx);
         const closeTx = (tx as { close?: () => void }).close?.bind(tx);
@@ -167,22 +203,38 @@ function serializeSqliteClient(client: Client) {
             }
             throw error;
           } finally {
-            txOpen = Math.max(0, txOpen - 1);
+            release();
           }
         };
         tx.commit = () => finish(commit);
         tx.rollback = () => finish(rollback);
+        if (closeTx) {
+          (tx as { close: () => void }).close = () => {
+            try {
+              return closeTx();
+            } finally {
+              release();
+            }
+          };
+        }
         return tx;
       } catch (error) {
-        txOpen = Math.max(0, txOpen - 1);
         try {
           await discardHandle();
         } catch {
           // still surface the original error
         }
+        release();
         throw error;
       }
-    })) as Client["transaction"];
+    };
+    const started = tail.then(run, run);
+    tail = started.then(
+      () => held,
+      () => held,
+    );
+    return started;
+  }) as Client["transaction"];
   if (reconnect) {
     client.reconnect = (() =>
       enqueue(async () => {

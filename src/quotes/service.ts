@@ -103,7 +103,7 @@ export async function loadMarksForLots(
 
 export async function loadInstrumentView(code: string): Promise<QuoteView> {
   const display = code.trim().toUpperCase();
-  await ensureQuotes([]);
+  void ensureQuotes([]);
   const instrument = resolveInstrument(display);
   const rows = await quoteRowsForDisplays([display]);
   const row = rows.get(display);

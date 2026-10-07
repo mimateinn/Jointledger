@@ -64,16 +64,27 @@ const WATCH_COPY = {
   failed: "更新失敗",
 };
 
+function WatchMuteStatus({ muted }: { muted: boolean }) {
+  return <span className="meta muted">{muted ? "已靜音" : "僅關注"}</span>;
+}
+
 export function WatchActions({
   row,
   muteAction = muteWatchAction,
   removeAction = removeWatchAction,
+  muted: mutedProp,
+  onMutedChange,
 }: {
   row: WatchRow;
   muteAction?: WatchMutateFn;
   removeAction?: WatchMutateFn;
+  muted?: boolean;
+  onMutedChange?: (muted: boolean) => void;
 }) {
-  const [muted, setMuted] = useState(row.muted);
+  const controlled = onMutedChange != null;
+  const [localMuted, setLocalMuted] = useState(row.muted);
+  const muted = controlled ? (mutedProp ?? row.muted) : localMuted;
+  const setMuted = onMutedChange ?? setLocalMuted;
   const [mutePending, setMutePending] = useState(false);
   const [removePending, setRemovePending] = useState(false);
   const [muteError, setMuteError] = useState<string | null>(null);
@@ -83,8 +94,10 @@ export function WatchActions({
   const removeInFlight = useRef(false);
 
   useEffect(() => {
-    setMuted(row.muted);
-  }, [row.muted]);
+    if (!controlled) {
+      setLocalMuted(row.muted);
+    }
+  }, [row.muted, controlled]);
 
   async function onMute() {
     if (muteInFlight.current) {
@@ -187,6 +200,91 @@ function WatchNews({
         <div className="muted">{item.source}</div>
       ) : null}
     </div>
+  );
+}
+
+function WatchCard({
+  row,
+  item,
+  newsVia,
+  interactive,
+}: {
+  row: WatchRow;
+  item?: { headline: string; source?: string; url?: string };
+  newsVia: "finnhub" | "rss" | null;
+  interactive: boolean;
+}) {
+  const [muted, setMuted] = useState(row.muted);
+  useEffect(() => {
+    setMuted(row.muted);
+  }, [row.muted]);
+  return (
+    <li className="watch-card">
+      <div className="watch-card-head">
+        <InstrumentLabel ticker={row.displayCode} name={row.name} />
+        <div className="watch-card-quote">
+          <div className="tabular">{row.lastDisplay ?? "未有報價"}</div>
+          <div className={`meta tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
+            {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
+          </div>
+        </div>
+      </div>
+      <div className="watch-card-meta">
+        <span className="chip">{row.marketLabel}</span>
+        <WatchMuteStatus muted={muted} />
+      </div>
+      <div className="watch-card-news">
+        <span className="meta muted">最新新聞</span>
+        <WatchNews row={{ ...row, muted }} item={item} newsVia={newsVia} />
+      </div>
+      {interactive ? (
+        <WatchActions row={row} muted={muted} onMutedChange={setMuted} />
+      ) : (
+        <div className="watch-actions watch-actions-slot" aria-hidden="true" />
+      )}
+    </li>
+  );
+}
+
+function WatchTableRow({
+  row,
+  item,
+  newsVia,
+  interactive,
+}: {
+  row: WatchRow;
+  item?: { headline: string; source?: string; url?: string };
+  newsVia: "finnhub" | "rss" | null;
+  interactive: boolean;
+}) {
+  const [muted, setMuted] = useState(row.muted);
+  useEffect(() => {
+    setMuted(row.muted);
+  }, [row.muted]);
+  return (
+    <tr>
+      <td>
+        <InstrumentLabel ticker={row.displayCode} name={row.name} />
+      </td>
+      <td><span className="chip">{row.marketLabel}</span></td>
+      <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
+      <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
+        {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
+      </td>
+      <td className="meta">
+        <WatchNews row={{ ...row, muted }} item={item} newsVia={newsVia} />
+      </td>
+      <td>
+        <WatchMuteStatus muted={muted} />
+      </td>
+      <td>
+        {interactive ? (
+          <WatchActions row={row} muted={muted} onMutedChange={setMuted} />
+        ) : (
+          <div className="watch-actions watch-actions-slot" aria-hidden="true" />
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -331,31 +429,15 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
       ) : (
         <>
         <ul className="watch-list">
-          {visible.map((row) => {
-            const item = news[row.displayCode]?.[0];
-            return (
-              <li className="watch-card" key={`list-${row.id}`}>
-                <div className="watch-card-head">
-                  <InstrumentLabel ticker={row.displayCode} name={row.name} />
-                  <div className="watch-card-quote">
-                    <div className="tabular">{row.lastDisplay ?? "未有報價"}</div>
-                    <div className={`meta tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
-                      {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
-                    </div>
-                  </div>
-                </div>
-                <div className="watch-card-meta">
-                  <span className="chip">{row.marketLabel}</span>
-                  <span className="meta muted">{row.muted ? "已靜音" : "僅關注"}</span>
-                </div>
-                <div className="watch-card-news">
-                  <span className="meta muted">最新新聞</span>
-                  <WatchNews row={row} item={item} newsVia={newsVia} />
-                </div>
-                {layout === "list" ? <WatchActions row={row} /> : <div className="watch-actions watch-actions-slot" aria-hidden="true" />}
-              </li>
-            );
-          })}
+          {visible.map((row) => (
+            <WatchCard
+              key={`list-${row.id}`}
+              row={row}
+              item={news[row.displayCode]?.[0]}
+              newsVia={newsVia}
+              interactive={layout === "list"}
+            />
+          ))}
         </ul>
         <div className="table-scroll watch-table">
         <table className="table">
@@ -371,28 +453,15 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {visible.map((row) => {
-              const item = news[row.displayCode]?.[0];
-              return (
-              <tr key={`table-${row.id}`}>
-                <td>
-                  <InstrumentLabel ticker={row.displayCode} name={row.name} />
-                </td>
-                <td><span className="chip">{row.marketLabel}</span></td>
-                <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
-                <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
-                  {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
-                </td>
-                <td className="meta">
-                  <WatchNews row={row} item={item} newsVia={newsVia} />
-                </td>
-                <td className="meta muted">{row.muted ? "已靜音" : "僅關注"}</td>
-                <td>
-                  {layout === "table" ? <WatchActions row={row} /> : <div className="watch-actions watch-actions-slot" aria-hidden="true" />}
-                </td>
-              </tr>
-              );
-            })}
+            {visible.map((row) => (
+              <WatchTableRow
+                key={`table-${row.id}`}
+                row={row}
+                item={news[row.displayCode]?.[0]}
+                newsVia={newsVia}
+                interactive={layout === "table"}
+              />
+            ))}
           </tbody>
         </table>
         </div>
