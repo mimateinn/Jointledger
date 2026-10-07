@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { deleteMemberAction, type MemberState } from "@/app/actions/members";
 import { SubmitButton } from "./submit-button";
@@ -32,7 +32,10 @@ export function MemberDelete({
   displayName: string;
   lastUser: boolean;
 }) {
-  const { phase, setPhase, formRef } = useUndoCommit();
+  const formRef = useRef<HTMLFormElement>(null);
+  const { phase, setPhase } = useUndoCommit(undefined, () => {
+    formRef.current?.requestSubmit();
+  });
   const [state, action] = useActionState(deleteMemberAction, initial);
   const [typed, setTyped] = useState("");
 

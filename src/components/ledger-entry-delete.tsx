@@ -64,9 +64,9 @@ export function LedgerEntryDelete({
         setPhase("idle");
         setRejectError(result.error);
       }
-    } catch (error) {
+    } catch {
       setPhase("idle");
-      setRejectError(error instanceof Error ? error.message : COPY.failed);
+      setRejectError(COPY.failed);
     } finally {
       setCommitting(false);
     }
@@ -83,9 +83,9 @@ export function LedgerEntryDelete({
         return;
       }
       setPhase("undo");
-    } catch (error) {
+    } catch {
       setPhase("idle");
-      setRejectError(error instanceof Error ? error.message : COPY.failed);
+      setRejectError(COPY.failed);
     } finally {
       setChecking(false);
     }

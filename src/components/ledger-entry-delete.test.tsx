@@ -80,7 +80,7 @@ describe("ledger entry delete undo and reject", () => {
         kind="trade"
         label="買入 AAPL"
         checkDelete={async () => {
-          throw new Error("預檢失敗");
+          throw new Error("Failed to fetch");
         }}
         deleteAction={deleteAction}
         undoMs={60_000}
@@ -89,7 +89,7 @@ describe("ledger entry delete undo and reject", () => {
 
     await confirmDelete(user, "買入 AAPL");
     expect(screen.queryByText("已刪除・還原")).toBeNull();
-    expect((await screen.findByRole("alert")).textContent).toContain("預檢失敗");
+    expect((await screen.findByRole("alert")).textContent).toContain("刪除失敗");
     expect(screen.getByRole("button", { name: "刪除 買入 AAPL" })).toBeTruthy();
     expect(deleteAction).not.toHaveBeenCalled();
   });

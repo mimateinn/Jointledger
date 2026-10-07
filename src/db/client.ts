@@ -73,6 +73,14 @@ function withSqliteExecute(db: object): PgDatabase {
   return sqlite as unknown as PgDatabase;
 }
 
+export const SQLITE_BUSY_TIMEOUT_MS = 5000;
+
+async function applySqliteConnectionPragmas(execute: Client["execute"]) {
+  await execute("PRAGMA journal_mode = WAL");
+  await execute("PRAGMA foreign_keys = ON");
+  await execute(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS}`);
+}
+
 function getSqliteClient() {
   const url = getDatabaseUrl();
   if (globalForDb.sqlite && globalForDb.sqliteUrl === url) {
@@ -82,16 +90,35 @@ function getSqliteClient() {
   ensureSqliteDir(url);
   const client = createClient({ url });
   const execute = client.execute.bind(client);
-  const ready = execute("PRAGMA journal_mode = WAL")
-    .then(() => execute("PRAGMA foreign_keys = ON"))
-    .then(() => execute("PRAGMA busy_timeout = 5000"));
-  client.execute = ((stmt: Parameters<Client["execute"]>[0]) =>
-    ready.then(() => execute(stmt))) as Client["execute"];
-  if (typeof client.batch === "function") {
-    const batch = client.batch.bind(client);
+  const batch = client.batch?.bind(client);
+  const transaction = client.transaction.bind(client);
+  const reconnect = client.reconnect?.bind(client);
+
+  // libsql 0.15 nulls the underlying connection after transaction() and
+  // lazily opens a new one without the previous PRAGMAs. Re-apply on every
+  // new connection, including the one created after transaction()/reconnect().
+  let prepare = applySqliteConnectionPragmas(execute);
+
+  client.execute = ((stmt: Parameters<Client["execute"]>[0], args?: Parameters<Client["execute"]>[1]) =>
+    prepare.then(() => execute(stmt, args))) as Client["execute"];
+  if (batch) {
     client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
-      ready.then(() => batch(stmts, mode))) as Client["batch"];
+      prepare.then(() => batch(stmts, mode))) as Client["batch"];
   }
+  client.transaction = (async (...args: unknown[]) => {
+    await prepare;
+    const tx = await (transaction as (...inner: unknown[]) => ReturnType<Client["transaction"]>)(...args);
+    prepare = applySqliteConnectionPragmas(execute);
+    return tx;
+  }) as Client["transaction"];
+  if (reconnect) {
+    client.reconnect = (async () => {
+      await reconnect();
+      prepare = applySqliteConnectionPragmas(execute);
+      await prepare;
+    }) as Client["reconnect"];
+  }
+
   globalForDb.sqlite = client;
   globalForDb.sqliteUrl = url;
   return client;

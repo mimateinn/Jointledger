@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { FailurePanel } from "./failure-panel";
 import { InstrumentLabel } from "./instrument-label";
@@ -65,32 +65,60 @@ export function WatchActions({
   muteAction?: WatchMutateFn;
   removeAction?: WatchMutateFn;
 }) {
-  const [mutePending, startMute] = useTransition();
-  const [removePending, startRemove] = useTransition();
+  const [muted, setMuted] = useState(row.muted);
+  const [mutePending, setMutePending] = useState(false);
+  const [removePending, setRemovePending] = useState(false);
+  const muteGen = useRef(0);
+  const removeGen = useRef(0);
 
-  function onMute() {
-    startMute(async () => {
+  useEffect(() => {
+    setMuted(row.muted);
+  }, [row.muted]);
+
+  async function onMute() {
+    const next = !muted;
+    const generation = (muteGen.current += 1);
+    setMuted(next);
+    setMutePending(true);
+    try {
       const fd = new FormData();
       fd.set("id", row.id);
-      fd.set("muted", row.muted ? "0" : "1");
-      await muteAction({}, fd);
-    });
+      fd.set("muted", next ? "1" : "0");
+      const result = await muteAction({}, fd);
+      if (result.error && generation === muteGen.current) {
+        setMuted(!next);
+      }
+    } catch {
+      // Refresh/abort must not revert the optimistic label or leave the row stuck.
+    } finally {
+      if (generation === muteGen.current) {
+        setMutePending(false);
+      }
+    }
   }
 
-  function onRemove() {
-    startRemove(async () => {
+  async function onRemove() {
+    const generation = (removeGen.current += 1);
+    setRemovePending(true);
+    try {
       const fd = new FormData();
       fd.set("id", row.id);
       await removeAction({}, fd);
-    });
+    } catch {
+      // same as mute: do not bind pending to a refresh that may never settle
+    } finally {
+      if (generation === removeGen.current) {
+        setRemovePending(false);
+      }
+    }
   }
 
   return (
     <div className="watch-actions">
-      <button className="btn btn-secondary" type="button" disabled={mutePending} onClick={onMute}>
-        {row.muted ? "恢復新聞" : "靜音新聞"}
+      <button className="btn btn-secondary" type="button" disabled={mutePending} onClick={() => void onMute()}>
+        {muted ? "恢復新聞" : "靜音新聞"}
       </button>
-      <button className="btn btn-ghost" type="button" disabled={removePending} onClick={onRemove}>
+      <button className="btn btn-ghost" type="button" disabled={removePending} onClick={() => void onRemove()}>
         取消關注
       </button>
     </div>
@@ -127,8 +155,8 @@ function WatchNews({
   );
 }
 
-function useWatchLayout(): "table" | "list" | null {
-  const [layout, setLayout] = useState<"table" | "list" | null>(null);
+function useWatchLayout(): "table" | "list" {
+  const [layout, setLayout] = useState<"table" | "list">("table");
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 800px)");
     const sync = () => setLayout(mq.matches ? "list" : "table");
@@ -293,7 +321,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
             );
           })}
         </ul>
-      ) : layout === "table" ? (
+      ) : (
         <div className="table-scroll watch-table">
         <table className="table">
           <thead>
@@ -333,7 +361,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
           </tbody>
         </table>
         </div>
-      ) : null}
+      )}
     </section>
   );
 }
