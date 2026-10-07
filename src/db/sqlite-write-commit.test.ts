@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +12,7 @@ import { createCashFlow } from "@/ledger/create-cash-flow";
 import { createTrade } from "@/ledger/create-trade";
 import { withPackLock } from "@/quotes/pack-lock";
 import { addWatchItem, setWatchMuted } from "@/watchlist/repo";
-import { resetDbClients } from "./client";
+import { getDb, resetDbClients } from "./client";
 import { createDrizzleStore } from "./drizzle-store";
 import { withLedgerTransaction } from "./ledger-tx";
 
@@ -19,6 +20,61 @@ const prevUrl = process.env.DATABASE_URL;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Another process holds the write lock so this event loop can still commit. */
+function startExclusiveLock(url: string, holdMs: number): Promise<Promise<void>> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+        import { createClient } from "@libsql/client";
+        const client = createClient({ url: process.env.LOCK_URL });
+        await client.execute("BEGIN EXCLUSIVE");
+        process.stdout.write("LOCKED\\n");
+        await new Promise((r) => setTimeout(r, Number(process.env.LOCK_MS)));
+        await client.execute("COMMIT");
+        client.close();
+        `,
+      ],
+      {
+        cwd: process.cwd(),
+        env: { ...process.env, LOCK_URL: url, LOCK_MS: String(holdMs) },
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    const done = new Promise<void>((doneResolve, doneReject) => {
+      child.on("error", doneReject);
+      child.on("exit", (code) => {
+        if (code === 0) {
+          doneResolve();
+        } else {
+          doneReject(new Error(`lock child exited ${code}`));
+        }
+      });
+    });
+    let armed = false;
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      if (!armed && chunk.includes("LOCKED")) {
+        armed = true;
+        resolve(done);
+      }
+    });
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      process.stderr.write(chunk);
+    });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (!armed) {
+        reject(new Error(`lock child exited ${code} before LOCKED`));
+      }
+    });
+  });
 }
 
 async function settle<T>(name: string, work: Promise<T>): Promise<{ name: string; ok: boolean }> {
@@ -70,13 +126,7 @@ describe("sqlite write commit", () => {
       const nvda = await addWatchItem(book.id, "NVDA");
       const aapl = await addWatchItem(book.id, "AAPL");
 
-      const locker = createClient({ url });
-      await locker.execute("BEGIN EXCLUSIVE");
-      const hold = (async () => {
-        await sleep(7500);
-        await locker.execute("COMMIT");
-        locker.close();
-      })();
+      const hold = await startExclusiveLock(url, 7500);
 
       // Quote pack-lock retries BEGIN IMMEDIATE / COMMIT / ROLLBACK on the
       // shared client. The b3c1ba0 prepare.then wrapper let a later UPDATE
@@ -162,4 +212,38 @@ describe("sqlite write commit", () => {
     },
     45_000,
   );
+
+  it("does not run a plain write while another transaction is still open", async () => {
+    const store = createDrizzleStore();
+    const { book } = await createBook(store, {
+      name: "測試簿",
+      createdByUserId: "user-demo",
+      creatorDisplayName: "小明",
+      creatorEmail: "demo@example.com",
+    });
+    const nvda = await addWatchItem(book.id, "NVDA");
+
+    let muteFinished = false;
+    const open = getDb().transaction(async () => {
+      await sleep(80);
+      expect(muteFinished).toBe(false);
+    });
+    const mute = settle("mute-nvda", setWatchMuted(book.id, nvda.id, true)).then((row) => {
+      muteFinished = true;
+      return row;
+    });
+    const [, muted] = await Promise.all([open, mute]);
+    expect(muted.ok).toBe(true);
+
+    const probe = createClient({ url });
+    try {
+      const watches = await probe.execute({
+        sql: "SELECT muted FROM watch_items WHERE id = ?",
+        args: [nvda.id],
+      });
+      expect(Number(watches.rows[0]?.muted) === 1 || watches.rows[0]?.muted === true).toBe(true);
+    } finally {
+      probe.close();
+    }
+  });
 });

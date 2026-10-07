@@ -92,8 +92,10 @@ async function applySqliteConnectionPragmas(execute: Client["execute"]) {
  * rolled back by pack-lock / ledger-tx — success in JS, nothing committed.
  *
  * All client-level execute/batch/transaction/reconnect calls are
- * serialised. BEGIN errors always ROLLBACK that same handle before reuse.
- * Post-transaction PRAGMAs run on the new handle while the mutex is held.
+ * serialised, and the mutex stays held until that transaction COMMITs
+ * or ROLLBACKs. BEGIN errors always ROLLBACK that same handle before
+ * reuse. Post-transaction PRAGMAs run on the new handle while the
+ * mutex is held.
  */
 function serializeSqliteClient(client: Client) {
   const execute = client.execute.bind(client);
@@ -119,8 +121,19 @@ function serializeSqliteClient(client: Client) {
     client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
       enqueue(() => batch(stmts, mode))) as Client["batch"];
   }
-  client.transaction = ((...args: unknown[]) =>
-    enqueue(async () => {
+  client.transaction = ((...args: unknown[]) => {
+    let released = false;
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = () => {
+        if (released) {
+          return;
+        }
+        released = true;
+        resolve();
+      };
+    });
+    const run = async () => {
       try {
         const tx = await (transaction as (...inner: unknown[]) => ReturnType<Client["transaction"]>)(...args);
         try {
@@ -133,6 +146,27 @@ function serializeSqliteClient(client: Client) {
           }
           throw error;
         }
+        const commit = tx.commit.bind(tx);
+        const rollback = tx.rollback.bind(tx);
+        const finish = async (op: () => ReturnType<typeof commit>) => {
+          try {
+            return await op();
+          } finally {
+            release();
+          }
+        };
+        tx.commit = () => finish(commit);
+        tx.rollback = () => finish(rollback);
+        const close = tx.close?.bind(tx);
+        if (close) {
+          tx.close = () => {
+            try {
+              return close();
+            } finally {
+              release();
+            }
+          };
+        }
         return tx;
       } catch (error) {
         try {
@@ -140,9 +174,17 @@ function serializeSqliteClient(client: Client) {
         } catch {
           // not in a transaction
         }
+        release();
         throw error;
       }
-    })) as Client["transaction"];
+    };
+    const started = tail.then(run, run);
+    tail = started.then(
+      () => held,
+      () => held,
+    );
+    return started;
+  }) as Client["transaction"];
   if (reconnect) {
     client.reconnect = (() =>
       enqueue(async () => {
