@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { DateInput } from "@/components/date-input";
 import { EmptyPanel } from "@/components/empty-panel";
 import { formatMoney, formatSignedUsd } from "@/lib/format";
 import { formatDietzPercent, type MemberReturn, type PeriodKey, type ReturnsReport } from "@/returns/report";
@@ -80,8 +81,8 @@ export function ReturnsClient({
         ))}
         {report.periodKey === "custom" ? (
           <>
-            <input className="input" type="date" name="from" defaultValue={report.periodStart} />
-            <input className="input" type="date" name="to" defaultValue={report.periodEnd} />
+            <DateInput name="from" defaultValue={report.periodStart} />
+            <DateInput name="to" defaultValue={report.periodEnd} />
             <button className="btn btn-secondary" type="submit">
               套用
             </button>

@@ -11,6 +11,7 @@ import {
   todayChangeLabel,
   todayIso,
   tradeSideLabel,
+  isIsoDate,
 } from "./format";
 
 describe("formatSchedulePercent", () => {
@@ -87,6 +88,14 @@ describe("tradeSideLabel", () => {
     expect(tradeSideLabel("split")).toBe("拆股");
     expect(tradeSideLabel("adjustment")).toBe("調整");
     expect(tradeSideLabel("buy")).toBe("買入");
+  });
+});
+
+describe("isIsoDate", () => {
+  it("accepts YYYY-MM-DD and rejects locale slashes", () => {
+    expect(isIsoDate("2026-10-07")).toBe(true);
+    expect(isIsoDate("10/07/2026")).toBe(false);
+    expect(isIsoDate("07-10-2026")).toBe(false);
   });
 });
 

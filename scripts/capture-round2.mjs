@@ -48,9 +48,14 @@ async function shot(page, name, viewport, theme, extra = {}) {
     await page.reload({ waitUntil: "networkidle0", timeout: 60000 });
   }
   await page.waitForSelector("body", { timeout: 30000 });
-  await page.evaluate(() => {
+  await page.evaluate((vp) => {
     document.querySelectorAll("nextjs-portal, #__next-build-watcher").forEach((el) => el.remove());
-  });
+    if (vp === 375) {
+      document.querySelectorAll(".mobile-bar").forEach((el) => {
+        el.style.setProperty("display", "none", "important");
+      });
+    }
+  }, viewport);
   await new Promise((r) => setTimeout(r, extra.wait ?? 350));
   const file = `${name}-${viewport}-${theme}${extra.reduced ? "-reduced" : ""}.png`;
   const path = join(OUT, file);
@@ -127,7 +132,7 @@ async function captureFirstUse(page) {
   await page.goto(`${BASE}/first-use`, { waitUntil: "networkidle0", timeout: 60000 });
   for (const vp of [1440, 375]) {
     for (const theme of ["light", "dark"]) {
-      await shot(page, "first-use", vp, theme, { reload: true });
+      await shot(page, "first-use", vp, theme, { reload: false, wait: 300 });
     }
   }
 }
@@ -140,8 +145,7 @@ async function captureFeatures(page) {
   }
 
   await page.goto(`${BASE}/entry`, { waitUntil: "networkidle0", timeout: 60000 });
-  await clickText(page, "button", "調整");
-  await page.select("#bookKind", "dividend").catch(() => {});
+  await clickText(page, "button", "股息");
   await new Promise((r) => setTimeout(r, 250));
   for (const vp of [1440, 375]) {
     for (const theme of ["light", "dark"]) {
@@ -152,8 +156,13 @@ async function captureFeatures(page) {
   await page.goto(`${BASE}/ledger?view=trades`, { waitUntil: "networkidle0", timeout: 60000 });
   await page.click('button[aria-label^="刪除"]').catch(() => {});
   await new Promise((r) => setTimeout(r, 250));
+  await clickText(page, "button", "確認刪除");
+  await page.waitForSelector("[data-undo-toast]", { timeout: 5000 }).catch(() => {});
+  await new Promise((r) => setTimeout(r, 200));
   for (const vp of [1440, 375]) {
-    await shot(page, "ledger-delete", vp, "light", { wait: 200 });
+    for (const theme of ["light", "dark"]) {
+      await shot(page, "ledger-delete-undo", vp, theme, { wait: 200 });
+    }
   }
 }
 

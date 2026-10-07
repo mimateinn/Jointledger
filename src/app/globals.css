@@ -347,10 +347,13 @@ button {
 }
 
 .tape-last {
+  flex-shrink: 0;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .tape-chg {
+  flex-shrink: 0;
   font-size: var(--meta-size);
   font-weight: 500;
   border-color: transparent;
@@ -664,7 +667,7 @@ button {
 }
 
 .table tbody tr.selected {
-  background: var(--bg);
+  background: var(--surface-selected);
 }
 
 .indicator-groups {
@@ -908,8 +911,8 @@ button {
     display: none;
   }
 
-  .tape-lead .tape-name,
-  .tape-lead .tape-proxy,
+  .tape-name,
+  .tape-proxy,
   .tape-pin .chip-delay {
     display: none;
   }
@@ -924,6 +927,11 @@ button {
     padding: 0 var(--sp-2);
     gap: var(--sp-2);
     min-width: 0;
+    overflow: visible;
+  }
+
+  .tape-fx .tabular {
+    flex-shrink: 0;
   }
 
   .tape-viewport {

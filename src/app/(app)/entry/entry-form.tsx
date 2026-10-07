@@ -2,6 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { createBookkeepingAction, createBuyAction, createDepositAction, type EntryState } from "@/app/actions/entry";
+import { DateInput } from "@/components/date-input";
 import { Icon } from "@/components/icons";
 import { SubmitButton } from "@/components/submit-button";
 import { deriveAmountUsd } from "@/ledger/create-cash-flow";
@@ -20,7 +21,7 @@ const COPY = {
 };
 
 const initial: EntryState = {};
-const TABS = ["入金", "買入", "賣出", "出金", "調整"] as const;
+const TABS = ["入金", "買入", "賣出", "出金", "股息", "調整"] as const;
 type Tab = (typeof TABS)[number];
 type BookkeepingKind = "adjustment" | "split" | "dividend";
 const CLOSED = new Set<Tab>(["賣出", "出金"]);
@@ -91,6 +92,11 @@ export function EntryForm({
                 return;
               }
               setTab(item);
+              if (item === "股息") {
+                setBookKind("dividend");
+              } else if (item === "調整" && bookKind === "dividend") {
+                setBookKind("adjustment");
+              }
             }}
           >
             {item}
@@ -126,7 +132,7 @@ export function EntryForm({
             </div>
             <div className="field col-6">
               <label htmlFor="occurredOn">日期</label>
-              <input className="input" id="occurredOn" name="occurredOn" type="date" required defaultValue={today} />
+              <DateInput id="occurredOn" name="occurredOn" required defaultValue={today} />
             </div>
           </div>
           <div className="grid-12">
@@ -193,14 +199,7 @@ export function EntryForm({
             </div>
             <div className="field col-6">
               <label htmlFor="occurredOnBuy">日期</label>
-              <input
-                className="input"
-                id="occurredOnBuy"
-                name="occurredOn"
-                type="date"
-                required
-                defaultValue={today}
-              />
+              <DateInput id="occurredOnBuy" name="occurredOn" required defaultValue={today} />
             </div>
           </div>
           <div className="field">
@@ -253,22 +252,28 @@ export function EntryForm({
         </form>
       ) : null}
 
-      {tab === "調整" ? (
-        <form key="bookkeeping" className="card form-grid" action={bookAction}>
+      {tab === "股息" || tab === "調整" ? (
+        <form key={tab} className="card form-grid" action={bookAction}>
+          {tab === "調整" ? (
           <div className="field">
             <label htmlFor="bookKind">種類</label>
             <select
               className="select"
               id="bookKind"
               name="kind"
-              value={bookKind}
+              value={bookKind === "dividend" ? "adjustment" : bookKind}
               onChange={(e) => setBookKind(e.target.value as BookkeepingKind)}
             >
               <option value="adjustment">人手調整</option>
               <option value="split">拆股</option>
-              <option value="dividend">股息</option>
             </select>
           </div>
+          ) : (
+            <>
+              <p className="page-eyebrow">股息</p>
+              <input type="hidden" name="kind" value="dividend" />
+            </>
+          )}
           <div className="grid-12">
             <div className="field col-6">
               <label htmlFor="ledgerAccountIdAdj">邊個倉</label>
@@ -287,17 +292,26 @@ export function EntryForm({
             </div>
             <div className="field col-6">
               <label htmlFor="occurredOnAdj">日期</label>
-              <input
-                className="input"
-                id="occurredOnAdj"
-                name="occurredOn"
-                type="date"
-                required
-                defaultValue={today}
-              />
+              <DateInput id="occurredOnAdj" name="occurredOn" required defaultValue={today} />
             </div>
           </div>
-          {bookKind === "split" ? (
+          {tab === "股息" || bookKind === "dividend" ? (
+            <>
+              <div className="field">
+                <label htmlFor="symbolDiv">代碼</label>
+                <input className="input" id="symbolDiv" name="symbol" placeholder="AAPL" autoComplete="off" />
+              </div>
+              <div className="field">
+                <label htmlFor="amountUsdDiv">美金</label>
+                <input className="input input-num" id="amountUsdDiv" name="amountUsd" inputMode="decimal" required placeholder="12.50" autoComplete="off" />
+                <p className="field-hint">記一筆股息入帳。用調整列寫入，唔開新表。</p>
+              </div>
+              <div className="field">
+                <label htmlFor="noteDiv">備註</label>
+                <input className="input" id="noteDiv" name="note" placeholder="可空，會自動標股息" autoComplete="off" />
+              </div>
+            </>
+          ) : bookKind === "split" ? (
             <>
               <div className="field">
                 <label htmlFor="symbolSplit">代碼</label>
@@ -313,22 +327,6 @@ export function EntryForm({
                   <label htmlFor="oldShares">舊股</label>
                   <input className="input input-num" id="oldShares" name="oldShares" inputMode="decimal" required placeholder="1" autoComplete="off" />
                 </div>
-              </div>
-            </>
-          ) : bookKind === "dividend" ? (
-            <>
-              <div className="field">
-                <label htmlFor="symbolDiv">代碼</label>
-                <input className="input" id="symbolDiv" name="symbol" placeholder="AAPL" autoComplete="off" />
-              </div>
-              <div className="field">
-                <label htmlFor="amountUsdDiv">美金</label>
-                <input className="input input-num" id="amountUsdDiv" name="amountUsd" inputMode="decimal" required placeholder="12.50" autoComplete="off" />
-                <p className="field-hint">記一筆股息入帳。用調整列寫入，唔開新表。</p>
-              </div>
-              <div className="field">
-                <label htmlFor="noteDiv">備註</label>
-                <input className="input" id="noteDiv" name="note" placeholder="可空，會自動標股息" autoComplete="off" />
               </div>
             </>
           ) : (

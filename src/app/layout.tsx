@@ -28,13 +28,22 @@ export const viewport: Viewport = {
 
 const themeBoot = `
 try {
-  var pref = localStorage.getItem("jl-theme") || "dark";
-  var resolved = pref === "system"
-    ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-    : pref;
-  if (resolved !== "light" && resolved !== "dark") resolved = "dark";
-  document.documentElement.setAttribute("data-theme", resolved);
-  document.documentElement.setAttribute("data-theme-pref", pref);
+  var media = window.matchMedia("(prefers-color-scheme: dark)");
+  function readPref() {
+    try { return localStorage.getItem("jl-theme") || "dark"; } catch (err) { return "dark"; }
+  }
+  function resolve(pref) {
+    if (pref === "system") return media.matches ? "dark" : "light";
+    return pref === "light" ? "light" : "dark";
+  }
+  function apply(pref) {
+    var p = pref || document.documentElement.getAttribute("data-theme-pref") || readPref();
+    if (p !== "light" && p !== "dark" && p !== "system") p = "dark";
+    document.documentElement.setAttribute("data-theme", resolve(p));
+    document.documentElement.setAttribute("data-theme-pref", p);
+  }
+  apply(readPref());
+  media.addEventListener("change", function () { apply(); });
   if (localStorage.getItem("jl-reduced") === "1") {
     document.documentElement.classList.add("is-reduced");
   }

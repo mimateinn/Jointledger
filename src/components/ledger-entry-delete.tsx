@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { deleteLedgerEntryAction, type EntryState } from "@/app/actions/entry";
 import { Icon } from "./icons";
 import { SubmitButton } from "./submit-button";
+import { UndoToast } from "./undo-toast";
 import { useUndoCommit } from "./undo-commit";
 
 const COPY = {
@@ -21,19 +22,9 @@ const COPY = {
 
 const initial: EntryState = {};
 
-function UndoBanner({ onUndo }: { onUndo: () => void }) {
+function UndoFields({ onUndo }: { onUndo: () => void }) {
   const { pending } = useFormStatus();
-  if (pending) {
-    return <p className="meta">{COPY.pending}</p>;
-  }
-  return (
-    <div className="stack">
-      <p className="body">{COPY.wait}</p>
-      <button className="btn btn-secondary" type="button" onClick={onUndo}>
-        {COPY.undo}
-      </button>
-    </div>
-  );
+  return <UndoToast onUndo={onUndo} pending={pending} />;
 }
 
 export function LedgerEntryDelete({
@@ -73,12 +64,12 @@ export function LedgerEntryDelete({
   }
 
   return (
-    <form ref={formRef} action={action} className="card stack confirm-dialog">
+    <form ref={formRef} action={action} hidden>
       <input type="hidden" name="entryId" value={id} />
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="confirm" value="1" />
       {state.error ? <p className="alert">{state.error}</p> : null}
-      <UndoBanner onUndo={() => setPhase("idle")} />
+      <UndoFields onUndo={() => setPhase("idle")} />
       <span hidden>
         <SubmitButton className="btn btn-danger" pendingLabel={COPY.pending}>
           {COPY.confirm}

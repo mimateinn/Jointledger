@@ -136,3 +136,11 @@ export function todayIso(now = new Date()): string {
     day: "2-digit",
   }).format(now);
 }
+
+/** Display and stored calendar dates stay YYYY-MM-DD. */
+export const ISO_DATE_INPUT = "\\d{4}-\\d{2}-\\d{2}";
+export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isIsoDate(value: string): boolean {
+  return ISO_DATE_PATTERN.test(value);
+}

@@ -152,10 +152,10 @@ export function HoldingsWorkspace({
                       {formatQty(lot.quantity)}
                       {lot.splitLabel ? <span className="meta muted"> 拆股 {lot.splitLabel}</span> : null}
                     </td>
-                    <td className="num" data-label="現價">
+                    <td className="num card-meta" data-label="現價">
                       {lot.lastDisplay ?? "—"}
                       {lot.lastDisplay ? (
-                        <div className={`meta ${changeClass(lot.percentChange)}`}>{lot.percentChange ?? "—"}</div>
+                        <span className={`meta ${changeClass(lot.percentChange)}`}> {lot.percentChange ?? "—"}</span>
                       ) : null}
                     </td>
                     <td className="num card-primary" data-label="市值">

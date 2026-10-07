@@ -33,7 +33,7 @@ export function FirstUseForm() {
   }
 
   return (
-    <div className="page page-form-wide">
+    <div className="page">
       <div className="page-head">
         <div className="page-head-title">
           <p className="page-eyebrow">{COPY.eyebrow}</p>
@@ -44,7 +44,7 @@ export function FirstUseForm() {
 
       <div className="grid-12">
         <section className="card choice-card col-6">
-          <span className="chip">{COPY.first}</span>
+          <p className="page-eyebrow">{COPY.first}</p>
           <h2 className="card-title">{COPY.newBook}</h2>
           <p className="muted">{COPY.newHelp}</p>
           <form className="form-grid" action={formAction}>
@@ -61,7 +61,7 @@ export function FirstUseForm() {
         </section>
 
         <section className="card choice-card col-6">
-          <span className="chip">{COPY.later}</span>
+          <p className="page-eyebrow">{COPY.later}</p>
           <h2 className="card-title">{COPY.importTitle}</h2>
           <p className="muted">{COPY.importHelp}</p>
           <button className="btn btn-secondary" type="button" onClick={() => setMode("import")}>

@@ -54,6 +54,68 @@ function changeClass(change: string | null): string | undefined {
   return "muted";
 }
 
+function WatchActions({
+  row,
+  muteAction,
+  removeAction,
+  mutePending,
+  removePending,
+}: {
+  row: WatchRow;
+  muteAction: (formData: FormData) => void;
+  removeAction: (formData: FormData) => void;
+  mutePending: boolean;
+  removePending: boolean;
+}) {
+  return (
+    <div className="watch-actions">
+      <form action={muteAction}>
+        <input type="hidden" name="id" value={row.id} />
+        <input type="hidden" name="muted" value={row.muted ? "0" : "1"} />
+        <button className="btn btn-secondary" type="submit" disabled={mutePending}>
+          {row.muted ? "恢復新聞" : "靜音新聞"}
+        </button>
+      </form>
+      <form action={removeAction}>
+        <input type="hidden" name="id" value={row.id} />
+        <button className="btn btn-ghost" type="submit" disabled={removePending}>
+          取消關注
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function WatchNews({
+  row,
+  item,
+  newsVia,
+}: {
+  row: WatchRow;
+  item?: { headline: string; source?: string; url?: string };
+  newsVia: "finnhub" | "rss" | null;
+}) {
+  if (row.muted || !item) {
+    return <span className="muted">—</span>;
+  }
+  return (
+    <div className="watch-news">
+      {item.url ? (
+        <a href={item.url} target="_blank" rel="noopener noreferrer">
+          {item.headline}
+        </a>
+      ) : (
+        item.headline
+      )}
+      {newsVia === "rss" ? (
+        <div className="muted">公開新聞{item.source ? ` · ${item.source}` : ""}</div>
+      ) : item.source ? (
+        <div className="muted">{item.source}</div>
+      ) : null}
+    </div>
+  );
+}
+
 export function WatchlistPanel({ items }: { items: WatchRow[] }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WatchSearchHit[]>([]);
@@ -182,7 +244,8 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
       {items.length === 0 ? null : visible.length === 0 ? (
         <p className="empty">呢個市場未有關注。</p>
       ) : (
-        <div className="table-scroll">
+        <>
+        <div className="table-scroll watch-table">
         <table className="table">
           <thead>
             <tr>
@@ -203,48 +266,23 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
                 <td>
                   <InstrumentLabel ticker={row.displayCode} name={row.name} />
                 </td>
-                <td>{row.marketLabel}</td>
+                <td><span className="chip">{row.marketLabel}</span></td>
                 <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
                 <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
                   {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
                 </td>
                 <td className="meta">
-                  {row.muted || !item ? (
-                    "—"
-                  ) : (
-                    <div>
-                      {item.url ? (
-                        <a href={item.url} target="_blank" rel="noopener noreferrer">
-                          {item.headline}
-                        </a>
-                      ) : (
-                        item.headline
-                      )}
-                      {newsVia === "rss" ? (
-                        <div className="muted">公開新聞{item.source ? ` · ${item.source}` : ""}</div>
-                      ) : item.source ? (
-                        <div className="muted">{item.source}</div>
-                      ) : null}
-                    </div>
-                  )}
+                  <WatchNews row={row} item={item} newsVia={newsVia} />
                 </td>
                 <td className="meta muted">{row.muted ? "已靜音" : "僅關注"}</td>
                 <td>
-                  <div className="submit-row">
-                    <form action={muteAction}>
-                      <input type="hidden" name="id" value={row.id} />
-                      <input type="hidden" name="muted" value={row.muted ? "0" : "1"} />
-                      <button className="btn btn-ghost" type="submit" disabled={mutePending}>
-                        {row.muted ? "恢復新聞" : "靜音新聞"}
-                      </button>
-                    </form>
-                    <form action={removeAction}>
-                      <input type="hidden" name="id" value={row.id} />
-                      <button className="btn btn-ghost" type="submit" disabled={removePending}>
-                        取消關注
-                      </button>
-                    </form>
-                  </div>
+                  <WatchActions
+                    row={row}
+                    muteAction={muteAction}
+                    removeAction={removeAction}
+                    mutePending={mutePending}
+                    removePending={removePending}
+                  />
                 </td>
               </tr>
               );
@@ -252,8 +290,41 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
           </tbody>
         </table>
         </div>
+        <ul className="watch-list">
+          {visible.map((row) => {
+            const item = news[row.displayCode]?.[0];
+            return (
+              <li className="watch-card" key={row.id}>
+                <div className="watch-card-head">
+                  <InstrumentLabel ticker={row.displayCode} name={row.name} />
+                  <div className="watch-card-quote">
+                    <div className="tabular">{row.lastDisplay ?? "未有報價"}</div>
+                    <div className={`meta tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
+                      {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="watch-card-meta">
+                  <span className="chip">{row.marketLabel}</span>
+                  <span className="meta muted">{row.muted ? "已靜音" : "僅關注"}</span>
+                </div>
+                <div className="watch-card-news">
+                  <span className="meta muted">最新新聞</span>
+                  <WatchNews row={row} item={item} newsVia={newsVia} />
+                </div>
+                <WatchActions
+                  row={row}
+                  muteAction={muteAction}
+                  removeAction={removeAction}
+                  mutePending={mutePending}
+                  removePending={removePending}
+                />
+              </li>
+            );
+          })}
+        </ul>
+        </>
       )}
     </section>
   );
 }
-
