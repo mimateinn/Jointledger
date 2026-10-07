@@ -171,7 +171,6 @@ export function EntryForm({
             <p className="field-hint">會一齊存做美金。</p>
           </div>
           {depositState.error ? <p className="field-error">{depositState.error}</p> : null}
-          {depositState.ok ? <p className="ok">{depositState.ok}</p> : null}
           <div className="submit-row entry-sticky">
             <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
             <p className="meta muted">{COPY.disclaimer}</p>
@@ -244,7 +243,6 @@ export function EntryForm({
             </div>
           </div>
           {buyState.error ? <p className="field-error">{buyState.error}</p> : null}
-          {buyState.ok ? <p className="ok">{buyState.ok}</p> : null}
           <div className="submit-row entry-sticky">
             <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
             <p className="meta muted">{COPY.disclaimer}</p>
@@ -343,7 +341,6 @@ export function EntryForm({
             </>
           )}
           {bookState.error ? <p className="field-error">{bookState.error}</p> : null}
-          {bookState.ok ? <p className="ok">{bookState.ok}</p> : null}
           <div className="submit-row entry-sticky">
             <SubmitButton pendingLabel="儲存中">記入</SubmitButton>
             <p className="meta muted">{COPY.disclaimer}</p>

@@ -200,6 +200,19 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
 .toast span { white-space: nowrap; }
 .toast .toast-label { color: var(--muted); font-size: var(--meta-size); }
 .toast-error span { white-space: normal; }
+.toast,
+.toast-error {
+  background: var(--surface);
+  background-color: var(--surface);
+}
+@media (max-width: 800px) {
+  .toast,
+  .toast-error {
+    background: var(--surface);
+    background-color: var(--surface);
+    box-shadow: var(--shadow-3);
+  }
+}
 @media (min-width: 801px) { .toast { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }
 .toast .icon { color: var(--ink-text); } .toast-error .icon { color: var(--down); }
 .scrim { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); }
@@ -327,13 +340,11 @@ p.notice {
 .filter-bar .field-with-icon { min-width: 0; }
 .input-date { font-variant-numeric: tabular-nums; }
 .toast .btn { min-height: var(--hit-min); min-width: var(--hit-min); margin-left: auto; }
-.watch-list { display: none; list-style: none; margin: 0; padding: 0; }
+.watch-list { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; }
 .watch-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .watch-actions .btn { min-height: var(--hit-min); min-width: var(--hit-min); }
 .watch-news { overflow-wrap: anywhere; word-break: normal; white-space: normal; min-width: 0; }
 @media (max-width: 800px) {
-  .watch-table { display: none; }
-  .watch-list { display: flex; flex-direction: column; }
   .watch-card {
     display: flex;
     flex-direction: column;

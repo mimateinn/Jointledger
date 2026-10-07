@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState, type RefObject } from "react";
-import { useFormStatus } from "react-dom";
+import { useState } from "react";
 import {
   checkDeleteLedgerEntryAction,
   deleteLedgerEntryAction,
@@ -9,72 +8,28 @@ import {
 } from "@/app/actions/entry";
 import { ErrorToast } from "./error-toast";
 import { Icon } from "./icons";
-import { SubmitButton } from "./submit-button";
 import { UndoToast } from "./undo-toast";
-import { useUndoCommit } from "./undo-commit";
+import { UNDO_MS, useUndoCommit } from "./undo-commit";
 
 const COPY = {
   delete: "刪除",
   confirmTitle: "確認刪呢筆",
   confirm: "確認刪除",
   cancel: "取消",
-  undo: "還原",
-  pending: "儲存中",
   checking: "檢查緊",
+  failed: "刪除失敗",
   cash: "刪除後，呢筆出入金會消失，現金會按不變式重計。",
   trade: "刪除後，呢筆記帳列會消失。相關持倉同現金會按剩餘列重計。若之後仲有呢隻嘅賣出／拆股／調整，要先刪或處理嗰啲。",
-  wait: "幾秒後會刪除呢筆記錄。還原就唔刪。",
 };
-
-const initial: EntryState = {};
 
 export type LedgerDeleteFn = (prev: EntryState, formData: FormData) => Promise<EntryState>;
 
-function UndoFields({ onUndo, label }: { onUndo: () => void; label: string }) {
-  const { pending } = useFormStatus();
-  return <UndoToast onUndo={onUndo} pending={pending} label={label} />;
-}
-
-function DeleteCommitForm({
-  formRef,
-  id,
-  kind,
-  label,
-  deleteAction,
-  onUndo,
-  onReject,
-}: {
-  formRef: RefObject<HTMLFormElement | null>;
-  id: string;
-  kind: "cash" | "trade";
-  label: string;
-  deleteAction: LedgerDeleteFn;
-  onUndo: () => void;
-  onReject: (error: string) => void;
-}) {
-  const [state, action] = useActionState(deleteAction, initial);
-  const rejectRef = useRef(onReject);
-  rejectRef.current = onReject;
-
-  useEffect(() => {
-    if (state.error) {
-      rejectRef.current(state.error);
-    }
-  }, [state.error]);
-
-  return (
-    <form ref={formRef} action={action} hidden>
-      <input type="hidden" name="entryId" value={id} />
-      <input type="hidden" name="kind" value={kind} />
-      <input type="hidden" name="confirm" value="1" />
-      <UndoFields onUndo={onUndo} label={label} />
-      <span hidden>
-        <SubmitButton className="btn btn-danger" pendingLabel={COPY.pending}>
-          {COPY.confirm}
-        </SubmitButton>
-      </span>
-    </form>
-  );
+function deleteFormData(id: string, kind: "cash" | "trade"): FormData {
+  const fd = new FormData();
+  fd.set("entryId", id);
+  fd.set("kind", kind);
+  fd.set("confirm", "1");
+  return fd;
 }
 
 export function LedgerEntryDelete({
@@ -83,7 +38,7 @@ export function LedgerEntryDelete({
   label,
   checkDelete = checkDeleteLedgerEntryAction,
   deleteAction = deleteLedgerEntryAction,
-  undoMs,
+  undoMs = UNDO_MS,
 }: {
   id: string;
   kind: "cash" | "trade";
@@ -92,25 +47,44 @@ export function LedgerEntryDelete({
   deleteAction?: LedgerDeleteFn;
   undoMs?: number;
 }) {
-  const { phase, setPhase, formRef } = useUndoCommit(undoMs);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
+  const [committing, setCommitting] = useState(false);
+
+  const { phase, setPhase } = useUndoCommit(undoMs, () => {
+    void commitDelete();
+  });
+
+  async function commitDelete() {
+    setCommitting(true);
+    try {
+      const result = await deleteAction({}, deleteFormData(id, kind));
+      if (result.error) {
+        setPhase("idle");
+        setRejectError(result.error);
+      }
+    } catch (error) {
+      setPhase("idle");
+      setRejectError(error instanceof Error ? error.message : COPY.failed);
+    } finally {
+      setCommitting(false);
+    }
+  }
 
   async function onConfirm() {
     setChecking(true);
     setRejectError(null);
     try {
-      const fd = new FormData();
-      fd.set("entryId", id);
-      fd.set("kind", kind);
-      fd.set("confirm", "1");
-      const result = await checkDelete({}, fd);
+      const result = await checkDelete({}, deleteFormData(id, kind));
       if (result.error) {
         setPhase("idle");
         setRejectError(result.error);
         return;
       }
       setPhase("undo");
+    } catch (error) {
+      setPhase("idle");
+      setRejectError(error instanceof Error ? error.message : COPY.failed);
     } finally {
       setChecking(false);
     }
@@ -138,23 +112,9 @@ export function LedgerEntryDelete({
         </div>
       ) : null}
 
-      {phase === "undo" ? (
-        <DeleteCommitForm
-          key={`${id}-undo`}
-          formRef={formRef}
-          id={id}
-          kind={kind}
-          label={label}
-          deleteAction={deleteAction}
-          onUndo={() => setPhase("idle")}
-          onReject={(error) => {
-            setPhase("idle");
-            setRejectError(error);
-          }}
-        />
-      ) : null}
+      {phase === "undo" ? <UndoToast onUndo={() => setPhase("idle")} pending={committing} label={label} /> : null}
 
-      {rejectError ? <ErrorToast message={rejectError} label={label} /> : null}
+      {rejectError ? <ErrorToast message={rejectError} label={label} onDismiss={() => setRejectError(null)} /> : null}
     </>
   );
 }

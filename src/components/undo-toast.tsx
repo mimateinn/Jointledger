@@ -24,11 +24,17 @@ export function UndoToast({
   }, []);
 
   const body = (
-    <div className="toast" role="status" aria-live="polite" data-undo-toast="">
+    <div className="toast" role="status" aria-live="polite" data-undo-toast="" data-undo-label={label ?? ""}>
       <Icon name="undo" />
       <span>{UNDO_TOAST_COPY}</span>
       {label ? <span className="toast-label">{label}</span> : null}
-      <button className="btn btn-secondary" type="button" onClick={onUndo} disabled={pending}>
+      <button
+        className="btn btn-secondary"
+        type="button"
+        onClick={onUndo}
+        disabled={pending}
+        aria-label={label ? `還原 ${label}` : "還原"}
+      >
         還原
       </button>
     </div>

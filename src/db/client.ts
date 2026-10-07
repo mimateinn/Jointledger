@@ -82,7 +82,9 @@ function getSqliteClient() {
   ensureSqliteDir(url);
   const client = createClient({ url });
   const execute = client.execute.bind(client);
-  const ready = execute("PRAGMA journal_mode = WAL").then(() => execute("PRAGMA foreign_keys = ON"));
+  const ready = execute("PRAGMA journal_mode = WAL")
+    .then(() => execute("PRAGMA foreign_keys = ON"))
+    .then(() => execute("PRAGMA busy_timeout = 5000"));
   client.execute = ((stmt: Parameters<Client["execute"]>[0]) =>
     ready.then(() => execute(stmt))) as Client["execute"];
   if (typeof client.batch === "function") {
