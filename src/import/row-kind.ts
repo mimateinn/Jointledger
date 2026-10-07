@@ -15,16 +15,13 @@ export function parseRowKind(raw: string | null | undefined): RowKind | null {
   if (value === "split" || value === "拆股") {
     return "split";
   }
-  if (value === "adjustment" || value === "調整") {
+  if (value === "adjustment" || value === "調整" || value === "dividend" || value === "股息") {
     return "adjustment";
   }
   return null;
 }
 
-/** Import writes buys (and sells via the buy row). Split/adjustment stay bookkeeping-only. */
-export function isImportSkippedKind(kind: RowKind | null): boolean {
-  return kind === "split" || kind === "adjustment";
-}
+/** Split and adjustment rows are imported (quantity/price = new/old shares for splits). */
 
 export function rowKindLabel(kind: RowKind): string {
   if (kind === "split") {

@@ -12,16 +12,81 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-inter), var(--font-noto), "Noto Sans TC", "Noto Sans CJK TC",
-    sans-serif;
+  font-family: var(--font-sans);
   font-size: var(--body-size);
   font-weight: 400;
-  line-height: 1.45;
+  line-height: var(--lh-body);
 }
 
 a {
   color: inherit;
   text-decoration: none;
+}
+
+.page a:not(.btn):not(.chip):not(.nav-item) {
+  color: var(--link);
+}
+.page a:not(.btn):not(.chip):hover {
+  color: var(--link-hover);
+}
+
+/* 12px gutter, inset capsule thumb. Quiet at rest; orange while the pointer
+   is on the thumb. Do not set scrollbar-width/color — Chromium then drops
+   the webkit rules. */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  inline-size: var(--sb-w);
+  block-size: var(--sb-w);
+}
+html::-webkit-scrollbar-track,
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-track,
+body::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: none;
+}
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button {
+  inline-size: 0;
+  block-size: 0;
+  display: none;
+}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  background-clip: padding-box;
+  border: var(--sp-1) solid transparent;
+  border-radius: var(--radius-pill);
+  min-block-size: var(--sp-8);
+  min-inline-size: var(--sp-8);
+}
+html:hover::-webkit-scrollbar-thumb,
+body:hover::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb {
+  background-color: var(--sb-thumb-area);
+}
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:hover {
+  border-width: 3px;
+  background-image: linear-gradient(to bottom, var(--ink), var(--ink-hover));
+  background-clip: padding-box;
+}
+html::-webkit-scrollbar-thumb:horizontal:hover,
+body::-webkit-scrollbar-thumb:horizontal:hover,
+*::-webkit-scrollbar-thumb:horizontal:hover {
+  background-image: linear-gradient(to right, var(--ink), var(--ink-hover));
+  background-clip: padding-box;
+}
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active,
+*::-webkit-scrollbar-thumb:active {
+  background-image: linear-gradient(to bottom, var(--ink-press), var(--ink));
+  background-clip: padding-box;
 }
 
 button,
@@ -45,8 +110,7 @@ button {
 }
 
 .title {
-  font-family: var(--font-inter), var(--font-noto), "Noto Sans TC", "Noto Sans CJK TC",
-    sans-serif;
+  font-family: var(--font-sans);
   font-size: var(--title-size);
   font-weight: 600;
   letter-spacing: 0;
@@ -79,7 +143,7 @@ button {
 .tabular {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .page-center {
@@ -106,7 +170,7 @@ button {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .field label {
@@ -118,10 +182,7 @@ button {
 .input,
 .select {
   width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
   border-radius: var(--chip-radius);
-  padding: 10px 12px;
   outline: none;
 }
 
@@ -134,11 +195,9 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--sp-2);
   border-radius: var(--chip-radius);
-  padding: 10px 14px;
   border: 1px solid transparent;
-  min-height: 40px;
 }
 
 .btn-primary {
@@ -251,9 +310,9 @@ button {
 .tape-cell {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   height: 100%;
-  padding: 0 16px;
+  padding: 0 var(--sp-4);
   white-space: nowrap;
   border-right: 1px solid var(--border);
   color: inherit;
@@ -279,8 +338,8 @@ button {
   display: inline-flex;
   align-items: center;
   border-radius: var(--chip-radius);
-  padding: 1px 6px;
-  font-size: 10px;
+  padding: 1px var(--sp-2);
+  font-size: var(--caption-size);
   font-weight: 500;
   color: var(--muted);
   border: 1px solid var(--border);
@@ -300,7 +359,7 @@ button {
 .tape-pin {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   padding: 0 12px;
   border-left: 1px solid var(--border);
   background: var(--surface);
@@ -312,7 +371,7 @@ button {
 .tape-fx {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   font-size: var(--meta-size);
   font-weight: 500;
   color: var(--text);
@@ -350,12 +409,12 @@ button {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 20px 0 16px;
+  padding: var(--sp-5) 0 var(--sp-4);
   background: var(--bg);
 }
 
 .wordmark {
-  padding: 0 20px 20px;
+  padding: 0 var(--sp-5) var(--sp-5);
   font-size: var(--title-size);
   font-weight: 600;
 }
@@ -366,37 +425,20 @@ button {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px 10px 18px;
+  gap: var(--sp-3);
   color: var(--text);
   position: relative;
-  border-left: 2px solid transparent;
-}
-
-.nav-item svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  fill: none;
-  flex-shrink: 0;
-}
-
-.nav-item-active {
-  background: var(--ink);
-  color: var(--on-ink);
-  border-left-color: var(--ink);
-  font-weight: 600;
 }
 
 .sidebar-footer {
   margin-top: auto;
-  padding: 16px 20px 0;
+  padding: var(--sp-4) var(--sp-5) 0;
   border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -421,8 +463,8 @@ button {
 .chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0 0;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
 }
 
 .grid {
@@ -451,7 +493,7 @@ button {
   display: grid;
   grid-template-rows: auto 2.4rem auto;
   align-items: start;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .metric-value {
@@ -503,7 +545,7 @@ button {
 }
 
 .ok {
-  color: var(--ink);
+  color: var(--st-ok);
   font-size: var(--meta-size);
   font-weight: 500;
 }
@@ -575,13 +617,12 @@ button {
 
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
   margin-bottom: var(--gap);
 }
 
 .tabs-line {
   display: flex;
-  gap: 20px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -589,7 +630,6 @@ button {
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  padding: 8px 0;
   color: var(--muted);
   font-size: var(--body-size);
   font-weight: 500;
@@ -630,7 +670,7 @@ button {
 .indicator-groups {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .indicator-groups-disabled {
@@ -642,7 +682,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .indicator-group-label {
@@ -829,55 +869,22 @@ button {
 
 .own-map {
   list-style: none;
-  margin: 8px 0 0;
+  margin: var(--sp-2) 0 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: var(--sp-2) var(--sp-4);
 }
 
 .own-map li {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-@media (max-width: 600px) {
-  .tape-lead {
-    flex: 1 1 0;
-    max-width: 58%;
-    min-width: 0;
-  }
-  .tape-lead .tape-name,
-  .tape-lead .tape-proxy {
-    display: none;
-  }
-  .tape-cell {
-    padding: 0 10px;
-    gap: 6px;
-  }
-  .tape-pin {
-    flex: 0 1 auto;
-    padding: 0 8px;
-    gap: 6px;
-    min-width: 0;
-  }
-  .tape-pin .chip-delay {
-    display: none;
-  }
-  .tape-viewport {
-    flex: 1 1 80px;
-    min-width: 80px;
-  }
+  gap: var(--sp-2);
 }
 
 @media (max-width: 800px) {
   .sidebar {
     display: none;
-  }
-
-  .main {
-    padding: 20px 16px 88px;
   }
 
   .mobile-bar {
@@ -888,35 +895,39 @@ button {
     bottom: 0;
     background: var(--surface);
     border-top: 1px solid var(--border);
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-    justify-content: space-around;
-    z-index: 20;
   }
 
   .mobile-bar a {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 500;
     color: var(--muted);
-    min-width: 44px;
   }
 
-  .mobile-bar a svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-    fill: none;
+  .tape-lead {
+    display: none;
   }
 
-  .mobile-bar a.active {
-    color: var(--ink);
-    font-weight: 600;
+  .tape-lead .tape-name,
+  .tape-lead .tape-proxy,
+  .tape-pin .chip-delay {
+    display: none;
   }
 
-  .display {
-    font-size: 28px;
+  .tape-cell {
+    padding: 0 var(--sp-3);
+    gap: var(--sp-2);
+  }
+
+  .tape-pin {
+    flex: 0 0 auto;
+    padding: 0 var(--sp-2);
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+
+  .tape-viewport {
+    flex: 1 1 auto;
+    min-width: 96px;
   }
 }

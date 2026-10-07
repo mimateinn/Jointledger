@@ -8,6 +8,8 @@ const UI_FILES = [
   "src/app/(app)/overview/overview-client.tsx",
   "src/app/(app)/ledger/ledger-client.tsx",
   "src/app/(app)/entry/entry-form.tsx",
+  "src/components/first-run-tips.tsx",
+  "src/components/ledger-entry-delete.tsx",
 ];
 
 describe("product UI copy", () => {

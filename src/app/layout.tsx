@@ -1,19 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Noto_Sans_TC } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const notoSansTc = Noto_Sans_TC({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-noto",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   applicationName: "聯倉",
@@ -35,15 +21,20 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#121411",
+  themeColor: "#0e1320",
   width: "device-width",
   initialScale: 1,
 };
 
 const themeBoot = `
 try {
-  var t = localStorage.getItem("jl-theme") || "dark";
-  document.documentElement.setAttribute("data-theme", t);
+  var pref = localStorage.getItem("jl-theme") || "dark";
+  var resolved = pref === "system"
+    ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    : pref;
+  if (resolved !== "light" && resolved !== "dark") resolved = "dark";
+  document.documentElement.setAttribute("data-theme", resolved);
+  document.documentElement.setAttribute("data-theme-pref", pref);
   if (localStorage.getItem("jl-reduced") === "1") {
     document.documentElement.classList.add("is-reduced");
   }
@@ -54,7 +45,7 @@ try {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-Hant" data-theme="dark" className={`${inter.variable} ${notoSansTc.variable}`}>
+    <html lang="zh-Hant" data-theme="dark">
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />
       </head>

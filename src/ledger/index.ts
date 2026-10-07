@@ -5,9 +5,12 @@ export { createTrade, deriveCostUsd } from "./create-trade";
 export { createSplit } from "./create-split";
 export { createAdjustment } from "./create-adjustment";
 export { deleteLot } from "./delete-lot";
+export { deleteEntry, DELETE_BLOCKED_BY_LATER, removalLeavesLaterShort } from "./delete-entry";
+export { dividendNote, isDividendNote, DIVIDEND_NOTE_PREFIX } from "./dividend";
 export { createJointAccount } from "./create-joint-account";
 export { setAllocationSchedule, scheduleInForce } from "./set-allocation-schedule";
 export { jointTradeLegs } from "./joint-legs";
+export { tradeCashAmountUsd, tradeMemberAmounts } from "./trade-amount";
 export {
   summarizeLedger,
   openLotsFromTrades,

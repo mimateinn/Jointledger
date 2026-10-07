@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type CSSProperties } from "react";
+import { FirstRunTips } from "@/components/first-run-tips";
 import { InstrumentLabel } from "@/components/instrument-label";
 import { Icon } from "@/components/icons";
 import { formatQty, formatSharePercent, formatUsd, todayChangeLabel } from "@/lib/format";
@@ -11,6 +12,7 @@ import { useCountTo } from "@/lib/use-count-to";
 type Filter = "me" | "all" | "joint" | string;
 
 const COPY = {
+  eyebrow: "帳本",
   title: "總覽",
   nav: "資產淨值",
   cash: "可用資金",
@@ -154,7 +156,10 @@ export function OverviewClient({
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">{COPY.title}</h1>
+        <div className="page-head-title">
+          <p className="page-eyebrow">{COPY.eyebrow}</p>
+          <h1 className="page-title">{COPY.title}</h1>
+        </div>
         <div className="chip-row chip-scroll">
           {chips.map((chip) => (
             <button
@@ -168,6 +173,8 @@ export function OverviewClient({
           ))}
         </div>
       </div>
+
+      <FirstRunTips />
 
       {emptyBook ? (
         <section className="card state-panel">

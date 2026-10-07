@@ -18,7 +18,10 @@ export default function AppLoading() {
     <div className="page" aria-busy="true" aria-label={COPY.label}>
       <span className="sr-only">{COPY.text}</span>
       <div className="page-head">
-        <div className="skeleton skeleton-title" />
+        <div className="page-head-title">
+          <div className="skeleton" style={{ width: 48, height: 11 }} />
+          <div className="skeleton skeleton-title" />
+        </div>
         <div className="chip-row">
           <div className="skeleton" style={{ width: 72, height: 32 }} />
           <div className="skeleton" style={{ width: 72, height: 32 }} />

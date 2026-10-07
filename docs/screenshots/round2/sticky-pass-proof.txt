@@ -1,0 +1,3 @@
+entry@375x812 scroll=0 .entry-sticky top=685 pageH=1199 ancestor=visible ok
+entry@375x667 scroll=0 .entry-sticky top=540 pageH=1199 ancestor=visible ok
+measure-sticky: ok

@@ -1,0 +1,19 @@
+{
+  "desktop1440": {
+    "sidebar": 220,
+    "h1": { "x": 244 },
+    "card": { "x": 244 },
+    "page": { "x": 244, "w": 1172 },
+    "inner": { "x": 265 },
+    "note": "overview on seeded demo after Litora/Versora remap"
+  },
+  "firstUse1440": {
+    "title": { "x": 244 },
+    "note": "page-form-wide left-aligned; not centered at x=390"
+  },
+  "mobile375": {
+    "page": { "x": 16, "w": 343 },
+    "pad": 16,
+    "bar": { "h": 56 }
+  }
+}

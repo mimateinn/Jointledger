@@ -13,6 +13,12 @@ const COPY = {
 export default function AppError({ reset }: { error: Error; reset: () => void }) {
   return (
     <div className="page">
+      <div className="page-head">
+        <div className="page-head-title">
+          <p className="page-eyebrow">頁面</p>
+          <h1 className="page-title">{COPY.title}</h1>
+        </div>
+      </div>
       <section className="card state-panel state-panel-error" role="alert" style={{ maxWidth: "var(--reading-max)" }}>
         <Icon name="warning" size={24} className="icon-24" />
         <h2>{COPY.title}</h2>

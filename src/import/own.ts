@@ -26,7 +26,7 @@ export function normalizeOwn(raw: string): string {
   return raw.trim().toUpperCase().slice(0, 1);
 }
 
-export function classifyTransInfoBook(own: string, _buyDate: string): BookKind | null {
+export function classifyTransInfoBook(own: string): BookKind | null {
   const key = normalizeOwn(own);
   const mapped = TRANSINFO_OWN[key];
   if (!mapped) {

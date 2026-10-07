@@ -1,0 +1,12 @@
+login@360 scrollWidth=360 overflow=0 ok
+overview@360 scrollWidth=360 overflow=0 ok
+entry@360 scrollWidth=360 overflow=0 ok
+holdings@360 scrollWidth=360 overflow=0 ok
+watchlist@360 scrollWidth=360 overflow=0 ok
+instrument@360 scrollWidth=360 overflow=0 ok
+ledger@360 scrollWidth=360 overflow=0 ok
+returns@360 scrollWidth=360 overflow=0 ok
+account@360 scrollWidth=360 overflow=0 ok
+tape@620 viewport=490 lead=0 pin=130 ok
+tape@630 viewport=500 lead=0 pin=130 ok
+measure-scroll-width: ok

@@ -1,8 +1,10 @@
 import {
   addMember,
+  createAdjustment,
   createBook,
   createCashFlow,
   createJointAccount,
+  createSplit,
   createTrade,
   setAllocationSchedule,
 } from "@/ledger";
@@ -20,6 +22,8 @@ export type ImportWriters = {
   setAllocationSchedule: typeof setAllocationSchedule;
   createCashFlow: typeof createCashFlow;
   createTrade: typeof createTrade;
+  createSplit: typeof createSplit;
+  createAdjustment: typeof createAdjustment;
 };
 
 const defaultWriters: ImportWriters = {
@@ -29,6 +33,8 @@ const defaultWriters: ImportWriters = {
   setAllocationSchedule,
   createCashFlow,
   createTrade,
+  createSplit,
+  createAdjustment,
 };
 
 export type ApplyResult = {
@@ -210,6 +216,59 @@ export async function applyImport(
     const accountId = trade.book === "joint" ? joint.id : lookup(membersForBook(trade.book)[0]).accountId;
     const memberId = lookup(membersForBook(trade.book)[0]).memberId;
     const schedule = scheduleInForce(schedules, trade.buyDate);
+
+    if (trade.side === "split") {
+      await w.createSplit(store, {
+        bookId,
+        ledgerAccountId: accountId,
+        memberId,
+        symbol: trade.symbol,
+        newShares: trade.quantity,
+        oldShares: trade.buyPrice,
+        occurredOn: trade.buyDate,
+        note: trade.note,
+      });
+      tradeCount += 1;
+      rowLog.push({
+        id: trade.id,
+        status: "written",
+        message: `拆股第 ${trade.row} 行已寫入`,
+      });
+      continue;
+    }
+
+    if (trade.side === "adjustment") {
+      const amountUsd = trade.buyTotal && trade.buyTotal !== "0" ? trade.buyTotal : null;
+      const signed = amountUsd ? money(amountUsd) : null;
+      const legs =
+        trade.book === "joint" && signed && !signed.eq(0)
+          ? jointLegs(
+              schedule,
+              "0",
+              moneyString(signed.abs()),
+              lookup,
+              signed.gt(0) ? "proceeds" : "cost",
+            )
+          : undefined;
+      await w.createAdjustment(store, {
+        bookId,
+        ledgerAccountId: accountId,
+        memberId,
+        occurredOn: trade.buyDate,
+        note: trade.note?.trim() || "匯入調整",
+        symbol: trade.symbol,
+        amountUsd,
+        legs,
+      });
+      tradeCount += 1;
+      rowLog.push({
+        id: trade.id,
+        status: "written",
+        message: `調整第 ${trade.row} 行已寫入`,
+      });
+      continue;
+    }
+
     const legs =
       trade.book === "joint"
         ? jointLegs(schedule, trade.quantity, trade.buyTotal, lookup)

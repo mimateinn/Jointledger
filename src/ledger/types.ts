@@ -220,4 +220,6 @@ export type CreateAdjustmentInput = {
   symbol?: string | null;
   /** Signed USD cash impact. Empty or 0 leaves cash unchanged. */
   amountUsd?: string | null;
+  /** Joint legs. When omitted, a joint account uses the schedule in force. */
+  legs?: CreateTradeLeg[];
 };

@@ -34,6 +34,7 @@ export function LoginForm({ emptySystem }: { emptySystem: boolean }) {
   return (
     <div className="page-center page-center-login">
       <div className="login-wordmark">
+        <p className="page-eyebrow">登入</p>
         <div className="title">{COPY.brand}</div>
         <p className="meta muted">{COPY.tag}</p>
       </div>

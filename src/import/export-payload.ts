@@ -1,5 +1,6 @@
 import { money } from "@/ledger/money";
 import { positionLotsFromTrades } from "@/ledger/summary";
+import { tradeCashAmountUsd } from "@/ledger/trade-amount";
 import type { CashFlow, LedgerAccount, Member, Trade, TradeAllocation } from "@/ledger/types";
 import { ACCOUNT_OWN } from "./own";
 import type { RowKind } from "./row-kind";
@@ -134,8 +135,12 @@ export function buildExportPayload(input: {
       continue;
     }
     if (trade.side === "adjustment") {
-      const impact = sumAlloc(input.allocations, trade.id, "proceedsUsd");
-      const cost = sumAlloc(input.allocations, trade.id, "costUsd");
+      const amountUsd = tradeCashAmountUsd({
+        side: trade.side,
+        quantity: trade.quantity,
+        price: trade.price,
+        allocations: input.allocations.filter((row) => row.tradeId === trade.id),
+      });
       transinfo.push({
         kind: "adjustment",
         symbol: trade.symbol,
@@ -143,7 +148,7 @@ export function buildExportPayload(input: {
         own,
         buyDate: trade.occurredOn,
         buyPrice: "0",
-        buyTotal: money(impact).gt(0) ? num(impact) : num(cost),
+        buyTotal: num(amountUsd),
         sellDate: "",
         sellPrice: "",
         sellFee: "",

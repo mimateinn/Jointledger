@@ -4,11 +4,12 @@ import { describe, expect, it } from "vitest";
 import { addMember } from "./add-member";
 import { createBook } from "./create-book";
 import { createJointAccount } from "./create-joint-account";
+import { createAdjustment } from "./create-adjustment";
 import { createTrade } from "./create-trade";
 import { jointTradeLegs } from "./joint-legs";
 import { createMemoryStore } from "./memory-store";
 import { setAllocationSchedule } from "./set-allocation-schedule";
-import { jointShareFraction, openLotsFromTrades } from "./summary";
+import { jointShareFraction, openLotsFromTrades, summarizeLedger } from "./summary";
 
 describe("jointTradeLegs", () => {
   it("splits quantity and cost by the schedule in force", () => {
@@ -92,5 +93,63 @@ describe("joint buy write path", () => {
     expect(buy).toContain('account.kind === "joint"');
     expect(buy).not.toMatch(/account\?\.memberId \?\? ctx\.member\.id/);
     expect(buy).toContain("createTrade");
+  });
+});
+
+describe("joint dividend write path", () => {
+  it("splits a joint dividend 0.6/0.4 across members", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "測試簿",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const joint = await createJointAccount(store, { bookId: book.id });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.6" },
+        { memberId: sze.member.id, percent: "0.4" },
+      ],
+    });
+
+    const { allocations } = await createAdjustment(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      occurredOn: "2024-07-01",
+      note: "股息 AAPL",
+      symbol: "AAPL",
+      amountUsd: "10",
+    });
+
+    expect(allocations).toHaveLength(2);
+    const heyAlloc = allocations.find((row) => row.memberId === hey.id);
+    const szeAlloc = allocations.find((row) => row.memberId === sze.member.id);
+    expect(heyAlloc?.proceedsUsd).toBe("6.00000000");
+    expect(szeAlloc?.proceedsUsd).toBe("4.00000000");
+    expect(heyAlloc?.costUsd).toBe("0.00000000");
+    const snapHey = summarizeLedger(
+      [],
+      allocations.filter((row) => row.memberId === hey.id),
+      [],
+    );
+    const snapSze = summarizeLedger(
+      [],
+      allocations.filter((row) => row.memberId === sze.member.id),
+      [],
+    );
+    expect(snapHey.cashUsd.toFixed(2)).toBe("6.00");
+    expect(snapSze.cashUsd.toFixed(2)).toBe("4.00");
+  });
+
+  it("createBookkeepingAction does not fall back to ctx.member.id for joint books", () => {
+    const entry = readFileSync(join(process.cwd(), "src/app/actions/entry.ts"), "utf8");
+    const bookkeeping = entry.slice(entry.indexOf("export async function createBookkeepingAction"));
+    expect(bookkeeping).toContain('account.kind === "joint"');
+    expect(bookkeeping).not.toMatch(/account\?\.memberId \?\? ctx\.member\.id/);
+    expect(bookkeeping).toContain("createAdjustment");
   });
 });

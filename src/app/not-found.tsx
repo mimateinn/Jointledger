@@ -11,6 +11,7 @@ export default function RootNotFound() {
   return (
     <div className="page-center">
       <div className="card state-panel state-panel-error login-card" role="alert">
+        <p className="page-eyebrow">頁面</p>
         <Icon name="warning" size={24} className="icon-24" />
         <h2>{COPY.title}</h2>
         <p>{COPY.body}</p>

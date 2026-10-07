@@ -90,8 +90,7 @@ export function TickerTape({
   }, [delayLabel, reloadKey]);
 
   const lead = tape.items[0];
-  const rest = tape.items.slice(1);
-  const loop = [...rest, ...rest];
+  const loop = [...tape.items, ...tape.items];
   return (
     <div className="tape" aria-label="市場行情">
       {lead ? (
