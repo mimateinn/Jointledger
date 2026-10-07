@@ -11,7 +11,9 @@ import {
   todayChangeLabel,
   todayIso,
   tradeSideLabel,
+  ISO_DATE_INVALID,
   isIsoDate,
+  requireIsoDate,
 } from "./format";
 
 describe("formatSchedulePercent", () => {
@@ -96,6 +98,17 @@ describe("isIsoDate", () => {
     expect(isIsoDate("2026-10-07")).toBe(true);
     expect(isIsoDate("10/07/2026")).toBe(false);
     expect(isIsoDate("07-10-2026")).toBe(false);
+  });
+
+  it("rejects invalid month, day, and non-leap 29 Feb", () => {
+    expect(isIsoDate("2026-13-45")).toBe(false);
+    expect(isIsoDate("2026-00-10")).toBe(false);
+    expect(isIsoDate("2026-04-31")).toBe(false);
+    expect(isIsoDate("2025-02-29")).toBe(false);
+    expect(isIsoDate("2024-02-29")).toBe(true);
+    expect(() => requireIsoDate("2026-13-45")).toThrow(ISO_DATE_INVALID);
+    expect(() => requireIsoDate("2025-02-29")).toThrow(ISO_DATE_INVALID);
+    expect(requireIsoDate("2024-02-29")).toBe("2024-02-29");
   });
 });
 

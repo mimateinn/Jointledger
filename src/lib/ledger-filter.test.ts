@@ -102,6 +102,8 @@ describe("ledger filter", () => {
       "c1",
       "c2",
     ]);
+    expect(parseLedgerFilters({ member: "bogus" }, members).member).toBe("");
+    expect(parseLedgerFilters({ member: "nope", view: "trades" }, members).member).toBe("");
   });
 
   it("labels a dividend adjustment from its note", () => {

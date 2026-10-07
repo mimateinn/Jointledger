@@ -129,7 +129,8 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
   .table-cards thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .table-cards tbody tr { border-top: 1px solid var(--border); padding: var(--sp-3) 0; display: grid; grid-template-columns: 1fr auto; column-gap: var(--sp-3); row-gap: var(--sp-1); }
   .table-cards tbody tr:first-child { border-top: 0; }
-  .table-cards td { height: auto; padding: 0; border: 0; }
+  .table-cards td,
+  .table.table-cards td { height: auto; padding: 0; border: 0; border-top: 0; }
   .table-cards td:first-child { grid-column: 1; font-weight: var(--fw-medium); }        /* 標的／日期：卡左上 */
   .table-cards td.card-primary { grid-column: 2; grid-row: 1; text-align: right; font-weight: var(--fw-medium); }  /* 市值／金額：卡右上 */
   .table-cards td.card-meta { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); color: var(--muted); font-size: var(--meta-size); }
@@ -140,21 +141,29 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
   .table-cards tbody tr.month-row {
     display: block;
     grid-template-columns: none;
+    border: 0;
     border-top: 0;
     border-bottom: 0;
     padding: var(--sp-3) 0 var(--sp-1);
     background: transparent;
     height: auto;
     cursor: default;
+    box-shadow: none;
   }
-  .table-cards tbody tr.month-row td {
+  .table-cards tbody tr.month-row td,
+  .table.table-cards tbody tr.month-row td {
     display: block;
     color: var(--muted);
     font-size: var(--meta-size);
     font-weight: var(--fw-medium);
     padding: 0;
+    border: 0;
+    border-top: 0;
+    background: transparent;
   }
-  .table-cards tbody tr.month-row + tr { border-top: 0; }
+  .table-cards tbody tr.month-row + tr,
+  .table-cards tbody tr.month-row + tr td,
+  .table.table-cards tbody tr.month-row + tr td { border-top: 0; }
 }
 
 /* ---- 空狀態／錯誤／離線 面板 ---- */
@@ -171,8 +180,26 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
 .banner .icon { width: 20px; height: 20px; }
 
 /* ---- toast／dialog／sheet 外觀（動畫見 motion.css）---- */
+.toast-host {
+  position: fixed;
+  z-index: var(--z-toast);
+  left: 50%;
+  translate: -50% 0;
+  bottom: calc(var(--bottom-bar-h) + var(--sp-4) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: stretch;
+  gap: var(--sp-2);
+  width: max-content;
+  max-width: min(92vw, 420px);
+  pointer-events: none;
+}
+@media (min-width: 801px) { .toast-host { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }
 .toast { position: fixed; z-index: var(--z-toast); left: 50%; translate: -50% 0; bottom: calc(var(--bottom-bar-h) + var(--sp-4) + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: var(--sp-3); width: max-content; max-width: min(92vw, 420px); padding: var(--sp-3) var(--sp-4); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); }
+.toast-host .toast { position: static; translate: none; left: auto; bottom: auto; pointer-events: auto; width: auto; max-width: 100%; }
 .toast span { white-space: nowrap; }
+.toast .toast-label { color: var(--muted); font-size: var(--meta-size); }
+.toast-error span { white-space: normal; }
 @media (min-width: 801px) { .toast { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }
 .toast .icon { color: var(--ink-text); } .toast-error .icon { color: var(--down); }
 .scrim { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); }
@@ -258,8 +285,8 @@ p.notice {
   .filter-bar .field-with-icon, .filter-bar .filter-count { grid-column: 1 / -1; }
   .filter-bar .btn { width: 100%; }
 }
-.month-row { background: var(--bg); color: var(--muted); font-size: var(--meta-size); font-weight: var(--fw-medium); height: 32px; }
-.month-row td { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+.month-row { background: transparent; color: var(--muted); font-size: var(--meta-size); font-weight: var(--fw-medium); height: 32px; }
+.month-row td { padding-top: var(--sp-2); padding-bottom: var(--sp-2); background: transparent; }
 .alloc-chart { width: 220px; height: 220px; margin: 0 auto; display: block; }
 .alloc-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .alloc-swatch { width: 12px; height: 12px; border-radius: 2px; display: inline-block; margin-right: var(--sp-2); }

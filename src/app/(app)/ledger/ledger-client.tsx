@@ -93,10 +93,13 @@ export function LedgerClient({
       return;
     }
     const params = new URLSearchParams(window.location.search);
-    if (params.get("view") === "trades" || !isJointMemberFilter(params.get("member") ?? "")) {
+    const rawMember = params.get("member") ?? "";
+    const jointOnCash = isJointMemberFilter(rawMember) && filters.view !== "trades";
+    const unknownMember = rawMember !== "" && rawMember !== filters.member && rawMember !== JOINT_MEMBER && rawMember !== JOINT_MEMBER_LABEL;
+    if (!jointOnCash && !unknownMember) {
       return;
     }
-    const url = `${window.location.pathname}${ledgerFiltersToSearch({ ...filters, member: "" })}`;
+    const url = `${window.location.pathname}${ledgerFiltersToSearch(filters)}`;
     window.history.replaceState(null, "", url);
   }, [filters]);
 

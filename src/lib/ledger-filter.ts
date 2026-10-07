@@ -160,7 +160,10 @@ export function normalizeLedgerMember(
     return JOINT_MEMBER;
   }
   const hit = members.find((member) => member.id === value || member.displayName === value);
-  return hit?.id ?? value;
+  if (hit) {
+    return hit.id;
+  }
+  return members.length === 0 ? value : "";
 }
 
 export function rowMatchesMember(

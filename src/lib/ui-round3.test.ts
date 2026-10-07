@@ -6,28 +6,6 @@ function src(path: string): string {
 }
 
 describe("round 3 mobile and display fixes", () => {
-  it("renders a mobile watchlist card list with 44px actions", () => {
-    const watch = src("src/components/watchlist-panel.tsx");
-    const css = src("src/app/components.css");
-    expect(watch).toContain("watch-list");
-    expect(watch).toContain("watch-card");
-    expect(watch).toContain("取消關注");
-    expect(watch).toContain("靜音新聞");
-    expect(css).toContain(".watch-list");
-    expect(css).toContain(".watch-actions .btn { min-height: var(--hit-min)");
-    expect(css).toMatch(/@media \(max-width: 800px\)[\s\S]*\.watch-table \{ display: none;/);
-  });
-
-  it("shows a design-system undo toast with 已刪除・還原", () => {
-    const toast = src("src/components/undo-toast.tsx");
-    const entry = src("src/components/ledger-entry-delete.tsx");
-    expect(toast).toContain("已刪除・還原");
-    expect(toast).toContain('className="toast"');
-    expect(toast).toContain("createPortal");
-    expect(entry).toContain("UndoToast");
-    expect(entry).toContain("還原");
-  });
-
   it("keeps date fields as YYYY-MM-DD text, not native locale pickers", () => {
     const date = src("src/components/date-input.tsx");
     expect(date).toContain('type="text"');

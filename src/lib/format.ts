@@ -140,7 +140,30 @@ export function todayIso(now = new Date()): string {
 /** Display and stored calendar dates stay YYYY-MM-DD. */
 export const ISO_DATE_INPUT = "\\d{4}-\\d{2}-\\d{2}";
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+export const ISO_DATE_INVALID = "日期要係有效嘅 YYYY-MM-DD";
 
+function calendarParts(value: string): { year: number; month: number; day: number } | null {
+  if (!ISO_DATE_PATTERN.test(value)) {
+    return null;
+  }
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  if (utc.getUTCFullYear() !== year || utc.getUTCMonth() !== month - 1 || utc.getUTCDate() !== day) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+/** YYYY-MM-DD and a real calendar day (rejects 2026-13-45, 2025-02-29). */
 export function isIsoDate(value: string): boolean {
-  return ISO_DATE_PATTERN.test(value);
+  return calendarParts(value) !== null;
+}
+
+export function requireIsoDate(value: string): string {
+  if (!calendarParts(value.trim())) {
+    throw new Error(ISO_DATE_INVALID);
+  }
+  return value.trim();
 }

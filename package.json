@@ -12,6 +12,7 @@
     "test:ledger-filter": "node scripts/ledger-filter-stress.mjs",
     "test:scroll-width": "node scripts/measure-scroll-width.mjs",
     "test:sticky": "node scripts/measure-sticky.mjs",
+    "test:watch-actions": "node scripts/measure-watch-actions.mjs",
     "db:generate": "drizzle-kit generate",
     "db:generate:sqlite": "drizzle-kit generate --config drizzle.config.sqlite.ts",
     "db:migrate": "tsx src/db/migrate.ts"
@@ -32,6 +33,9 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.18.0",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
@@ -39,6 +43,7 @@
     "drizzle-kit": "^0.31.4",
     "eslint": "^9.34.0",
     "eslint-config-next": "^15.5.2",
+    "jsdom": "^30.1.2",
     "puppeteer-core": "^25.12.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2",

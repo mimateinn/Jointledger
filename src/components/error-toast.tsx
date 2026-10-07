@@ -5,15 +5,11 @@ import { createPortal } from "react-dom";
 import { Icon } from "./icons";
 import { ensureToastHost } from "./toast-host";
 
-export const UNDO_TOAST_COPY = "已刪除・還原";
-
-export function UndoToast({
-  onUndo,
-  pending = false,
+export function ErrorToast({
+  message,
   label,
 }: {
-  onUndo: () => void;
-  pending?: boolean;
+  message: string;
   label?: string;
 }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -22,13 +18,10 @@ export function UndoToast({
   }, []);
 
   const body = (
-    <div className="toast" role="status" aria-live="polite" data-undo-toast="">
-      <Icon name="undo" />
-      <span>{UNDO_TOAST_COPY}</span>
+    <div className="toast toast-error" role="alert" data-error-toast="">
+      <Icon name="error" />
+      <span>{message}</span>
       {label ? <span className="toast-label">{label}</span> : null}
-      <button className="btn btn-secondary" type="button" onClick={onUndo} disabled={pending}>
-        還原
-      </button>
     </div>
   );
 
