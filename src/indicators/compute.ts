@@ -1,33 +1,6 @@
 import { addWeekdays, ema, highest, lowest, sma, stdev, trueRange, wilderSmooth, zipPoints } from "./math";
+import { indicatorPalette, type IndicatorPalette, type IndicatorTheme } from "./palette";
 import type { Bar, ChartPane, LinePoint, OverlayLine } from "./types";
-
-const COLORS = {
-  sma20: "#edeee8",
-  sma50: "#c4a574",
-  sma200: "#7a9a8a",
-  ema12: "#6b9fd4",
-  ema26: "#b07cc6",
-  vwma: "#d4a06a",
-  bb: "#6b8e9a",
-  donchian: "#8a7a5c",
-  keltner: "#5c8a7a",
-  ichimoku: "#8f9db8",
-  psar: "#c4a574",
-  supertrend: "#3d9b6e",
-  rsi: "#c4a574",
-  macd: "#6b9fd4",
-  signal: "#e06b63",
-  histUp: "#3d9b6e",
-  histDown: "#e06b63",
-  stoch: "#6b9fd4",
-  stochD: "#e06b63",
-  cci: "#b07cc6",
-  willr: "#c4a574",
-  mfi: "#7a9a8a",
-  obv: "#8f9db8",
-  atr: "#c4a574",
-  adx: "#edeee8",
-};
 
 function closes(bars: Bar[]): number[] {
   return bars.map((bar) => bar.close);
@@ -138,7 +111,13 @@ function keltner(bars: Bar[], emaPeriod = 20, atrPeriod = 10, mult = 2): {
   return { mid, upper, lower };
 }
 
-function ichimoku(bars: Bar[], tenkanP = 9, kijunP = 26, senkouP = 52): OverlayLine[] {
+function ichimoku(
+  bars: Bar[],
+  colors: IndicatorPalette,
+  tenkanP = 9,
+  kijunP = 26,
+  senkouP = 52,
+): OverlayLine[] {
   const highs = bars.map((bar) => bar.high);
   const lows = bars.map((bar) => bar.low);
   const t = times(bars);
@@ -174,11 +153,11 @@ function ichimoku(bars: Bar[], tenkanP = 9, kijunP = 26, senkouP = 52): OverlayL
     chikou.push({ time: t[i - kijunP], value: bars[i].close });
   }
   return [
-    { id: "ichimoku-tenkan", color: COLORS.ema12, points: zipPoints(t, tenkan), style: "solid" },
-    { id: "ichimoku-kijun", color: COLORS.ema26, points: zipPoints(t, kijun), style: "solid" },
-    { id: "ichimoku-span-a", color: COLORS.ichimoku, points: senkouAPoints, style: "dashed" },
-    { id: "ichimoku-span-b", color: COLORS.bb, points: senkouBPoints, style: "dashed" },
-    { id: "ichimoku-chikou", color: COLORS.sma50, points: chikou, style: "dashed" },
+    { id: "ichimoku-tenkan", color: colors.ema12, points: zipPoints(t, tenkan), style: "solid" },
+    { id: "ichimoku-kijun", color: colors.ema26, points: zipPoints(t, kijun), style: "solid" },
+    { id: "ichimoku-span-a", color: colors.ichimoku, points: senkouAPoints, style: "dashed" },
+    { id: "ichimoku-span-b", color: colors.bb, points: senkouBPoints, style: "dashed" },
+    { id: "ichimoku-chikou", color: colors.sma50, points: chikou, style: "dashed" },
   ];
 }
 
@@ -428,65 +407,75 @@ function line(id: string, color: string, points: LinePoint[], style: OverlayLine
   return { id, color, points, style };
 }
 
-export function computeOverlays(bars: Bar[], active: ReadonlySet<string>): OverlayLine[] {
+export function computeOverlays(
+  bars: Bar[],
+  active: ReadonlySet<string>,
+  theme: IndicatorTheme = "dark",
+): OverlayLine[] {
   if (bars.length === 0) {
     return [];
   }
+  const colors = indicatorPalette(theme);
   const t = times(bars);
   const c = closes(bars);
   const overlays: OverlayLine[] = [];
   if (active.has("sma20")) {
-    overlays.push(line("sma20", COLORS.sma20, zipPoints(t, sma(c, 20))));
+    overlays.push(line("sma20", colors.sma20, zipPoints(t, sma(c, 20))));
   }
   if (active.has("sma50")) {
-    overlays.push(line("sma50", COLORS.sma50, zipPoints(t, sma(c, 50))));
+    overlays.push(line("sma50", colors.sma50, zipPoints(t, sma(c, 50))));
   }
   if (active.has("sma200")) {
-    overlays.push(line("sma200", COLORS.sma200, zipPoints(t, sma(c, 200))));
+    overlays.push(line("sma200", colors.sma200, zipPoints(t, sma(c, 200))));
   }
   if (active.has("ema12")) {
-    overlays.push(line("ema12", COLORS.ema12, zipPoints(t, ema(c, 12))));
+    overlays.push(line("ema12", colors.ema12, zipPoints(t, ema(c, 12))));
   }
   if (active.has("ema26")) {
-    overlays.push(line("ema26", COLORS.ema26, zipPoints(t, ema(c, 26))));
+    overlays.push(line("ema26", colors.ema26, zipPoints(t, ema(c, 26))));
   }
   if (active.has("vwma20")) {
-    overlays.push(line("vwma20", COLORS.vwma, zipPoints(t, vwma(bars, 20))));
+    overlays.push(line("vwma20", colors.vwma, zipPoints(t, vwma(bars, 20))));
   }
   if (active.has("bbands")) {
     const bb = bollinger(bars);
-    overlays.push(line("bb-mid", COLORS.bb, zipPoints(t, bb.mid), "dashed"));
-    overlays.push(line("bb-up", COLORS.bb, zipPoints(t, bb.upper)));
-    overlays.push(line("bb-lo", COLORS.bb, zipPoints(t, bb.lower)));
+    overlays.push(line("bb-mid", colors.bb, zipPoints(t, bb.mid), "dashed"));
+    overlays.push(line("bb-up", colors.bb, zipPoints(t, bb.upper)));
+    overlays.push(line("bb-lo", colors.bb, zipPoints(t, bb.lower)));
   }
   if (active.has("donchian")) {
     const dc = donchian(bars);
-    overlays.push(line("dc-up", COLORS.donchian, zipPoints(t, dc.upper)));
-    overlays.push(line("dc-mid", COLORS.donchian, zipPoints(t, dc.mid), "dashed"));
-    overlays.push(line("dc-lo", COLORS.donchian, zipPoints(t, dc.lower)));
+    overlays.push(line("dc-up", colors.donchian, zipPoints(t, dc.upper)));
+    overlays.push(line("dc-mid", colors.donchian, zipPoints(t, dc.mid), "dashed"));
+    overlays.push(line("dc-lo", colors.donchian, zipPoints(t, dc.lower)));
   }
   if (active.has("keltner")) {
     const kc = keltner(bars);
-    overlays.push(line("kc-mid", COLORS.keltner, zipPoints(t, kc.mid), "dashed"));
-    overlays.push(line("kc-up", COLORS.keltner, zipPoints(t, kc.upper)));
-    overlays.push(line("kc-lo", COLORS.keltner, zipPoints(t, kc.lower)));
+    overlays.push(line("kc-mid", colors.keltner, zipPoints(t, kc.mid), "dashed"));
+    overlays.push(line("kc-up", colors.keltner, zipPoints(t, kc.upper)));
+    overlays.push(line("kc-lo", colors.keltner, zipPoints(t, kc.lower)));
   }
   if (active.has("ichimoku")) {
-    overlays.push(...ichimoku(bars));
+    overlays.push(...ichimoku(bars, colors));
   }
   if (active.has("psar")) {
-    overlays.push({ id: "psar", color: COLORS.psar, points: zipPoints(t, psar(bars)), style: "dots" });
+    overlays.push({ id: "psar", color: colors.psar, points: zipPoints(t, psar(bars)), style: "dots" });
   }
   if (active.has("supertrend")) {
-    overlays.push(line("supertrend", COLORS.supertrend, zipPoints(t, supertrend(bars))));
+    overlays.push(line("supertrend", colors.supertrend, zipPoints(t, supertrend(bars))));
   }
   return overlays;
 }
 
-export function computePanes(bars: Bar[], active: ReadonlySet<string>): ChartPane[] {
+export function computePanes(
+  bars: Bar[],
+  active: ReadonlySet<string>,
+  theme: IndicatorTheme = "dark",
+): ChartPane[] {
   if (bars.length === 0) {
     return [];
   }
+  const colors = indicatorPalette(theme);
   const t = times(bars);
   const c = closes(bars);
   const panes: ChartPane[] = [];
@@ -498,11 +487,11 @@ export function computePanes(bars: Bar[], active: ReadonlySet<string>): ChartPan
         {
           id: "volume",
           kind: "histogram",
-          color: COLORS.histUp,
+          color: colors.histUp,
           points: bars.map((bar) => ({
             time: bar.time,
             value: bar.volume,
-            color: bar.close >= bar.open ? COLORS.histUp : COLORS.histDown,
+            color: bar.close >= bar.open ? colors.histUp : colors.histDown,
           })),
         },
       ],
@@ -512,7 +501,7 @@ export function computePanes(bars: Bar[], active: ReadonlySet<string>): ChartPan
     panes.push({
       id: "rsi",
       label: "RSI(14)",
-      plots: [{ id: "rsi", kind: "line", color: COLORS.rsi, points: zipPoints(t, computeRsi(c, 14)) }],
+      plots: [{ id: "rsi", kind: "line", color: colors.rsi, points: zipPoints(t, computeRsi(c, 14)) }],
     });
   }
   if (active.has("macd")) {
@@ -524,14 +513,14 @@ export function computePanes(bars: Bar[], active: ReadonlySet<string>): ChartPan
         {
           id: "macd-hist",
           kind: "histogram",
-          color: COLORS.histUp,
+          color: colors.histUp,
           points: zipPoints(t, macd.hist).map((point) => ({
             ...point,
-            color: point.value >= 0 ? COLORS.histUp : COLORS.histDown,
+            color: point.value >= 0 ? colors.histUp : colors.histDown,
           })),
         },
-        { id: "macd-line", kind: "line", color: COLORS.macd, points: zipPoints(t, macd.macd) },
-        { id: "macd-signal", kind: "line", color: COLORS.signal, points: zipPoints(t, macd.signal) },
+        { id: "macd-line", kind: "line", color: colors.macd, points: zipPoints(t, macd.macd) },
+        { id: "macd-signal", kind: "line", color: colors.signal, points: zipPoints(t, macd.signal) },
       ],
     });
   }
@@ -541,8 +530,8 @@ export function computePanes(bars: Bar[], active: ReadonlySet<string>): ChartPan
       id: "stoch",
       label: "Stoch",
       plots: [
-        { id: "stoch-k", kind: "line", color: COLORS.stoch, points: zipPoints(t, st.k) },
-        { id: "stoch-d", kind: "line", color: COLORS.stochD, points: zipPoints(t, st.d) },
+        { id: "stoch-k", kind: "line", color: colors.stoch, points: zipPoints(t, st.k) },
+        { id: "stoch-d", kind: "line", color: colors.stochD, points: zipPoints(t, st.d) },
       ],
     });
   }
@@ -552,8 +541,8 @@ export function computePanes(bars: Bar[], active: ReadonlySet<string>): ChartPan
       id: "stochrsi",
       label: "StochRSI",
       plots: [
-        { id: "stochrsi-k", kind: "line", color: COLORS.stoch, points: zipPoints(t, st.k) },
-        { id: "stochrsi-d", kind: "line", color: COLORS.stochD, points: zipPoints(t, st.d) },
+        { id: "stochrsi-k", kind: "line", color: colors.stoch, points: zipPoints(t, st.k) },
+        { id: "stochrsi-d", kind: "line", color: colors.stochD, points: zipPoints(t, st.d) },
       ],
     });
   }
@@ -561,42 +550,42 @@ export function computePanes(bars: Bar[], active: ReadonlySet<string>): ChartPan
     panes.push({
       id: "cci",
       label: "CCI",
-      plots: [{ id: "cci", kind: "line", color: COLORS.cci, points: zipPoints(t, cci(bars)) }],
+      plots: [{ id: "cci", kind: "line", color: colors.cci, points: zipPoints(t, cci(bars)) }],
     });
   }
   if (active.has("willr")) {
     panes.push({
       id: "willr",
       label: "%R",
-      plots: [{ id: "willr", kind: "line", color: COLORS.willr, points: zipPoints(t, willr(bars)) }],
+      plots: [{ id: "willr", kind: "line", color: colors.willr, points: zipPoints(t, willr(bars)) }],
     });
   }
   if (active.has("mfi")) {
     panes.push({
       id: "mfi",
       label: "MFI",
-      plots: [{ id: "mfi", kind: "line", color: COLORS.mfi, points: zipPoints(t, mfi(bars)) }],
+      plots: [{ id: "mfi", kind: "line", color: colors.mfi, points: zipPoints(t, mfi(bars)) }],
     });
   }
   if (active.has("obv")) {
     panes.push({
       id: "obv",
       label: "OBV",
-      plots: [{ id: "obv", kind: "line", color: COLORS.obv, points: zipPoints(t, obv(bars)) }],
+      plots: [{ id: "obv", kind: "line", color: colors.obv, points: zipPoints(t, obv(bars)) }],
     });
   }
   if (active.has("atr")) {
     panes.push({
       id: "atr",
       label: "ATR",
-      plots: [{ id: "atr", kind: "line", color: COLORS.atr, points: zipPoints(t, atr(bars, 14)) }],
+      plots: [{ id: "atr", kind: "line", color: colors.atr, points: zipPoints(t, atr(bars, 14)) }],
     });
   }
   if (active.has("adx")) {
     panes.push({
       id: "adx",
       label: "ADX",
-      plots: [{ id: "adx", kind: "line", color: COLORS.adx, points: zipPoints(t, adx(bars)) }],
+      plots: [{ id: "adx", kind: "line", color: colors.adx, points: zipPoints(t, adx(bars)) }],
     });
   }
   return panes;

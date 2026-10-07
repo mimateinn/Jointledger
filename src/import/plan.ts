@@ -273,7 +273,7 @@ function planTransInfoRow(
   }
 
   const own = normalizeOwn(ownRaw);
-  let book = classifyTransInfoBook(own, buyDate);
+  let book = classifyTransInfoBook(own);
   if (!book) {
     issues.push({
       id: issueId("ti-own", excelRow),
@@ -370,11 +370,10 @@ function resolveImportBook(
   excelRow: number,
   symbol: string,
   ownRaw: string,
-  buyDate: string,
   issues: ImportIssue[],
 ): { own: string; book: NonNullable<ReturnType<typeof classifyTransInfoBook>> } | null {
   const own = normalizeOwn(ownRaw);
-  const book = classifyTransInfoBook(own, buyDate);
+  const book = classifyTransInfoBook(own);
   if (!book) {
     issues.push({
       id: issueId("ti-own", excelRow, symbol || "row"),
@@ -437,7 +436,7 @@ function planSplitRow(
     });
     return null;
   }
-  const resolved = resolveImportBook(excelRow, symbol, ownRaw, buyDate, issues);
+  const resolved = resolveImportBook(excelRow, symbol, ownRaw, issues);
   if (!resolved) {
     return null;
   }
@@ -475,7 +474,7 @@ function planAdjustmentRow(
   kindRaw = "",
 ): PlannedTrade | null {
   const amount = parseMoney(cell(row, map, "buy_total")) ?? parseMoney(cell(row, map, "buy_price"));
-  const resolved = resolveImportBook(excelRow, symbol || "—", ownRaw, buyDate, issues);
+  const resolved = resolveImportBook(excelRow, symbol || "—", ownRaw, issues);
   if (!resolved) {
     return null;
   }

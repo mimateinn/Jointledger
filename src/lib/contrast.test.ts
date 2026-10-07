@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { contrastRatio, parseCssColor, paint, type Rgb } from "./contrast";
+import { computeOverlays } from "@/indicators";
+import { INDICATOR_PALETTES, type IndicatorTheme } from "@/indicators/palette";
+import { contrastRatio, parseCssColor, paint, parseHex, type Rgb } from "./contrast";
 
 const tokensCss = readFileSync(join(import.meta.dirname, "../app/tokens.css"), "utf8");
 const componentsCss = readFileSync(join(import.meta.dirname, "../app/components.css"), "utf8");
@@ -175,5 +177,63 @@ describe("text-colour token contrast", () => {
       }
     }
     expect(failed, failed.join("\n")).toEqual([]);
+  });
+});
+
+const GRAPHIC_MIN = 3;
+const LIGHT_CHART_BGS = ["#faf8f5", "#ffffff"] as const;
+const DARK_CHART_BGS = ["#0e1320", "#161d2e"] as const;
+
+describe("indicator palettes", () => {
+  it.each([
+    ["light", INDICATOR_PALETTES.light, LIGHT_CHART_BGS, light] as const,
+    ["dark", INDICATOR_PALETTES.dark, DARK_CHART_BGS, dark] as const,
+  ])("%s indicator lines are >= 3:1 on chart surfaces and not up/down", (name, palette, backgrounds, theme) => {
+    const up = resolveValue(theme, "up").toLowerCase();
+    const down = resolveValue(theme, "down").toLowerCase();
+    const failed: string[] = [];
+    for (const [key, hex] of Object.entries(palette)) {
+      const fg = parseHex(hex);
+      for (const bgHex of backgrounds) {
+        const ratio = contrastRatio(fg, parseHex(bgHex));
+        if (ratio < GRAPHIC_MIN) {
+          failed.push(`${name} ${key} ${hex} / ${bgHex}: ${ratio.toFixed(2)}`);
+        }
+      }
+      if (hex.toLowerCase() === up || hex.toLowerCase() === down) {
+        failed.push(`${name} ${key} ${hex} equals finance ${hex.toLowerCase() === up ? "up" : "down"}`);
+      }
+    }
+    expect(failed, failed.join("\n")).toEqual([]);
+  });
+
+  it("keeps Ichimoku / SMA / MACD strokes distinct within each theme", () => {
+    for (const theme of ["light", "dark"] as IndicatorTheme[]) {
+      const p = INDICATOR_PALETTES[theme];
+      expect(new Set([p.ema12, p.ema26, p.ichimoku, p.bb, p.sma50]).size, `${theme} ichimoku`).toBe(5);
+      expect(new Set([p.sma20, p.sma50, p.sma200]).size, `${theme} sma`).toBe(3);
+      expect(new Set([p.macd, p.signal, p.histUp]).size, `${theme} macd`).toBe(3);
+    }
+  });
+
+  it("computeOverlays paints SMA50 from the requested theme palette", () => {
+    const bars = [
+      { time: "2024-01-02", open: 1, high: 1, low: 1, close: 1, volume: 1 },
+      { time: "2024-01-03", open: 2, high: 2, low: 2, close: 2, volume: 1 },
+    ];
+    const lightLine = computeOverlays(bars, new Set(["sma50"]), "light")[0];
+    const darkLine = computeOverlays(bars, new Set(["sma50"]), "dark")[0];
+    expect(lightLine?.color).toBe(INDICATOR_PALETTES.light.sma50);
+    expect(darkLine?.color).toBe(INDICATOR_PALETTES.dark.sma50);
+    expect(lightLine?.color).not.toBe(darkLine?.color);
+  });
+
+  it("kline-chart applies the resolved appearance palette and refreshes on theme change", () => {
+    const kline = readFileSync(join(import.meta.dirname, "../components/kline-chart.tsx"), "utf8");
+    expect(kline).toContain("resolvedAppearance");
+    expect(kline).toContain("prefers-color-scheme");
+    expect(kline).toContain("data-theme-pref");
+    expect(kline).toMatch(/computeOverlays\(bars, active, themeKey\)/);
+    expect(kline).toMatch(/computePanes\(bars, active, themeKey\)/);
   });
 });

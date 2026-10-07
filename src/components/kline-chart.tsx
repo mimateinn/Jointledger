@@ -12,6 +12,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { computeOverlays, computePanes, priceFormatFromBars, type Bar } from "@/indicators";
+import { isIndicatorTheme, type IndicatorTheme } from "@/indicators/palette";
 
 function readToken(name: string, fallback: string): string {
   if (typeof document === "undefined") {
@@ -25,6 +26,15 @@ function asTime(time: string): UTCTimestamp {
   return Math.floor(new Date(`${time}T00:00:00Z`).getTime() / 1000) as UTCTimestamp;
 }
 
+/** Resolved appearance: `data-theme` (暖紙 / 夜頁 / system-light|dark), else OS. */
+function resolvedAppearance(): IndicatorTheme {
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (isIndicatorTheme(attr)) {
+    return attr;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export function KlineChart({
   bars,
   active,
@@ -36,14 +46,22 @@ export function KlineChart({
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const [themeKey, setThemeKey] = useState("dark");
+  const [themeKey, setThemeKey] = useState<IndicatorTheme>("dark");
 
   useEffect(() => {
-    const read = () => document.documentElement.getAttribute("data-theme") ?? "dark";
-    setThemeKey(read());
-    const observer = new MutationObserver(() => setThemeKey(read()));
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
+    const read = () => setThemeKey(resolvedAppearance());
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "data-theme-pref"],
+    });
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    media.addEventListener("change", read);
+    return () => {
+      observer.disconnect();
+      media.removeEventListener("change", read);
+    };
   }, []);
 
   useEffect(() => {
@@ -58,7 +76,7 @@ export function KlineChart({
     const up = readToken("--up", "#42a375");
     const down = readToken("--down", "#e6746c");
     const format = priceFormatFromBars(bars);
-    const paneCount = computePanes(bars, active).length;
+    const paneCount = computePanes(bars, active, themeKey).length;
     const frame = host.parentElement;
     if (expanded) {
       host.style.height = "100%";
@@ -112,7 +130,7 @@ export function KlineChart({
       })),
     );
 
-    for (const overlay of computeOverlays(bars, active)) {
+    for (const overlay of computeOverlays(bars, active, themeKey)) {
       const series = chart.addSeries(
         LineSeries,
         {
@@ -133,7 +151,7 @@ export function KlineChart({
       );
     }
 
-    computePanes(bars, active).forEach((pane, index) => {
+    computePanes(bars, active, themeKey).forEach((pane, index) => {
       const paneIndex = index + 1;
       for (const plot of pane.plots) {
         if (plot.kind === "histogram") {
