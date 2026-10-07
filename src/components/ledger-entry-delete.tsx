@@ -16,6 +16,7 @@ const COPY = {
   confirmTitle: "確認刪呢筆",
   confirm: "確認刪除",
   cancel: "取消",
+  undo: "還原",
   checking: "檢查緊",
   failed: "刪除失敗",
   cash: "刪除後，呢筆出入金會消失，現金會按不變式重計。",
