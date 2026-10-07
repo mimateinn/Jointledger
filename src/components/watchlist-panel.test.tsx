@@ -85,10 +85,12 @@ afterEach(() => {
 describe("watchlist mute pending", () => {
   it("does not share mute pending across rows or duplicate hidden forms", async () => {
     const user = userEvent.setup();
-    render(<WatchlistPanel items={rows} />);
+    const { container } = render(<WatchlistPanel items={rows} />);
 
     const buttons = await screen.findAllByRole("button", { name: "靜音新聞" });
     expect(buttons).toHaveLength(2);
+    expect(container.querySelector(".watch-list")).toBeTruthy();
+    expect(container.querySelector(".watch-table")).toBeTruthy();
 
     await user.click(buttons[0]!);
     await waitFor(() => {
@@ -141,15 +143,8 @@ describe("watchlist mute pending", () => {
     expect(button.textContent).toContain("靜音新聞");
   });
 
-  it("does not let a stale mute response overwrite a newer toggle", async () => {
-    let rejectFirst!: (error: Error) => void;
-    const first = new Promise<never>((_, reject) => {
-      rejectFirst = reject;
-    });
-    const muteAction = vi
-      .fn()
-      .mockImplementationOnce(() => first)
-      .mockImplementationOnce(async () => ({}));
+  it("guards a same-tick double click with a synchronous in-flight ref", async () => {
+    const muteAction = vi.fn(async () => ({}));
     render(<WatchActions row={rows[0]!} muteAction={muteAction} />);
 
     const button = screen.getByRole("button", { name: "靜音新聞" });
@@ -158,16 +153,30 @@ describe("watchlist mute pending", () => {
       fireEvent.click(button);
     });
     await waitFor(() => {
-      expect(muteAction).toHaveBeenCalledTimes(2);
+      expect(muteAction).toHaveBeenCalledTimes(1);
     });
-    expect(button.textContent).toContain("恢復新聞");
-
-    rejectFirst(new Error("aborted"));
     await waitFor(() => {
       expect(button.disabled).toBe(false);
     });
     expect(button.textContent).toContain("恢復新聞");
-    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reverts the mute label and toasts 更新失敗 when the action returns a raw server error", async () => {
+    const user = userEvent.setup();
+    const muteAction = vi.fn(async () => ({
+      error:
+        "SQLITE_BUSY: UPDATE watch_items SET muted = 1 WHERE id = '550e8400-e29b-41d4-a716-446655440000'",
+    }));
+    render(<WatchActions row={rows[0]!} muteAction={muteAction} />);
+
+    const button = screen.getByRole("button", { name: "靜音新聞" });
+    await user.click(button);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("更新失敗");
+    expect(alert.textContent).not.toContain("UPDATE watch_items");
+    expect(alert.textContent).not.toContain("550e8400-e29b-41d4-a716-446655440000");
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain("靜音新聞");
   });
 
   it("re-enables the unwatch button in finally after the action throws", async () => {

@@ -212,6 +212,10 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
     background-color: var(--surface);
     box-shadow: var(--shadow-3);
   }
+  .toast-host,
+  .toast {
+    bottom: calc(var(--bottom-bar-h) + var(--hit-min) + 4.5rem + env(safe-area-inset-bottom));
+  }
 }
 @media (min-width: 801px) { .toast { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }
 .toast .icon { color: var(--ink-text); } .toast-error .icon { color: var(--down); }

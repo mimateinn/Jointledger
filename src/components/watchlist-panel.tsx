@@ -79,15 +79,18 @@ export function WatchActions({
   const [muteError, setMuteError] = useState<string | null>(null);
   const muteGen = useRef(0);
   const removeGen = useRef(0);
+  const muteInFlight = useRef(false);
+  const removeInFlight = useRef(false);
 
   useEffect(() => {
     setMuted(row.muted);
   }, [row.muted]);
 
   async function onMute() {
-    if (mutePending) {
+    if (muteInFlight.current) {
       return;
     }
+    muteInFlight.current = true;
     const next = !muted;
     const generation = (muteGen.current += 1);
     setMuteError(null);
@@ -100,7 +103,7 @@ export function WatchActions({
       const result = await muteAction({}, fd);
       if (result.error && generation === muteGen.current) {
         setMuted(!next);
-        setMuteError(result.error);
+        setMuteError(WATCH_COPY.failed);
       }
     } catch {
       if (generation === muteGen.current) {
@@ -109,15 +112,17 @@ export function WatchActions({
       }
     } finally {
       if (generation === muteGen.current) {
+        muteInFlight.current = false;
         setMutePending(false);
       }
     }
   }
 
   async function onRemove() {
-    if (removePending) {
+    if (removeInFlight.current) {
       return;
     }
+    removeInFlight.current = true;
     const generation = (removeGen.current += 1);
     setRemovePending(true);
     try {
@@ -128,6 +133,7 @@ export function WatchActions({
       // pending still clears in finally so an aborted refresh cannot stick
     } finally {
       if (generation === removeGen.current) {
+        removeInFlight.current = false;
         setRemovePending(false);
       }
     }

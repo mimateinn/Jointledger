@@ -66,8 +66,8 @@ export async function muteWatchAction(_prev: WatchState, formData: FormData): Pr
     const ctx = await requireBook();
     const muted = String(formData.get("muted") ?? "") === "1";
     await setWatchMuted(ctx.book.id, String(formData.get("id") ?? ""), muted);
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "更新失敗" };
+  } catch {
+    return { error: "更新失敗" };
   }
   revalidatePath("/holdings");
   return { ok: mutedLabel(String(formData.get("muted") ?? "") === "1") };

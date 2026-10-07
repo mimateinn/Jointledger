@@ -81,6 +81,77 @@ async function applySqliteConnectionPragmas(execute: Client["execute"]) {
   await execute(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT_MS}`);
 }
 
+/**
+ * libsql 0.15.15 `Sqlite3Client` keeps one live handle in `#db`.
+ * `transaction()` runs `BEGIN IMMEDIATE` on that handle and only then
+ * sets `#db = null` so the next `#getDb()` opens another connection.
+ * A failed BEGIN leaves `#db` pointing at the same handle and does not
+ * ROLLBACK. The 6b2f451 wrapper gated work with a shared `prepare`
+ * promise (not a mutex), so a plain UPDATE could run on that handle
+ * between BEGIN and `#db = null` (or after a busy BEGIN) and later be
+ * rolled back by pack-lock / ledger-tx — success in JS, nothing committed.
+ *
+ * All client-level execute/batch/transaction/reconnect calls are
+ * serialised. BEGIN errors always ROLLBACK that same handle before reuse.
+ * Post-transaction PRAGMAs run on the new handle while the mutex is held.
+ */
+function serializeSqliteClient(client: Client) {
+  const execute = client.execute.bind(client);
+  const batch = client.batch?.bind(client);
+  const transaction = client.transaction.bind(client);
+  const reconnect = client.reconnect?.bind(client);
+
+  let tail: Promise<unknown> = Promise.resolve();
+  function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    const run = tail.then(fn, fn);
+    tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  tail = applySqliteConnectionPragmas(execute);
+
+  client.execute = ((stmt: Parameters<Client["execute"]>[0], args?: Parameters<Client["execute"]>[1]) =>
+    enqueue(() => execute(stmt, args))) as Client["execute"];
+  if (batch) {
+    client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
+      enqueue(() => batch(stmts, mode))) as Client["batch"];
+  }
+  client.transaction = ((...args: unknown[]) =>
+    enqueue(async () => {
+      try {
+        const tx = await (transaction as (...inner: unknown[]) => ReturnType<Client["transaction"]>)(...args);
+        try {
+          await applySqliteConnectionPragmas(execute);
+        } catch (error) {
+          try {
+            await tx.rollback();
+          } catch {
+            // already closed
+          }
+          throw error;
+        }
+        return tx;
+      } catch (error) {
+        try {
+          await execute("ROLLBACK");
+        } catch {
+          // not in a transaction
+        }
+        throw error;
+      }
+    })) as Client["transaction"];
+  if (reconnect) {
+    client.reconnect = (() =>
+      enqueue(async () => {
+        await reconnect();
+        await applySqliteConnectionPragmas(execute);
+      })) as Client["reconnect"];
+  }
+}
+
 function getSqliteClient() {
   const url = getDatabaseUrl();
   if (globalForDb.sqlite && globalForDb.sqliteUrl === url) {
@@ -89,36 +160,7 @@ function getSqliteClient() {
   globalForDb.sqlite?.close();
   ensureSqliteDir(url);
   const client = createClient({ url });
-  const execute = client.execute.bind(client);
-  const batch = client.batch?.bind(client);
-  const transaction = client.transaction.bind(client);
-  const reconnect = client.reconnect?.bind(client);
-
-  // libsql 0.15 nulls the underlying connection after transaction() and
-  // lazily opens a new one without the previous PRAGMAs. Re-apply on every
-  // new connection, including the one created after transaction()/reconnect().
-  let prepare = applySqliteConnectionPragmas(execute);
-
-  client.execute = ((stmt: Parameters<Client["execute"]>[0], args?: Parameters<Client["execute"]>[1]) =>
-    prepare.then(() => execute(stmt, args))) as Client["execute"];
-  if (batch) {
-    client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
-      prepare.then(() => batch(stmts, mode))) as Client["batch"];
-  }
-  client.transaction = (async (...args: unknown[]) => {
-    await prepare;
-    const tx = await (transaction as (...inner: unknown[]) => ReturnType<Client["transaction"]>)(...args);
-    prepare = applySqliteConnectionPragmas(execute);
-    return tx;
-  }) as Client["transaction"];
-  if (reconnect) {
-    client.reconnect = (async () => {
-      await reconnect();
-      prepare = applySqliteConnectionPragmas(execute);
-      await prepare;
-    }) as Client["reconnect"];
-  }
-
+  serializeSqliteClient(client);
   globalForDb.sqlite = client;
   globalForDb.sqliteUrl = url;
   return client;
