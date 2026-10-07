@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
+import { tradeCashAmountUsd, tradeMemberAmounts } from "@/ledger/trade-amount";
 import { loadBookView } from "@/lib/book-view";
 import { ensureCurrentBook } from "@/lib/ensure-book";
 import { parseLedgerFilters, type LedgerKind } from "@/lib/ledger-filter";
@@ -50,19 +51,34 @@ export default async function LedgerPage({
         occurredOn: row.occurredOn,
         note: null,
       }))}
-      trades={view.trades.map((row) => ({
-        id: row.id,
-        kind: row.side as LedgerKind,
-        memberName: accountMember(row.ledgerAccountId),
-        memberIds: view.allocations.filter((leg) => leg.tradeId === row.id).map((leg) => leg.memberId),
-        joint: jointIds.has(row.ledgerAccountId),
-        symbol: row.symbol,
-        name: resolveInstrument(row.symbol)?.displayName ?? null,
-        quantity: row.quantity,
-        price: row.price,
-        occurredOn: row.occurredOn,
-        note: row.note,
-      }))}
+      trades={view.trades.map((row) => {
+        const allocations = view.allocations.filter((leg) => leg.tradeId === row.id);
+        return {
+          id: row.id,
+          kind: row.side as LedgerKind,
+          memberName: accountMember(row.ledgerAccountId),
+          memberIds: allocations.map((leg) => leg.memberId),
+          joint: jointIds.has(row.ledgerAccountId),
+          symbol: row.symbol,
+          name: resolveInstrument(row.symbol)?.displayName ?? null,
+          quantity: row.quantity,
+          price: row.price,
+          amountUsd: tradeCashAmountUsd({
+            side: row.side,
+            quantity: row.quantity,
+            price: row.price,
+            allocations,
+          }),
+          memberAmounts: tradeMemberAmounts({
+            side: row.side,
+            quantity: row.quantity,
+            price: row.price,
+            allocations,
+          }),
+          occurredOn: row.occurredOn,
+          note: row.note,
+        };
+      })}
     />
   );
 }

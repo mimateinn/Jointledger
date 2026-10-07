@@ -6,6 +6,7 @@ import {
   formatRelativeDate,
   formatSchedulePercent,
   formatSharePercent,
+  formatSignedUsd,
   formatUsd,
   todayChangeLabel,
   todayIso,
@@ -41,6 +42,14 @@ describe("formatUsd", () => {
     expect(formatUsd("1234.5")).toBe("US$ 1,234.50");
     expect(formatUsd("0")).toBe("US$ 0.00");
     expect(formatUsd("-50")).toBe("-US$ 50.00");
+  });
+});
+
+describe("formatSignedUsd", () => {
+  it("prefixes + for credits", () => {
+    expect(formatSignedUsd("100")).toBe("+US$ 100.00");
+    expect(formatSignedUsd("2.50")).toBe("+US$ 2.50");
+    expect(formatSignedUsd("-5")).toBe("-US$ 5.00");
   });
 });
 

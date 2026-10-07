@@ -10,6 +10,7 @@ export { dividendNote, isDividendNote, DIVIDEND_NOTE_PREFIX } from "./dividend";
 export { createJointAccount } from "./create-joint-account";
 export { setAllocationSchedule, scheduleInForce } from "./set-allocation-schedule";
 export { jointTradeLegs } from "./joint-legs";
+export { tradeCashAmountUsd, tradeMemberAmounts } from "./trade-amount";
 export {
   summarizeLedger,
   openLotsFromTrades,

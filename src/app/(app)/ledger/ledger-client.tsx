@@ -6,6 +6,7 @@ import { Icon } from "@/components/icons";
 import { InstrumentLabel } from "@/components/instrument-label";
 import { LedgerEntryDelete } from "@/components/ledger-entry-delete";
 import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd } from "@/lib/format";
+import { formatLedgerTradeAmount, ledgerRowAmountUsd } from "@/lib/ledger-amount";
 import {
   JOINT_MEMBER,
   JOINT_MEMBER_LABEL,
@@ -54,6 +55,8 @@ type CashRow = FilterableLedgerRow & {
 type TradeRow = FilterableLedgerRow & {
   quantity: string;
   price: string;
+  amountUsd: string;
+  memberAmounts?: { memberId: string; amountUsd: string }[];
 };
 
 export function LedgerClient({
@@ -279,7 +282,7 @@ export function LedgerClient({
             ) : current.view === "cash" ? (
               <CashTable rows={shown as CashRow[]} />
             ) : (
-              <TradeTable rows={shown as TradeRow[]} />
+              <TradeTable rows={shown as TradeRow[]} member={current.member} />
             )}
           </section>
         </>
@@ -356,7 +359,7 @@ function CashTable({ rows }: { rows: CashRow[] }) {
   );
 }
 
-function TradeTable({ rows }: { rows: TradeRow[] }) {
+function TradeTable({ rows, member }: { rows: TradeRow[]; member: string }) {
   if (rows.length === 0) {
     return <EmptyPanel sentence={COPY.emptyTrades} href="/entry" actionLabel="記買入" icon="empty-ledger" />;
   }
@@ -381,7 +384,7 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
             <td colSpan={9}>{group.month}</td>
           </tr>,
           ...group.rows.map((row) => {
-            const amount = Number(row.quantity) * Number(row.price);
+            const amount = ledgerRowAmountUsd(row, member);
             return (
               <tr key={row.id}>
                 <td title={row.occurredOn.slice(0, 10)}>{formatRelativeDate(row.occurredOn)}</td>
@@ -399,7 +402,7 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
                   {formatUsd(row.price)}
                 </td>
                 <td className="num card-primary" data-label="金額">
-                  {Number.isFinite(amount) ? formatUsd(amount.toFixed(2)) : "—"}
+                  {formatLedgerTradeAmount(row.kind, amount)}
                 </td>
                 <td className="muted">{row.note ?? "—"}</td>
                 <td className="card-action">
