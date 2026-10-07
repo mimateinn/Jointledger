@@ -823,6 +823,23 @@ button {
     display: none;
   }
 
+  .mobile-bar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+
+  .mobile-bar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--muted);
+  }
+
   .tape-lead {
     display: none;
   }
