@@ -12,7 +12,7 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
   { key: "custom", label: "自訂" },
 ];
 
-const COLORS = ["var(--ink)", "color-mix(in srgb, var(--ink) 50%, var(--text))", "var(--text)", "var(--ink)"];
+const COLORS = ["var(--ink-text)", "color-mix(in srgb, var(--ink-text) 50%, var(--text))", "var(--text)", "var(--ink-text)"];
 const DASH = ["none", "7 4", "none", "4 3"];
 
 function signedMoney(value: string): string {

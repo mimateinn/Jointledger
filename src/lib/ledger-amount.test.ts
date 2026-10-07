@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatLedgerTradeAmount, ledgerRowAmountUsd } from "./ledger-amount";
+import { formatLedgerTradeAmount, formatLedgerTradePrice, ledgerRowAmountUsd } from "./ledger-amount";
 
 describe("ledgerRowAmountUsd", () => {
   const row = {
@@ -22,5 +22,12 @@ describe("ledgerRowAmountUsd", () => {
     expect(formatLedgerTradeAmount("adjustment", "2.50")).toBe("+US$ 2.50");
     expect(formatLedgerTradeAmount("adjustment", "-5")).toBe("-US$ 5.00");
     expect(formatLedgerTradeAmount("buy", "500")).toBe("US$ 500.00");
+  });
+
+  it("shows an em dash instead of US$ 0.00 for dividend / adjustment prices", () => {
+    expect(formatLedgerTradePrice("adjustment", "0")).toBe("—");
+    expect(formatLedgerTradePrice("adjustment", "0.00000000")).toBe("—");
+    expect(formatLedgerTradePrice("buy", "50")).toBe("US$ 50.00");
+    expect(formatLedgerTradePrice("split", "2")).toBe("US$ 2.00");
   });
 });

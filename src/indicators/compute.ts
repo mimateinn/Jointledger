@@ -11,7 +11,7 @@ const COLORS = {
   bb: "#6b8e9a",
   donchian: "#8a7a5c",
   keltner: "#5c8a7a",
-  ichimoku: "#9aa196",
+  ichimoku: "#8f9db8",
   psar: "#c4a574",
   supertrend: "#3d9b6e",
   rsi: "#c4a574",
@@ -24,7 +24,7 @@ const COLORS = {
   cci: "#b07cc6",
   willr: "#c4a574",
   mfi: "#7a9a8a",
-  obv: "#9aa196",
+  obv: "#8f9db8",
   atr: "#c4a574",
   adx: "#edeee8",
 };

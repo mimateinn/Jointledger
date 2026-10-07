@@ -6,7 +6,7 @@ import { Icon } from "@/components/icons";
 import { InstrumentLabel } from "@/components/instrument-label";
 import { LedgerEntryDelete } from "@/components/ledger-entry-delete";
 import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd } from "@/lib/format";
-import { formatLedgerTradeAmount, ledgerRowAmountUsd } from "@/lib/ledger-amount";
+import { formatLedgerTradeAmount, formatLedgerTradePrice, ledgerRowAmountUsd } from "@/lib/ledger-amount";
 import {
   JOINT_MEMBER,
   JOINT_MEMBER_LABEL,
@@ -403,7 +403,7 @@ function TradeTable({ rows, member }: { rows: TradeRow[]; member: string }) {
                   {formatQty(row.quantity)}
                 </td>
                 <td className="num card-meta" data-label="價格">
-                  {formatUsd(row.price)}
+                  {formatLedgerTradePrice(row.kind, row.price)}
                 </td>
                 <td className="num card-primary" data-label="金額">
                   {formatLedgerTradeAmount(row.kind, amount)}

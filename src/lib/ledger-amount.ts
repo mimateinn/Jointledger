@@ -26,3 +26,11 @@ export function formatLedgerTradeAmount(kind: string, amountUsd: string): string
   }
   return formatUsd(amountUsd);
 }
+
+/** Dividend / adjustment rows store price 0; the amount column holds the cash. */
+export function formatLedgerTradePrice(kind: string, price: string): string {
+  if (kind === "adjustment") {
+    return "—";
+  }
+  return formatUsd(price);
+}

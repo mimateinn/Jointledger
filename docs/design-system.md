@@ -24,6 +24,7 @@ If a value is not in the tables below, do not use it.
 |---|---|---|---|
 | Warm-paper / navy ramps | `mimateinn/Litora:public/litora/litora-tokens.css` (`--paper-*`, `--nv-*`, `--ink-900`) | Light `--bg` `#FAF8F5`, `--surface` `#FFFFFF`, `--text` `#0F0F0F`; dark `--bg` `#0E1320`, `--surface` `#161D2E`, `--text` `#F2F5FB` | None for page surfaces. |
 | Single action colour = orange + near-black text | `mimateinn/Litora:public/litora/litora-tokens.css` (`--or-500`, `--accent-fg`); INDEX note “orange single action colour” | `--ink` `#E85D04`, `--on-ink` `#0F0F0F` | **Hover/press stay at or above `#E85D04` luminance** (`--ink-hover` `#F08A4B`, `--ink-press` `#E85D04`). Litora `--accent-hover: --or-600` `#C94F03` is 4.20:1 with required near-black text and fails AA. Press uses the `.985` + 1px drop instead of a darker fill. |
+| Orange as text (not fill) | Litora uses the same `--or-500` `#E85D04` for accent fill and accent-coloured copy | Light `--ink-text` `#B84A03`; dark `--ink-text` `#F08A4B` (`--or-400`). `--ink` stays `#E85D04` for buttons, dots, bars, and selected wash | **Deviation.** `#E85D04` on `#FFFFFF` / `#FAF8F5` is 3.5:1 (mobile-bar 11px labels, returns member names, toast/tips icons, import step “done”). Litora `--or-600` `#C94F03` is only 4.3:1 on paper. `#B84A03` is ≥4.5 on paper, white, hover, and selected. Dark `#E85D04` is 4.8:1 on navy surface but fails hover/selected (~4.1); `#F08A4B` holds ≥5.6 there. |
 | Teal as link / success, not the primary fill | `mimateinn/Litora:public/litora/litora-tokens.css` (`--link`, `--tl-*`, `--st-ok`); `mimateinn/Versora:src/theme.py` (`#14b8a6`, `#0f766e`) | Light `--link` `#175F57`, `--st-ok` `#1F7D72`; dark `--link` `#8BBAFF`, `--st-ok` `#5CB287`. `--vs-teal` kept as the Versora cousin. | Versora paints selected pills and the 48px start button teal-on-white. Jointledger follows Litora's “orange is the only action colour” for buttons/nav; teal is reserved for links and non-P&L success. |
 | Status (ok / err / warn) | `mimateinn/Litora:public/litora/litora-tokens.css` (status block) | `--st-ok/err/warn` and `*-bg` copied | None. |
 | Finance up / down | Jointledger (this file) | Light `--up` `#166C40`, `--down` `#C0392B`; dark `--up` `#42A375`, `--down` `#E6746C` | **Deviation.** Litora `--st-ok` is teal “success”, not a signed P&L channel. Ledger gain/loss must stay instantly readable as up/down and independently contrast-checked. Do not reuse orange or link teal for P&L. |
@@ -120,7 +121,8 @@ One action colour: `--ink` (Litora orange). Green / red only for P&L. Success co
 | `--border-strong` | `#8c8880` | `--gray-500`; input edge ≥3:1 |
 | `--text` | `#0f0f0f` | `--ink-900` |
 | `--muted` | `#6b6b6b` | `--ink-500` |
-| `--ink` | `#e85d04` | `--or-500` primary |
+| `--ink` | `#e85d04` | `--or-500` fill / button only |
+| `--ink-text` | `#b84a03` | Orange **text**; 4.93:1 on paper, 5.23:1 on white |
 | `--ink-hover` | `#f08a4b` | `--or-400` (lighter, AA with `--on-ink`) |
 | `--ink-press` | `#e85d04` | Same fill; motion does the press |
 | `--on-ink` | `#0f0f0f` | Near-black on orange |
@@ -143,7 +145,8 @@ One action colour: `--ink` (Litora orange). Green / red only for P&L. Success co
 | `--border-strong` | `#8f9db8` | `--fg-muted`; control edge ≥3:1 (Litora `--line-strong` `#3B4A6D` is decorative only) |
 | `--text` | `#f2f5fb` | |
 | `--muted` | `#8f9db8` | |
-| `--ink` | `#e85d04` | Same action orange |
+| `--ink` | `#e85d04` | Same action **fill** |
+| `--ink-text` | `#f08a4b` | Orange **text**; `#E85D04` fails hover/selected |
 | `--ink-hover` | `#f08a4b` | `--or-400` |
 | `--ink-press` | `#e85d04` | |
 | `--on-ink` | `#0f0f0f` | |
@@ -173,6 +176,10 @@ Body text 4.5:1; non-text UI 3:1.
 | muted / hover row | 4.69 | 4.5 | PASS |
 | muted / selected | 4.84 | 4.5 | PASS |
 | text / selected | 17.41 | 4.5 | PASS |
+| ink-text / bg | 4.93 | 4.5 | PASS |
+| ink-text / surface | 5.23 | 4.5 | PASS |
+| ink-text / hover | 4.60 | 4.5 | PASS |
+| ink-text / selected | 4.75 | 4.5 | PASS |
 | on-ink / ink | 5.48 | 4.5 | PASS |
 | on-ink / ink-hover | 7.71 | 4.5 | PASS |
 | on-ink / ink-press | 5.48 | 4.5 | PASS |
@@ -200,6 +207,10 @@ Body text 4.5:1; non-text UI 3:1.
 | muted / hover row | 5.30 | 4.5 | PASS |
 | muted / selected | 5.16 | 4.5 | PASS |
 | text / selected | 12.93 | 4.5 | PASS |
+| ink-text / bg | 7.45 | 4.5 | PASS |
+| ink-text / surface | 6.76 | 4.5 | PASS |
+| ink-text / hover | 5.82 | 4.5 | PASS |
+| ink-text / selected | 5.67 | 4.5 | PASS |
 | on-ink / ink | 5.48 | 4.5 | PASS |
 | on-ink / ink-hover | 7.71 | 4.5 | PASS |
 | on-ink / ink-press | 5.48 | 4.5 | PASS |
