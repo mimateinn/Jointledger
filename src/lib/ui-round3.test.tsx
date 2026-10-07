@@ -6,6 +6,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WatchlistPanel, type WatchRow } from "@/components/watchlist-panel";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), prefetch: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+}));
+
 vi.mock("@/app/actions/watchlist", () => ({
   addWatchAction: vi.fn(async () => ({})),
   removeWatchAction: vi.fn(async () => ({})),

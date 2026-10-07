@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 import { resolveChrome } from "./chrome-path.mjs";
 
 const puppeteer = createRequire(import.meta.url)("puppeteer-core");
-const WIDTHS = [375, 390];
+const WIDTHS = [360, 375, 414];
 
 const tokens = readFileSync(resolve("src/app/tokens.css"), "utf8").replace(/@import[^;]+;/g, "");
 const components = readFileSync(resolve("src/app/components.css"), "utf8");
@@ -53,7 +53,15 @@ body { margin: 0; }
   </div>
   <div id="toast-host" class="toast-host" data-toast-host="">
     <div class="toast toast-error" role="alert" data-error-toast="">
-      <span>更新失敗</span>
+      <span>更新失敗 1</span>
+      <button class="btn btn-ghost btn-icon" type="button" aria-label="關閉">×</button>
+    </div>
+    <div class="toast toast-error" role="alert" data-error-toast="">
+      <span>更新失敗 2</span>
+      <button class="btn btn-ghost btn-icon" type="button" aria-label="關閉">×</button>
+    </div>
+    <div class="toast toast-error" role="alert" data-error-toast="">
+      <span>更新失敗 3</span>
       <button class="btn btn-ghost btn-icon" type="button" aria-label="關閉">×</button>
     </div>
   </div>
@@ -61,10 +69,28 @@ body { margin: 0; }
 </html>`;
 
 function measure() {
-  const toast = document.querySelector("[data-error-toast]");
-  const toastBox = toast.getBoundingClientRect();
+  const toasts = [...document.querySelectorAll("[data-error-toast]")];
+  const visible = toasts.filter((el) => {
+    const cs = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return rect.height >= 1 && cs.display !== "none" && cs.visibility !== "hidden";
+  });
+  const toastBoxes = visible.map((el) => el.getBoundingClientRect());
+  const host = document.querySelector("[data-toast-host]");
+  const hostBox = host?.getBoundingClientRect();
+  const toastArea = hostBox && hostBox.height >= 1
+    ? hostBox
+    : toastBoxes.reduce(
+        (acc, rect) => ({
+          top: Math.min(acc.top, rect.top),
+          left: Math.min(acc.left, rect.left),
+          bottom: Math.max(acc.bottom, rect.bottom),
+          right: Math.max(acc.right, rect.right),
+        }),
+        { top: Infinity, left: Infinity, bottom: 0, right: 0 },
+      );
   const interactive = [...document.querySelectorAll("a, button, input, select, textarea")].filter((el) => {
-    if (toast.contains(el)) {
+    if (toasts.some((toast) => toast.contains(el))) {
       return false;
     }
     const cs = getComputedStyle(el);
@@ -75,10 +101,10 @@ function measure() {
     .map((el) => {
       const rect = el.getBoundingClientRect();
       const hit =
-        toastBox.left < rect.right &&
-        toastBox.right > rect.left &&
-        toastBox.top < rect.bottom &&
-        toastBox.bottom > rect.top;
+        toastArea.left < rect.right &&
+        toastArea.right > rect.left &&
+        toastArea.top < rect.bottom &&
+        toastArea.bottom > rect.top;
       return {
         text: (el.textContent ?? "").trim().slice(0, 24),
         hit,
@@ -87,7 +113,13 @@ function measure() {
     })
     .filter((row) => row.hit);
   return {
-    toast: { top: toastBox.top, left: toastBox.left, bottom: toastBox.bottom, right: toastBox.right },
+    visibleCount: visible.length,
+    toast: {
+      top: toastArea.top,
+      left: toastArea.left,
+      bottom: toastArea.bottom,
+      right: toastArea.right,
+    },
     overlaps,
   };
 }
@@ -105,11 +137,15 @@ try {
     await page.setContent(html, { waitUntil: "load" });
     const result = await page.evaluate(measure);
     await page.close();
+    if (result.visibleCount > 2) {
+      console.error(`more than 2 toasts visible at ${width}px`, result);
+      process.exit(1);
+    }
     if (result.overlaps.length > 0) {
       console.error(`toast overlaps interactive controls at ${width}px`, result);
       process.exit(1);
     }
-    console.log(`ok ${width} toast`, result.toast);
+    console.log(`ok ${width} stacked=${result.visibleCount}`, result.toast);
   }
 } finally {
   await browser.close();

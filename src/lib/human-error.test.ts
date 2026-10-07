@@ -25,4 +25,8 @@ describe("humanFormError", () => {
     ).toBe("儲存失敗");
     expect(humanFormError("SQLITE_BUSY: database is locked")).toBe("儲存失敗");
   });
+
+  it("maps a locked delete to 刪除失敗", () => {
+    expect(humanFormError("SQLITE_BUSY: database is locked", "刪除失敗")).toBe("刪除失敗");
+  });
 });

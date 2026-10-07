@@ -8,12 +8,20 @@ import { WatchActions, WatchlistPanel, type WatchRow } from "./watchlist-panel";
 
 const hang = () => new Promise<never>(() => {});
 
+const refresh = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh, prefetch: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+}));
+
 vi.mock("@/app/actions/watchlist", () => ({
   addWatchAction: vi.fn(async () => ({})),
   removeWatchAction: vi.fn(async () => ({})),
   muteWatchAction: vi.fn(async () => hang()),
   searchWatchAction: vi.fn(async () => []),
 }));
+
+import { removeWatchAction } from "@/app/actions/watchlist";
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -79,6 +87,9 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   document.getElementById("toast-host")?.remove();
+  refresh.mockReset();
+  vi.mocked(removeWatchAction).mockReset();
+  vi.mocked(removeWatchAction).mockResolvedValue({});
   vi.unstubAllGlobals();
 });
 
@@ -254,6 +265,61 @@ describe("watchlist mute pending", () => {
     expect(alert.textContent).not.toContain("550e8400-e29b-41d4-a716-446655440000");
     expect(button.disabled).toBe(false);
     expect(button.textContent).toContain("靜音新聞");
+  });
+
+  it("removes the row locally when unwatch returns {ok} even if RSC never arrives", async () => {
+    vi.mocked(removeWatchAction).mockResolvedValue({ ok: "已取消關注" });
+    const user = userEvent.setup();
+    render(<WatchlistPanel items={rows} />);
+    expect(screen.getAllByText("Apple").length).toBeGreaterThan(0);
+    await user.click(screen.getAllByRole("button", { name: "取消關注" })[0]!);
+    await waitFor(
+      () => {
+        expect(screen.queryByText("Apple")).toBeNull();
+      },
+      { timeout: 2000 },
+    );
+    expect(screen.getAllByText("NVIDIA").length).toBeGreaterThan(0);
+    expect(removeWatchAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the row and toasts 更新失敗 when unwatch returns {error}", async () => {
+    vi.mocked(removeWatchAction).mockResolvedValue({
+      error: "SQLITE_BUSY: database is locked",
+    });
+    const user = userEvent.setup();
+    render(<WatchlistPanel items={rows} />);
+    await user.click(screen.getAllByRole("button", { name: "取消關注" })[0]!);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("更新失敗");
+    expect(screen.getAllByText("Apple").length).toBeGreaterThan(0);
+  });
+
+  it("reverts a thrown unwatch and calls router.refresh in finally", async () => {
+    vi.mocked(removeWatchAction).mockRejectedValue(new Error("aborted"));
+    const user = userEvent.setup();
+    render(<WatchlistPanel items={rows} />);
+    await user.click(screen.getAllByRole("button", { name: "取消關注" })[0]!);
+    await waitFor(() => {
+      expect(refresh).toHaveBeenCalled();
+    });
+    expect(screen.getAllByText("Apple").length).toBeGreaterThan(0);
+    expect(screen.getByRole("alert").textContent).toContain("更新失敗");
+  });
+
+  it("labels the toast with the instrument display name when available", async () => {
+    const user = userEvent.setup();
+    const muteAction = vi.fn(async () => ({ error: "SQLITE_BUSY" }));
+    render(
+      <WatchActions
+        row={{ ...rows[0]!, displayCode: "0700.HK", name: "騰訊" }}
+        muteAction={muteAction}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "靜音新聞" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("騰訊");
+    expect(alert.textContent).not.toContain("0700.HK");
   });
 
   it("re-enables the unwatch button in finally after the action throws", async () => {

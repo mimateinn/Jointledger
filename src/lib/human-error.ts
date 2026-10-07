@@ -2,6 +2,7 @@ import { DELETE_BLOCKED_BY_LATER } from "@/ledger/delete-entry";
 import { ISO_DATE_INVALID } from "@/lib/format";
 
 const GENERIC = "儲存失敗";
+export const DELETE_FAILED = "刪除失敗";
 
 /** Exact known app messages only. Raw SQL with Chinese params must not leak. */
 const REMAP = new Map<string, string>([
@@ -45,7 +46,7 @@ const PASSTHROUGH = new Set<string>([
 ]);
 
 /** Map domain throws to one human 繁中 sentence for forms. */
-export function humanFormError(raw: string): string {
+export function humanFormError(raw: string, fallback = GENERIC): string {
   const mapped = REMAP.get(raw);
   if (mapped) {
     return mapped;
@@ -53,5 +54,5 @@ export function humanFormError(raw: string): string {
   if (PASSTHROUGH.has(raw)) {
     return raw;
   }
-  return GENERIC;
+  return fallback;
 }

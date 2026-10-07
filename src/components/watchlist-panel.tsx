@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ErrorToast } from "./error-toast";
 import { FailurePanel } from "./failure-panel";
 import { InstrumentLabel } from "./instrument-label";
@@ -74,12 +75,18 @@ export function WatchActions({
   removeAction = removeWatchAction,
   muted: mutedProp,
   onMutedChange,
+  onRemoved,
+  onRemoveRevert,
+  onRemoveThrown,
 }: {
   row: WatchRow;
   muteAction?: WatchMutateFn;
   removeAction?: WatchMutateFn;
   muted?: boolean;
   onMutedChange?: (muted: boolean) => void;
+  onRemoved?: (id: string) => void;
+  onRemoveRevert?: (id: string) => void;
+  onRemoveThrown?: () => void;
 }) {
   const controlled = onMutedChange != null;
   const [localMuted, setLocalMuted] = useState(row.muted);
@@ -88,6 +95,8 @@ export function WatchActions({
   const [mutePending, setMutePending] = useState(false);
   const [removePending, setRemovePending] = useState(false);
   const [muteError, setMuteError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const toastLabel = row.name?.trim() || row.displayCode;
   const muteGen = useRef(0);
   const removeGen = useRef(0);
   const muteInFlight = useRef(false);
@@ -138,13 +147,30 @@ export function WatchActions({
     removeInFlight.current = true;
     const generation = (removeGen.current += 1);
     setRemovePending(true);
+    setRemoveError(null);
+    let thrown = false;
     try {
       const fd = new FormData();
       fd.set("id", row.id);
-      await removeAction({}, fd);
+      const result = await removeAction({}, fd);
+      if (result.error) {
+        onRemoveRevert?.(row.id);
+        if (generation === removeGen.current) {
+          setRemoveError(WATCH_COPY.failed);
+        }
+        return;
+      }
+      onRemoved?.(row.id);
     } catch {
-      // pending still clears in finally so an aborted refresh cannot stick
+      thrown = true;
+      onRemoveRevert?.(row.id);
+      if (generation === removeGen.current) {
+        setRemoveError(WATCH_COPY.failed);
+      }
     } finally {
+      if (thrown) {
+        onRemoveThrown?.();
+      }
       if (generation === removeGen.current) {
         removeInFlight.current = false;
         setRemovePending(false);
@@ -166,7 +192,8 @@ export function WatchActions({
       <button className="btn btn-ghost" type="button" disabled={removePending} onClick={() => void onRemove()}>
         {WATCH_COPY.remove}
       </button>
-      {muteError ? <ErrorToast message={muteError} label={row.displayCode} onDismiss={() => setMuteError(null)} /> : null}
+      {muteError ? <ErrorToast message={muteError} label={toastLabel} onDismiss={() => setMuteError(null)} /> : null}
+      {removeError ? <ErrorToast message={removeError} label={toastLabel} onDismiss={() => setRemoveError(null)} /> : null}
     </div>
   );
 }
@@ -206,11 +233,17 @@ function WatchCard({
   item,
   newsVia,
   interactive,
+  onRemoved,
+  onRemoveRevert,
+  onRemoveThrown,
 }: {
   row: WatchRow;
   item?: { headline: string; source?: string; url?: string };
   newsVia: "finnhub" | "rss" | null;
   interactive: boolean;
+  onRemoved?: (id: string) => void;
+  onRemoveRevert?: (id: string) => void;
+  onRemoveThrown?: () => void;
 }) {
   const [muted, setMuted] = useState(row.muted);
   useEffect(() => {
@@ -236,7 +269,14 @@ function WatchCard({
         <WatchNews row={{ ...row, muted }} item={item} newsVia={newsVia} />
       </div>
       {interactive ? (
-        <WatchActions row={row} muted={muted} onMutedChange={setMuted} />
+        <WatchActions
+          row={row}
+          muted={muted}
+          onMutedChange={setMuted}
+          onRemoved={onRemoved}
+          onRemoveRevert={onRemoveRevert}
+          onRemoveThrown={onRemoveThrown}
+        />
       ) : (
         <div className="watch-actions watch-actions-slot" aria-hidden="true" />
       )}
@@ -249,11 +289,17 @@ function WatchTableRow({
   item,
   newsVia,
   interactive,
+  onRemoved,
+  onRemoveRevert,
+  onRemoveThrown,
 }: {
   row: WatchRow;
   item?: { headline: string; source?: string; url?: string };
   newsVia: "finnhub" | "rss" | null;
   interactive: boolean;
+  onRemoved?: (id: string) => void;
+  onRemoveRevert?: (id: string) => void;
+  onRemoveThrown?: () => void;
 }) {
   const [muted, setMuted] = useState(row.muted);
   useEffect(() => {
@@ -277,7 +323,14 @@ function WatchTableRow({
       </td>
       <td>
         {interactive ? (
-          <WatchActions row={row} muted={muted} onMutedChange={setMuted} />
+          <WatchActions
+            row={row}
+            muted={muted}
+            onMutedChange={setMuted}
+            onRemoved={onRemoved}
+            onRemoveRevert={onRemoveRevert}
+            onRemoveThrown={onRemoveThrown}
+          />
         ) : (
           <div className="watch-actions watch-actions-slot" aria-hidden="true" />
         )}
@@ -306,9 +359,18 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
   const [newsVia, setNewsVia] = useState<"finnhub" | "rss" | null>(null);
   const [newsFailed, setNewsFailed] = useState(false);
   const [newsReload, setNewsReload] = useState(0);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [pendingSearch, startSearch] = useTransition();
   const [addState, addAction, addPending] = useActionState(addWatchAction, initial);
+  const router = useRouter();
   const layout = useWatchLayout();
+
+  function hideWatchRow(id: string) {
+    setHiddenIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+  function showWatchRow(id: string) {
+    setHiddenIds((prev) => prev.filter((rowId) => rowId !== id));
+  }
 
   useEffect(() => {
     const q = query.trim();
@@ -354,19 +416,20 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
     };
   }, [items, newsReload]);
 
-  const visible = items.filter((row) => filter === "all" || row.market === filter);
+  const present = items.filter((row) => !hiddenIds.includes(row.id));
+  const visible = present.filter((row) => filter === "all" || row.market === filter);
 
   return (
     <section className="card stack">
-      {items.length > 0 ? (
+      {present.length > 0 ? (
         <div className="row">
           <div className="meta muted">
-            {items.length} / {WATCH_CAP}
+            {present.length} / {WATCH_CAP}
           </div>
           {newsVia === "rss" ? <div className="chip">公開新聞</div> : null}
         </div>
       ) : null}
-      {items.length > 0 ? (
+      {present.length > 0 ? (
         <div className="chip-row">
           {FILTERS.map((item) => (
             <button
@@ -411,7 +474,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
         {addState.error ? <p className="alert">{addState.error}</p> : null}
         {addState.ok ? <p className="ok">{addState.ok}</p> : null}
       </form>
-      {items.length === 0 ? (
+      {present.length === 0 ? (
         <p className="body">
           未有關注，加入代碼或先去加持倉。{" "}
           <Link href="/entry" prefetch className="btn btn-primary">
@@ -422,7 +485,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
       {newsFailed ? (
         <FailurePanel sentence="新聞暫時載唔到，唔好緊，再試一次就得。" onRetry={() => setNewsReload((n) => n + 1)} />
       ) : null}
-      {items.length === 0 ? null : visible.length === 0 ? (
+      {present.length === 0 ? null : visible.length === 0 ? (
         <p className="empty">呢個市場未有關注。</p>
       ) : (
         <>
@@ -434,6 +497,9 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
               item={news[row.displayCode]?.[0]}
               newsVia={newsVia}
               interactive={layout === "list"}
+              onRemoved={hideWatchRow}
+              onRemoveRevert={showWatchRow}
+              onRemoveThrown={() => router.refresh()}
             />
           ))}
         </ul>
@@ -458,6 +524,9 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
                 item={news[row.displayCode]?.[0]}
                 newsVia={newsVia}
                 interactive={layout === "table"}
+                onRemoved={hideWatchRow}
+                onRemoveRevert={showWatchRow}
+                onRemoveThrown={() => router.refresh()}
               />
             ))}
           </tbody>

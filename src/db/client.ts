@@ -47,8 +47,11 @@ export function getSql() {
 const sqlitePatched = new WeakSet<object>();
 const sqliteTxContext = new AsyncLocalStorage<true>();
 
+export const SQLITE_TX_EXECUTE_ERROR =
+  "getDb() execute inside an open SQLite transaction is not supported";
+
 /** libsql 無 pg 嘅 execute；transaction 一定要 bind 返 Drizzle instance（要有 session）。 */
-function withSqliteExecute(db: object): PgDatabase {
+function withSqliteExecute(db: object, role: "root" | "tx" = "root"): PgDatabase {
   if (sqlitePatched.has(db)) {
     return db as unknown as PgDatabase;
   }
@@ -59,11 +62,27 @@ function withSqliteExecute(db: object): PgDatabase {
     throw new Error("SQLite db.transaction is undefined");
   }
 
+  const all = sqlite.all.bind(sqlite);
+  const run = sqlite.run.bind(sqlite);
+  function rejectRootExecuteInTx() {
+    if (role === "root" && sqliteTxContext.getStore()) {
+      throw new Error(SQLITE_TX_EXECUTE_ERROR);
+    }
+  }
+  sqlite.all = (query) => {
+    rejectRootExecuteInTx();
+    return all(query);
+  };
+  sqlite.run = (query) => {
+    rejectRootExecuteInTx();
+    return run(query);
+  };
   sqlite.execute = async (query: unknown) => {
+    rejectRootExecuteInTx();
     try {
-      return await sqlite.all(query);
+      return await all(query);
     } catch {
-      await sqlite.run(query);
+      await run(query);
       return [];
     }
   };
@@ -76,7 +95,7 @@ function withSqliteExecute(db: object): PgDatabase {
     return transaction(
       (tx) =>
         sqliteTxContext.run(true, () =>
-          fn(withSqliteExecute(tx as object) as unknown as SqliteLike),
+          fn(withSqliteExecute(tx as object, "tx") as unknown as SqliteLike),
         ),
       config,
     );

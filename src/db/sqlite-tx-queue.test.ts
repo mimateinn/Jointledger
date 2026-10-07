@@ -6,7 +6,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getDb, resetDbClients } from "./client";
+import { getDb, resetDbClients, SQLITE_TX_EXECUTE_ERROR } from "./client";
 
 const prevUrl = process.env.DATABASE_URL;
 
@@ -171,5 +171,19 @@ describe("sqlite transaction queue", () => {
     release();
     await nested;
     await expect(sibling).resolves.toBe("ok");
+  });
+
+  it("throws instead of deadlocking when getDb() execute runs inside a tx callback", async () => {
+    const db = getDb();
+    const t0 = Date.now();
+    await expect(
+      db.transaction(async () => {
+        await getDb().execute(sql`SELECT 1`);
+      }),
+    ).rejects.toThrow(SQLITE_TX_EXECUTE_ERROR);
+    expect(Date.now() - t0).toBeLessThan(1000);
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT 1`);
+    });
   });
 });

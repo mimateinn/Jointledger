@@ -7,7 +7,7 @@ import { withLedgerTransaction } from "@/db/ledger-tx";
 import { checkDeleteEntry, createAdjustment, createCashFlow, createSplit, createTrade, deleteEntry, deleteLot, dividendNote } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
 import { ISO_DATE_INVALID, requireIsoDate } from "@/lib/format";
-import { humanFormError } from "@/lib/human-error";
+import { DELETE_FAILED, humanFormError } from "@/lib/human-error";
 import { refreshMarksAfterSplit } from "@/quotes";
 
 function readOccurredOn(formData: FormData): { occurredOn: string } | { error: string } {
@@ -215,7 +215,7 @@ export async function deleteHoldingAction(
       }),
     );
   } catch (error) {
-    return { error: humanFormError(error instanceof Error ? error.message : "刪持倉失敗") };
+    return { error: humanFormError(error instanceof Error ? error.message : DELETE_FAILED, DELETE_FAILED) };
   }
   revalidatePath("/overview");
   revalidatePath("/holdings");
@@ -250,7 +250,7 @@ export async function deleteLedgerEntryAction(
       }),
     );
   } catch (error) {
-    return { error: humanFormError(error instanceof Error ? error.message : "刪除失敗") };
+    return { error: humanFormError(error instanceof Error ? error.message : DELETE_FAILED, DELETE_FAILED) };
   }
   revalidatePath("/overview");
   revalidatePath("/holdings");
@@ -281,7 +281,7 @@ export async function checkDeleteLedgerEntryAction(
       id: String(formData.get("entryId") ?? ""),
     });
   } catch (error) {
-    return { error: humanFormError(error instanceof Error ? error.message : "刪除失敗") };
+    return { error: humanFormError(error instanceof Error ? error.message : DELETE_FAILED, DELETE_FAILED) };
   }
   return { ok: "可以刪" };
 }
