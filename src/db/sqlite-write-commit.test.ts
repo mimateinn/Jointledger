@@ -52,11 +52,34 @@ function dbRun(query: unknown): Promise<unknown> {
   return (getDb() as unknown as { run: (q: unknown) => Promise<unknown> }).run(query);
 }
 
+function errorChain(error: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+  for (let i = 0; i < 5 && current; i += 1) {
+    if (current instanceof Error) {
+      parts.push(current.message);
+      current = current.cause;
+      continue;
+    }
+    parts.push(String(current));
+    break;
+  }
+  return parts.join(" | ");
+}
+
 async function forceBusyOnSharedHandle(id: string): Promise<void> {
   await getDb().all(sql`PRAGMA busy_timeout = 250`);
-  await expect(
-    dbRun(sql`UPDATE watch_items SET muted = 1 WHERE id = ${id}`),
-  ).rejects.toThrow(/BUSY|locked/i);
+  const t0 = Date.now();
+  try {
+    await dbRun(sql`UPDATE watch_items SET muted = 1 WHERE id = ${id}`);
+    throw new Error("expected SQLITE_BUSY from UPDATE while write lock is held");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("expected SQLITE_BUSY")) {
+      throw error;
+    }
+    expect(Date.now() - t0).toBeGreaterThan(200);
+    expect(errorChain(error)).toMatch(/BUSY|locked|Failed query/i);
+  }
 }
 
 async function assertCommittedMute(url: string, id: string) {

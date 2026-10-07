@@ -94,8 +94,9 @@ describe("watchlist mute pending", () => {
 
     await user.click(buttons[0]!);
     await waitFor(() => {
-      expect(buttons[0]!.disabled).toBe(true);
+      expect(buttons[0]!.getAttribute("aria-busy")).toBe("true");
     });
+    expect(buttons[1]!.getAttribute("aria-busy")).not.toBe("true");
     expect(buttons[1]!.disabled).toBe(false);
     expect(buttons[1]!.textContent).toContain("靜音新聞");
   });
@@ -183,9 +184,6 @@ describe("watchlist mute pending", () => {
       await Promise.resolve();
     });
     act(() => {
-      // Pending disables the button; a later click after the in-flight
-      // microtask must still be able to start a new generation.
-      (button as HTMLButtonElement).disabled = false;
       fireEvent.click(button);
     });
     await waitFor(() => {

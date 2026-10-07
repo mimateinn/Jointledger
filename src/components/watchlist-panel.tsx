@@ -144,7 +144,12 @@ export function WatchActions({
 
   return (
     <div className="watch-actions">
-      <button className="btn btn-secondary" type="button" disabled={mutePending} onClick={() => void onMute()}>
+      <button
+        className="btn btn-secondary"
+        type="button"
+        aria-busy={mutePending || undefined}
+        onClick={() => void onMute()}
+      >
         {muted ? WATCH_COPY.unmute : WATCH_COPY.mute}
       </button>
       <button className="btn btn-ghost" type="button" disabled={removePending} onClick={() => void onRemove()}>
