@@ -64,6 +64,7 @@ export function ImportWizard({
   return (
     <div className="stack">
       <div>
+        <p className="page-eyebrow">匯入</p>
         <h1 className="page-title">{reimport ? "再匯入" : "匯入而家用緊嘅試算表"}</h1>
         <p className="muted lead-tight">
           {reimport

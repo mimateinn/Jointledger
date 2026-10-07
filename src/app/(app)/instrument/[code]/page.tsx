@@ -45,6 +45,7 @@ export default async function InstrumentPage({ params }: { params: Promise<{ cod
           <Icon name="chevron-left" size={16} />
           持倉
         </Link>
+        <p className="page-eyebrow">走勢</p>
         <h1 className="page-title">
           {item.name && item.name !== item.display ? (
             <>

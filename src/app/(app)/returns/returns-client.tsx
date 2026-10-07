@@ -36,7 +36,10 @@ export function ReturnsClient({
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">收益率</h1>
+        <div className="page-head-title">
+          <p className="page-eyebrow">表現</p>
+          <h1 className="page-title">收益率</h1>
+        </div>
         <div className="submit-row">
           {!emptyBook ? (
             <button

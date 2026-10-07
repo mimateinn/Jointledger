@@ -31,7 +31,7 @@ export function FirstRunTips() {
   }
 
   return (
-    <section className="card is-entering" aria-label={COPY.title}>
+    <section className="notice is-entering" aria-label={COPY.title}>
       <div className="card-head">
         <h2 className="card-title">{COPY.title}</h2>
         <button

@@ -50,6 +50,7 @@ function changeClass(change: string | null): string | undefined {
 
 const NO_MARK = "暫時用買入價，未有市場價";
 const COPY = {
+  eyebrow: "倉位",
   holdings: "持倉",
   watch: "關注",
   alloc: "分佈",
@@ -88,7 +89,10 @@ export function HoldingsWorkspace({
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">{COPY.holdings}</h1>
+        <div className="page-head-title">
+          <p className="page-eyebrow">{COPY.eyebrow}</p>
+          <h1 className="page-title">{COPY.holdings}</h1>
+        </div>
       </div>
       <div className="tabs-line">
         <button type="button" className={tab === "holdings" ? "tab tab-active" : "tab"} onClick={() => setTab("holdings")}>

@@ -1,164 +1,238 @@
+/* Jointledger tokens, remapped from Litora + Versora. See docs/design-system.md. */
+
+:root {
+  /* Litora raw ramps (mimateinn/Litora:public/litora/litora-tokens.css) */
+  --paper-50: #fefdfb;
+  --paper-100: #faf8f5;
+  --paper-200: #f5f0e6;
+  --paper-300: #ede7da;
+  --ink-900: #0f0f0f;
+  --ink-800: #1a1a1a;
+  --ink-500: #6b6b6b;
+  --gray-300: #d8d4cc;
+  --gray-400: #b8b4ac;
+  --gray-500: #8c8880;
+  --nv-900: #0e1320;
+  --nv-800: #161d2e;
+  --nv-700: #1f2940;
+  --nv-600: #293450;
+  --or-700: #8f3a02;
+  --or-600: #c94f03;
+  --or-500: #e85d04;
+  --or-400: #f08a4b;
+  --or-300: #f7be93;
+  --or-100: #fbe8da;
+  --accent-rgb: 232, 93, 4;
+  --rd-600: #a81830;
+  --rd-100: #f8e4e8;
+  --tl-700: #175f57;
+  --tl-600: #1f7d72;
+  --tl-100: #e2f1ee;
+  --am-700: #8f6207;
+  --am-100: #fbf3dc;
+  --p0i: #e8724f;
+  --p3i: #5cb287;
+  --p4i: #d0a445;
+
+  /* Versora teal (mimateinn/Versora:src/theme.py) — link / selected-rail cousin, not the action fill */
+  --vs-teal: #14b8a6;
+  --vs-teal-ink: #0f766e;
+}
+
 :root,
 [data-theme="dark"] {
-  --bg: #121411;
-  --surface: #1c1e1b;
-  --border: #2c2f2a;
-  --text: #edeee8;
-  --muted: #9aa196;
-  --ink: #7a9a8a;
+  --bg: #0e1320;
+  --surface: #161d2e;
+  --border: #2a3550;
+  --text: #f2f5fb;
+  --muted: #8f9db8;
+  --ink: #e85d04;
   --up: #42a375;
   --down: #e6746c;
-  --delay-bg: #2a261c;
-  --delay-text: #c4a574;
-  --on-ink: #121411;
+  --delay-bg: rgba(208, 164, 69, 0.16);
+  --delay-text: #d0a445;
+  --on-ink: #0f0f0f;
 }
 
 [data-theme="light"] {
-  --bg: #f4f3ef;
+  --bg: #faf8f5;
   --surface: #ffffff;
-  --border: #e3e1da;
-  --text: #1b1c19;
-  --muted: #6b6e66;
-  --ink: #2f5d56;
+  --border: #d8d4cc;
+  --text: #0f0f0f;
+  --muted: #6b6b6b;
+  --ink: #e85d04;
   --up: #166c40;
   --down: #c0392b;
-  --delay-bg: #f3ebd8;
-  --delay-text: #7a6238;
-  --on-ink: #ffffff;
+  --delay-bg: #fbf3dc;
+  --delay-text: #8f6207;
+  --on-ink: #0f0f0f;
+}
+
+[data-theme="dark"] {
+  --border-strong: #8f9db8;
+  --surface-hover: #1f2940;
+  --surface-selected: rgba(232, 93, 4, 0.16);
+  --ink-hover: #f08a4b;
+  --ink-press: #e85d04;
+  --focus-ring: #f08a4b;
+  --up-bg: #1f2922;
+  --down-bg: #2c2521;
+  --scrim: rgba(15, 15, 15, 0.42);
+  --skeleton-base: #1f2940;
+  --skeleton-shine: rgba(242, 245, 251, 0.08);
+  --icon-accent: var(--ink);
+  --link: #8bbaff;
+  --link-hover: #c6d8ff;
+  --st-ok: #5cb287;
+  --st-ok-bg: rgba(92, 178, 135, 0.16);
+  --st-err: #e8724f;
+  --st-err-bg: rgba(232, 114, 79, 0.16);
+  --st-warn: #d0a445;
+  --st-warn-bg: rgba(208, 164, 69, 0.16);
+  --shadow-0: none;
+  --shadow-1: 0 2px 8px rgba(3, 6, 14, 0.45);
+  --shadow-2: 0 12px 30px rgba(3, 6, 14, 0.5);
+  --shadow-3: 0 26px 60px rgba(3, 6, 14, 0.55);
+  --sh-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --sb-thumb: rgba(220, 228, 242, 0.08);
+  --sb-thumb-area: rgba(220, 228, 242, 0.24);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --up: #166c40;
+  --border-strong: #8c8880;
+  --surface-hover: #f5f0e6;
+  --surface-selected: #fdf2eb;
+  --ink-hover: #f08a4b;
+  --ink-press: #e85d04;
+  --focus-ring: #e85d04;
+  --up-bg: #e8f2ed;
+  --down-bg: #f9ebea;
+  --scrim: rgba(15, 15, 15, 0.42);
+  --skeleton-base: #ede7da;
+  --skeleton-shine: rgba(254, 253, 251, 0.7);
+  --icon-accent: var(--ink);
+  --link: #175f57;
+  --link-hover: #0f0f0f;
+  --st-ok: #1f7d72;
+  --st-ok-bg: #e2f1ee;
+  --st-err: #a81830;
+  --st-err-bg: #f8e4e8;
+  --st-warn: #8f6207;
+  --st-warn-bg: #fbf3dc;
+  --shadow-0: none;
+  --shadow-1: 0 2px 6px rgba(15, 15, 15, 0.07), 0 1px 2px rgba(15, 15, 15, 0.05);
+  --shadow-2: 0 8px 22px rgba(15, 15, 15, 0.08), 0 2px 6px rgba(15, 15, 15, 0.05);
+  --shadow-3: 0 18px 44px rgba(15, 15, 15, 0.11), 0 4px 12px rgba(15, 15, 15, 0.06);
+  --sh-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.42);
+  --sb-thumb: rgba(15, 15, 15, 0.1);
+  --sb-thumb-area: rgba(15, 15, 15, 0.26);
+  color-scheme: light;
 }
 
 :root {
   --page-pad: 24px;
   --card-pad: 20px;
   --gap: 16px;
-  --card-radius: 8px;
-  --chip-radius: 4px;
+  --card-radius: 12px;
+  --chip-radius: 10px;
   --sidebar-width: 220px;
   --display-size: 32px;
-  --title-size: 20px;
-  --body-size: 14px;
-  --meta-size: 12px;
-}
+  --title-size: 18px;
+  --body-size: 15px;
+  --meta-size: 13px;
 
-/* Dark theme extensions */
-[data-theme="dark"] {
-  /* Dark extras. Do not attach these to :root — that overrides [data-theme=light]. */
-  --up: #42a375;
-  --down: #e6746c;
-
-  --border-strong: #6f766b; /* NEW 輸入框／分段掣邊線。對 bg 3.95、對 surface 3.58（≥3:1，WCAG 1.4.11） */
-  --surface-hover: #292a27; /* NEW 表格行／可按卡 hover（= text 6% 混 surface） */
-  --surface-selected: #272d28; /* NEW 選中行（= ink 12% 混 surface）；正文 12.06、muted 5.30 */
-  --ink-hover: #8fae9e;     /* NEW primary 掣 hover；on-ink 對比 7.69 */
-  --ink-press: #a0bdae;     /* NEW primary 掣 active；on-ink 對比 9.16 */
-  --focus-ring: #7a9a8a;    /* NEW = ink；對 surface 5.45 */
-  --up-bg: #1f2922;         /* NEW 升 chip 底（up 8% 混 surface）；up 字 4.81 */
-  --down-bg: #2c2521;       /* NEW 跌 chip 底（down 8% 混 surface）；down 字 5.08 */
-  --scrim: rgba(0, 0, 0, 0.62); /* NEW 對話框／抽屜遮罩 */
-  --skeleton-base: #292c27; /* NEW 骨架底（border 80% 混 surface） */
-  --skeleton-shine: rgba(237, 238, 232, 0.07); /* NEW shimmer 高光 */
-  --icon-accent: var(--ink); /* NEW 空狀態插圖 accent 點 */
-
-  /* 陰影（墨紙：以邊線＋深影分層，唔靠亮影） */
-  --shadow-0: none;                                                  /* 卡片預設（只靠 1px border） */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);                         /* 可按卡 hover、sticky 列 */
-  --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border); /* 下拉、popover、toast */
-  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-strong); /* 對話框、抽屜 */
-  color-scheme: dark;
-}
-
-/* ---------- 2. 暖紙 Light ---------- */
-[data-theme="light"] {
-  --up: #166c40; /* was #1b7a4a / effective #42a375 via :root leak; ≥4.5:1 on light bg */
-  --border-strong: #85887f; /* NEW 對 bg 3.25、對 surface 3.60 */
-  --surface-hover: #f1f1f1; /* NEW（= text 6% 混 white）；muted 4.59、up 4.73、down 4.81 */
-  --surface-selected: #eef2f1; /* NEW（= ink 8% 混 white）；正文 15.17、muted 4.60 */
-  --ink-hover: #264c46;     /* NEW on-ink(白) 對比 9.53 */
-  --ink-press: #1f3f3a;     /* NEW on-ink 對比 11.47 */
-  --focus-ring: #2f5d56;    /* NEW = ink；對 bg 6.70 */
-  --up-bg: #e8f2ed;         /* NEW up 10% 混 white；up 字 4.67 */
-  --down-bg: #f9ebea;       /* NEW down 10% 混 white；down 字 4.69 */
-  --scrim: rgba(27, 28, 25, 0.48);
-  --skeleton-base: #e9e7e1; /* border 80% 混 surface */
-  --skeleton-shine: rgba(255, 255, 255, 0.7);
-  --icon-accent: var(--ink);
-
-  /* 陰影（暖紙：暖灰墨色低透明度，唔用純黑） */
-  --shadow-0: none;
-  --shadow-1: 0 1px 2px rgba(27, 28, 25, 0.06), 0 1px 1px rgba(27, 28, 25, 0.04);
-  --shadow-2: 0 4px 12px rgba(27, 28, 25, 0.1), 0 1px 3px rgba(27, 28, 25, 0.06);
-  --shadow-3: 0 12px 32px rgba(27, 28, 25, 0.16), 0 2px 6px rgba(27, 28, 25, 0.08);
-  color-scheme: light;
-}
-
-/* ---------- 3. 與主題無關：間距、圓角、字階、版面、層級、圖示 ---------- */
-:root {
-  /* 間距（4px 基準；--sp-N = N × 4px） */
+  /* Litora 4px spacing scale */
+  --sp-3xs: 2px;
+  --sp-2xs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-ml: 20px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-2xl: 44px;
+  --sp-3xl: 64px;
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
   --sp-4: 16px;
-  --sp-5: 20px;   /* 只作 --card-pad 用，唔好喺其他地方新用 */
+  --sp-5: 20px;
   --sp-6: 24px;
   --sp-8: 32px;
+  --sp-11: 44px;
   --sp-12: 48px;
-  /* 沿用：--page-pad 24px  --card-pad 20px  --gap 16px（值不變，見下面 mobile 覆寫） */
-  --gap-sm: 8px;      /* NEW 同組控件之間（chip 列、按鈕列） */
-  --gap-lg: 24px;     /* NEW 區塊之間 */
-  --card-pad-sm: 16px; /* NEW 手機卡 padding */
-  --page-pad-sm: 16px; /* NEW 手機頁邊距 */
+  --sp-16: 64px;
+  --gap-sm: 8px;
+  --gap-lg: 24px;
+  --card-pad-sm: 16px;
+  --page-pad-sm: 16px;
+  --gap-frame: 14px;
 
-  /* 圓角（舊 --card-radius 8、--chip-radius 4 保留） */
-  --radius-xs: 2px;     /* NEW 骨架條、進度條 */
-  --radius-sm: 4px;     /* = --chip-radius：chip、input、button */
-  --radius-md: 8px;     /* = --card-radius：卡、表格容器、圖表框 */
-  --radius-lg: 12px;    /* NEW 對話框、手機底抽屜頂角、toast */
-  --radius-pill: 999px; /* NEW 圓點、avatar、分段掣 thumb */
+  /* Litora radii; structural cap 12px (portal skin) */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 12px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --r-max: 12px;
 
-  /* 字階（舊值保留；NEW 為補位） */
-  --display-size: 32px;      /* 沿用；手機 28px */
-  --display-size-sm: 28px;   /* NEW */
-  --h1-size: 24px;           /* NEW 頁標題（舊：頁標題用 --title-size 20px，同卡標題一樣大） */
-  --title-size: 20px;        /* 沿用：對話框標題、首次入門大標 */
-  --card-title-size: 16px;   /* NEW 卡內 h2（舊：20px） */
-  --body-size: 14px;         /* 沿用 */
-  --meta-size: 12px;         /* 沿用 */
-  --caption-size: 11px;      /* NEW 只准手機底欄標籤、圖表軸 */
-  --lh-display: 36px;
+  --display-size-sm: 26px;
+  --h1-size: 26px;
+  --card-title-size: 17px;
+  --caption-size: 11px;
+  --lh-display: 32px;
   --lh-h1: 32px;
-  --lh-title: 28px;
+  --lh-title: 24px;
   --lh-card-title: 24px;
-  --lh-body: 22px;           /* 舊 html line-height 1.45 (≈20px) → 22px */
-  --lh-meta: 18px;
+  --lh-body: 22px;
+  --lh-meta: 20px;
   --lh-caption: 16px;
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
-  --tracking-display: -0.02em;
-  --tracking-h1: -0.01em;
+  --tracking-display: -0.03em;
+  --tracking-h1: -0.015em;
   --tracking-meta: 0.01em;
-  --font-sans: var(--font-inter), var(--font-noto), "Noto Sans TC", "Noto Sans CJK TC", sans-serif;
+  --tracking-caps: 0.14em;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+    "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
-  /* 版面 */
-  --content-max: 1200px;  /* NEW 主內容最大寬（1440 視窗：1220−48=1172，唔觸頂） */
-  --form-max: 560px;      /* NEW 單欄表單卡最大寬（記一筆、登入外的表單） */
-  --reading-max: 720px;   /* NEW 說明文字、設定頁單欄 */
-  --tape-h: 40px;         /* 沿用現值 40；手機覆寫 32 */
-  --bottom-bar-h: 56px;   /* NEW 手機底欄（不含 safe-area） */
-  --control-h: 40px;      /* NEW 桌面按鈕／輸入高；手機覆寫 44 */
-  --hit-min: 44px;        /* NEW 觸控目標下限 */
-  --table-row-h: 44px;    /* NEW 表格行最小高 */
+  --content-max: 1200px;
+  --form-max: 560px;
+  --reading-max: 720px;
+  --tape-h: 40px;
+  --bottom-bar-h: 56px;
+  --h-ctrl-sm: 28px;
+  --control-h: 34px;
+  --control-primary: 36px;
+  --h-ctrl-lg: 42px;
+  --control-xl: 48px;
+  --hit-min: 44px;
+  --table-row-h: 56px;
+  --bar-h: 37px;
+  --pane-nav: 64px;
 
-  /* 層級 */
   --z-tape: 10;
-  --z-bar: 20;       /* 沿用 mobile-bar */
-  --z-guide: 25;
-  --z-sheet: 30;
-  --z-dialog: 40;    /* 沿用 kline 放大 */
-  --z-toast: 50;
+  --z-bar: 35;
+  --z-guide: 40;
+  --z-sheet: 50;
+  --z-dialog: 60;
+  --z-toast: 80;
 
-  /* 圖示 */
-  --icon-sw: 1.5;    /* 24 格內線寬；<svg class="icon"> 用，見 components-patch.css 的 16/20 補償 */
+  --icon-sw: 1.7;
+  --icon-2xs: 10px;
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 18px;
+  --icon-xl: 24px;
+
+  --ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--focus-ring);
+  --sb-w: 12px;
+  --press: 0.985;
 }
 
 @media (max-width: 800px) {
@@ -166,11 +240,12 @@
     --page-pad: 16px;
     --card-pad: 16px;
     --gap: 12px;
-    --display-size: 28px;
-    --h1-size: 22px;
-    --lh-display: 32px;
-    --lh-h1: 30px;
+    --display-size: 26px;
+    --h1-size: 21px;
+    --lh-display: 28px;
+    --lh-h1: 26px;
     --tape-h: 32px;
     --control-h: 44px;
+    --control-primary: 44px;
   }
 }

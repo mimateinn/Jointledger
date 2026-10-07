@@ -8,6 +8,7 @@ import { deriveAmountUsd } from "@/ledger/create-cash-flow";
 import { formatUsd } from "@/lib/format";
 
 const COPY = {
+  eyebrow: "入帳",
   title: "記一筆",
   emptyHint: "空表都可以用。可以先入金，或者直接加持倉。",
   first: "第一次：先入金，再轉買入記已有持股。",
@@ -63,7 +64,10 @@ export function EntryForm({
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">{COPY.title}</h1>
+        <div className="page-head-title">
+          <p className="page-eyebrow">{COPY.eyebrow}</p>
+          <h1 className="page-title">{COPY.title}</h1>
+        </div>
       </div>
       {ok ? (
         <p className="ok" role="status">

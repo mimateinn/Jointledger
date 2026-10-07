@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { ImportWizard } from "./import-wizard";
 
 const COPY = {
+  eyebrow: "開始",
   title: "你要點開始？",
   lead: "呢度只係記帳。唔會開券商戶口，亦唔會下單。",
   first: "先做呢步",
@@ -34,7 +35,8 @@ export function FirstUseForm() {
   return (
     <div className="page page-form-wide">
       <div className="page-head">
-        <div>
+        <div className="page-head-title">
+          <p className="page-eyebrow">{COPY.eyebrow}</p>
           <h1 className="page-title">{COPY.title}</h1>
           <p className="muted lead-tight">{COPY.lead}</p>
         </div>

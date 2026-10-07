@@ -14,6 +14,7 @@ import { UpdateCheckButton } from "@/components/update-check-button";
 import { formatRelativeDate, formatSchedulePercent } from "@/lib/format";
 
 const COPY = {
+  eyebrow: "設定",
   title: "帳戶",
   me: "我是誰",
   others: "其他人",
@@ -31,7 +32,7 @@ const COPY = {
   startImport: "再匯入試算表",
   settings: "設定",
   look: "外觀",
-  lookHelp: "暖紙／墨紙。唔同六個導覽項搶位。",
+  lookHelp: "暖紙／夜頁，或者跟系統。唔同六個導覽項搶位。",
   update: "官方更新",
   updateHelp: "檢查最新官方版本。資料同資料庫唔會消失。",
   password: "改密碼",
@@ -129,7 +130,10 @@ export function AccountClient({
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">{COPY.title}</h1>
+        <div className="page-head-title">
+          <p className="page-eyebrow">{COPY.eyebrow}</p>
+          <h1 className="page-title">{COPY.title}</h1>
+        </div>
       </div>
       {emptyLedger ? (
         <div className="banner">

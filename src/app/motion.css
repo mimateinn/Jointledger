@@ -1,32 +1,32 @@
 /* Motion tokens and keyframes. Reduced-motion / .is-reduced must win over later CSS. */
 
 :root {
-  /* 時長階梯 */
-  --dur-instant: 80ms;   /* reduced-motion 替代、hover 顏色 */
-  --dur-fast: 120ms;     /* 按壓、hover、chip、勾選 */
-  --dur-base: 180ms;     /* 列表項、tab 滑塊、toast 出 */
-  --dur-slow: 240ms;     /* 對話框、抽屜、toast 入、圖表淡入 */
-  --dur-page: 260ms;     /* 頁面轉場（硬上限 280ms） */
-  --dur-number: 320ms;   /* 數字 tween（唯一允許 >240ms 嘅互動動畫） */
-  --dur-shimmer: 1400ms; /* 骨架 shimmer 一圈 */
-  --dur-spin: 800ms;     /* spinner 一圈 */
+  /* Litora --d-* / PATTERNS 80·180 press; theme colour-only 280ms */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 180ms;
+  --dur-slow: 220ms;
+  --dur-page: 220ms;
+  --dur-theme: 280ms;
+  --dur-number: 320ms;
+  --dur-shimmer: 1400ms;
+  --dur-spin: 800ms;
 
-  /* easing 命名 token */
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);      /* 進場、位移、通用 */
-  --ease-exit: cubic-bezier(0.4, 0, 1, 1);          /* 離場（加速離開） */
-  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1); /* 頁面／對話框進場（尾段長、無回彈） */
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);    /* 滑塊、toggle thumb */
-  --ease-pop: cubic-bezier(0.34, 1.35, 0.64, 1);    /* 勾選／成功小回彈（<=8% overshoot） */
-  --ease-linear: linear;                            /* spinner、shimmer */
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1); /* Litora --e-out */
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-emphasized: cubic-bezier(0.32, 0.72, 0, 1); /* Litora --e-emph */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1); /* Litora --e-inout */
+  --ease-pop: cubic-bezier(0.34, 1.4, 0.5, 1); /* Litora --e-spring: entrance only */
+  --ease-linear: linear;
 
-  /* 位移量（reduced-motion 時全部歸零） */
-  --mv-y: 8px;        /* 進場上移 */
-  --mv-y-page: 6px;   /* 頁面進場 */
-  --mv-x: 8px;        /* 列表離場側移 */
-  --mv-s: 0.97;       /* 對話框起始縮放 */
-  --press-scale: 0.98;/* 按壓縮放 */
-  --hover-lift: -1px; /* 可按卡 hover 上浮 */
-  --stagger: 24ms;    /* 列表進場錯開（最多 8 項） */
+  --mv-y: 8px;
+  --mv-y-page: 6px;
+  --mv-x: 8px;
+  --mv-s: 0.97;
+  --press-scale: 0.985;
+  --press-drop: 1px;
+  --hover-lift: -2px;
+  --stagger: 24ms;
 }
 
 /* ---------------- keyframes ---------------- */
@@ -99,7 +99,9 @@
 }
 .btn:active:not(:disabled):not([aria-disabled="true"]),
 .chip:active,
-.theme-toggle:active { transform: scale(var(--press-scale)); }
+.theme-toggle:active {
+  transform: translateY(var(--press-drop)) scale(var(--press-scale));
+}
 .mobile-bar a:active { transform: scale(var(--press-scale)); }
 
 .card-link,
@@ -214,7 +216,7 @@ tr.is-leaving  { animation: jl-fade-out var(--dur-fast) var(--ease-exit) both; }
 /* 有滑塊時，.tab-active 本身唔再畫底線 */
 .tabs-line.has-indicator .tab-active { border-bottom-color: transparent; }
 /* 等寬分段掣（我／全體／Hey… 以外嘅 2–3 項，如 出入金｜買賣）：thumb 以 index 位移 */
-.seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
+.seg { position: relative; display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 2px; border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--bg); max-width: 100%; }
 .seg > button { position: relative; z-index: 1; min-height: 32px; padding: 0 var(--sp-4); border: 0; background: transparent; color: var(--muted); font-weight: var(--fw-medium); transition: color var(--dur-fast) var(--ease-standard); }
 .seg > button[aria-pressed="true"],
 .seg > button[aria-selected="true"] { color: var(--text); }
@@ -269,7 +271,9 @@ tr.is-leaving  { animation: jl-fade-out var(--dur-fast) var(--ease-exit) both; }
     --mv-x: 0px;
     --mv-s: 1;
     --press-scale: 1;
+    --press-drop: 0px;
     --hover-lift: 0px;
+    --dur-theme: 0ms;
     --stagger: 0ms;
     --sheet-from: 0%;
     --drawer-from: 0%;
@@ -316,10 +320,12 @@ tr.is-leaving  { animation: jl-fade-out var(--dur-fast) var(--ease-exit) both; }
   --mv-x: 0px;
   --mv-s: 1;
   --press-scale: 1;
+  --press-drop: 0px;
   --hover-lift: 0px;
   --stagger: 0ms;
   --sheet-from: 0%;
   --drawer-from: 0%;
+  --dur-theme: 0ms;
 }
 .is-reduced .tape-track { animation: none !important; transform: none !important; }
 .is-reduced .tape-viewport { overflow-x: auto; }

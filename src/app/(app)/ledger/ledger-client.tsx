@@ -27,6 +27,7 @@ import {
 } from "@/lib/ledger-filter";
 
 const COPY = {
+  eyebrow: "紀錄",
   title: "流水",
   trades: "買賣",
   cash: "出入金",
@@ -158,7 +159,10 @@ export function LedgerClient({
   return (
     <div className="page">
       <div className="page-head">
-        <h1 className="page-title">{COPY.title}</h1>
+        <div className="page-head-title">
+          <p className="page-eyebrow">{COPY.eyebrow}</p>
+          <h1 className="page-title">{COPY.title}</h1>
+        </div>
         <div className="seg" style={{ "--seg-n": 2, "--seg-i": current.view === "trades" ? 1 : 0 } as CSSProperties}>
           <span className="seg-thumb" aria-hidden />
           <button type="button" aria-pressed={current.view === "cash"} onClick={() => switchView("cash")}>
