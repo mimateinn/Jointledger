@@ -63,18 +63,52 @@ async function shot(page, name, viewport, theme, extra = {}) {
   console.log("shot", file);
 }
 
-async function login(page) {
+async function login(page, user = USER) {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle0", timeout: 60000 });
   const identifier = await page.$("#identifier");
   if (!identifier) {
+    const current = await page.evaluate(() => document.body?.innerText ?? "");
+    if (current.includes(user)) {
+      return;
+    }
+    await page.evaluate(() => {
+      [...document.querySelectorAll("button, a")].find((el) => el.textContent?.includes("登出"))?.click();
+    });
+    await page.waitForNavigation({ waitUntil: "networkidle0", timeout: 60000 }).catch(() => {});
+    await page.goto(`${BASE}/login`, { waitUntil: "networkidle0", timeout: 60000 });
+  }
+  const field = await page.$("#identifier");
+  if (!field) {
     return;
   }
-  await page.type("#identifier", USER);
+  await page.evaluate(() => {
+    const id = document.querySelector("#identifier");
+    const pw = document.querySelector("#password");
+    if (id) id.value = "";
+    if (pw) pw.value = "";
+  });
+  await page.type("#identifier", user);
   await page.type("#password", PASS);
   await Promise.all([
     page.waitForNavigation({ waitUntil: "networkidle0", timeout: 60000 }),
     page.click("button[type=submit]"),
   ]);
+}
+
+async function evalClick(page, fn) {
+  await page.evaluate(fn);
+  await new Promise((r) => setTimeout(r, 250));
+}
+
+async function openLedgerUndo(page) {
+  await page.goto(`${BASE}/ledger?view=trades`, { waitUntil: "networkidle0", timeout: 60000 });
+  await evalClick(page, () => {
+    document.querySelector('button[aria-label^="刪除"]')?.click();
+  });
+  await evalClick(page, () => {
+    [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "確認刪除")?.click();
+  });
+  await page.waitForSelector("[data-undo-toast]", { timeout: 5000 });
 }
 
 async function clickText(page, selector, label) {
@@ -128,7 +162,7 @@ async function captureApp(page) {
 }
 
 async function captureFirstUse(page) {
-  await login(page);
+  await login(page, process.env.SHOT_FIRST_USE_USER ?? "First Use");
   await page.goto(`${BASE}/first-use`, { waitUntil: "networkidle0", timeout: 60000 });
   for (const vp of [1440, 375]) {
     for (const theme of ["light", "dark"]) {
@@ -153,15 +187,12 @@ async function captureFeatures(page) {
     }
   }
 
-  await page.goto(`${BASE}/ledger?view=trades`, { waitUntil: "networkidle0", timeout: 60000 });
-  await page.click('button[aria-label^="刪除"]').catch(() => {});
-  await new Promise((r) => setTimeout(r, 250));
-  await clickText(page, "button", "確認刪除");
-  await page.waitForSelector("[data-undo-toast]", { timeout: 5000 }).catch(() => {});
-  await new Promise((r) => setTimeout(r, 200));
   for (const vp of [1440, 375]) {
     for (const theme of ["light", "dark"]) {
-      await shot(page, "ledger-delete-undo", vp, theme, { wait: 200 });
+      await page.setViewport({ ...SIZES[vp], deviceScaleFactor: 1 });
+      await setTheme(page, theme);
+      await openLedgerUndo(page);
+      await shot(page, "ledger-delete-undo", vp, theme, { wait: 200, fullPage: vp !== 375 });
     }
   }
 }
