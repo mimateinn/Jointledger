@@ -65,7 +65,7 @@ export function ImportWizard({
     <div className="stack">
       <div>
         <h1 className="page-title">{reimport ? "再匯入" : "匯入而家用緊嘅試算表"}</h1>
-        <p className="muted" style={{ marginTop: 12 }}>
+        <p className="muted lead-tight">
           {reimport
             ? "寫入而家呢本記帳表。要明示追加或取代。認領唔會開新表，亦唔會當匯入解鎖。"
             : "把而家用緊嘅試算表搬過嚟。預覽成員、買賣、出入金；對唔上嘅列會單獨標出，確認持股先寫入。"}
@@ -179,7 +179,7 @@ export function ImportWizard({
         <section className="card stack">
           <h2 className="title">預覽</h2>
           <p className="muted">
-            成員 {preview.counts.members} · 出入金 {preview.counts.cashFlows} · 買賣 {preview.counts.trades} ·
+            成員 {preview.counts.members} · 出入金 {preview.counts.cashFlows} · 記帳 {preview.counts.trades} ·
             警告 {preview.counts.warnings} · 略過 {preview.counts.skipped} · 待確認 {preview.counts.pending}
           </p>
           <div>

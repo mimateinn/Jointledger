@@ -170,7 +170,7 @@ export function HoldingsWorkspace({
             </table>
           </section>
           {selected ? (
-            <div className="col-7 sticky-kline">
+            <div className="col-7 sticky-kline holdings-kline">
               <InstrumentKline
                 display={selected.symbol}
                 name={selected.name}

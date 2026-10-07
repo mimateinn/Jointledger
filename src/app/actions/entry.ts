@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/auth/session";
 import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
-import { createAdjustment, createCashFlow, createSplit, createTrade, deleteLot } from "@/ledger";
+import { createAdjustment, createCashFlow, createSplit, createTrade, deleteEntry, deleteLot, dividendNote } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
 import { humanFormError } from "@/lib/human-error";
 import { refreshMarksAfterSplit } from "@/quotes";
@@ -111,28 +111,44 @@ export async function createBookkeepingAction(
   const kind = String(formData.get("kind") ?? "adjustment");
   const symbol = String(formData.get("symbol") ?? "");
   try {
-    await withLedgerTransaction((store) =>
-      kind === "split"
-        ? createSplit(store, {
-            bookId: ctx.book.id,
-            ledgerAccountId: account.id,
-            memberId,
-            symbol,
-            newShares: String(formData.get("newShares") ?? ""),
-            oldShares: String(formData.get("oldShares") ?? ""),
-            occurredOn: String(formData.get("occurredOn") ?? ""),
-            note: String(formData.get("note") ?? "") || null,
-          })
-        : createAdjustment(store, {
-            bookId: ctx.book.id,
-            ledgerAccountId: account.id,
-            memberId,
-            occurredOn: String(formData.get("occurredOn") ?? ""),
-            note: String(formData.get("note") ?? ""),
-            symbol: symbol || null,
-            amountUsd: String(formData.get("amountUsd") ?? "") || null,
-          }),
-    );
+    await withLedgerTransaction((store) => {
+      if (kind === "split") {
+        return createSplit(store, {
+          bookId: ctx.book.id,
+          ledgerAccountId: account.id,
+          memberId,
+          symbol,
+          newShares: String(formData.get("newShares") ?? ""),
+          oldShares: String(formData.get("oldShares") ?? ""),
+          occurredOn: String(formData.get("occurredOn") ?? ""),
+          note: String(formData.get("note") ?? "") || null,
+        });
+      }
+      if (kind === "dividend") {
+        const amountUsd = String(formData.get("amountUsd") ?? "").trim();
+        if (!amountUsd) {
+          throw new Error("請填股息美金");
+        }
+        return createAdjustment(store, {
+          bookId: ctx.book.id,
+          ledgerAccountId: account.id,
+          memberId,
+          occurredOn: String(formData.get("occurredOn") ?? ""),
+          note: dividendNote(String(formData.get("note") ?? "") || symbol),
+          symbol: symbol || null,
+          amountUsd,
+        });
+      }
+      return createAdjustment(store, {
+        bookId: ctx.book.id,
+        ledgerAccountId: account.id,
+        memberId,
+        occurredOn: String(formData.get("occurredOn") ?? ""),
+        note: String(formData.get("note") ?? ""),
+        symbol: symbol || null,
+        amountUsd: String(formData.get("amountUsd") ?? "") || null,
+      });
+    });
   } catch (error) {
     return { error: humanFormError(error instanceof Error ? error.message : "記帳失敗") };
   }
@@ -147,7 +163,7 @@ export async function createBookkeepingAction(
   revalidatePath("/overview");
   revalidatePath("/holdings");
   revalidatePath("/ledger");
-  return { ok: kind === "split" ? "已記入拆股" : "已記入調整" };
+  return { ok: kind === "split" ? "已記入拆股" : kind === "dividend" ? "已記入股息" : "已記入調整" };
 }
 
 export async function deleteHoldingAction(
@@ -180,4 +196,39 @@ export async function deleteHoldingAction(
   revalidatePath("/returns");
   revalidatePath("/entry");
   return { ok: "已刪持倉" };
+}
+
+export async function deleteLedgerEntryAction(
+  _prev: EntryState,
+  formData: FormData,
+): Promise<EntryState> {
+  const user = await requireUser();
+  const ctx = await getCurrentMembership(user);
+  if (!ctx) {
+    return { error: "未有記帳表" };
+  }
+  if (String(formData.get("confirm") ?? "") !== "1") {
+    return { error: "要確認先刪" };
+  }
+  const kind = String(formData.get("kind") ?? "");
+  if (kind !== "cash" && kind !== "trade") {
+    return { error: "唔識呢種類型" };
+  }
+  try {
+    await withLedgerTransaction((store) =>
+      deleteEntry(store, {
+        bookId: ctx.book.id,
+        kind,
+        id: String(formData.get("entryId") ?? ""),
+      }),
+    );
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "刪除失敗" };
+  }
+  revalidatePath("/overview");
+  revalidatePath("/holdings");
+  revalidatePath("/ledger");
+  revalidatePath("/returns");
+  revalidatePath("/entry");
+  return { ok: "已刪呢筆" };
 }

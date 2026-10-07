@@ -21,7 +21,7 @@ const COPY = {
 const initial: EntryState = {};
 const TABS = ["入金", "買入", "賣出", "出金", "調整"] as const;
 type Tab = (typeof TABS)[number];
-type BookkeepingKind = "adjustment" | "split";
+type BookkeepingKind = "adjustment" | "split" | "dividend";
 const CLOSED = new Set<Tab>(["賣出", "出金"]);
 
 export function EntryForm({
@@ -262,6 +262,7 @@ export function EntryForm({
             >
               <option value="adjustment">人手調整</option>
               <option value="split">拆股</option>
+              <option value="dividend">股息</option>
             </select>
           </div>
           <div className="grid-12">
@@ -310,6 +311,22 @@ export function EntryForm({
                 </div>
               </div>
             </>
+          ) : bookKind === "dividend" ? (
+            <>
+              <div className="field">
+                <label htmlFor="symbolDiv">代碼</label>
+                <input className="input" id="symbolDiv" name="symbol" placeholder="AAPL" autoComplete="off" />
+              </div>
+              <div className="field">
+                <label htmlFor="amountUsdDiv">美金</label>
+                <input className="input input-num" id="amountUsdDiv" name="amountUsd" inputMode="decimal" required placeholder="12.50" autoComplete="off" />
+                <p className="field-hint">記一筆股息入帳。用調整列寫入，唔開新表。</p>
+              </div>
+              <div className="field">
+                <label htmlFor="noteDiv">備註</label>
+                <input className="input" id="noteDiv" name="note" placeholder="可空，會自動標股息" autoComplete="off" />
+              </div>
+            </>
           ) : (
             <>
               <div className="field">
@@ -346,7 +363,7 @@ export function EntryForm({
             <span className="meta muted">{COPY.afterCash}</span>
             <span className="num">{usd || "—"}</span>
           </div>
-          <p className="meta muted" style={{ marginTop: 12 }}>{COPY.disclaimer}</p>
+          <p className="meta muted lead-tight">{COPY.disclaimer}</p>
         </aside>
       </div>
     </div>

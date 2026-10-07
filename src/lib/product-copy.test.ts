@@ -37,6 +37,7 @@ describe("product copy", () => {
   it("deletes require confirm with 取消, state consequence, and undo", () => {
     const holding = readFileSync("src/components/holding-delete.tsx", "utf8");
     const member = readFileSync("src/components/member-delete.tsx", "utf8");
+    const entry = readFileSync("src/components/ledger-entry-delete.tsx", "utf8");
     expect(holding).toContain("role=\"dialog\"");
     expect(holding).toContain("取消");
     expect(holding).toContain("同相關賣出會一齊消失");
@@ -45,6 +46,10 @@ describe("product copy", () => {
     expect(member).toContain("取消");
     expect(member).toContain("持倉同流水會一齊消失");
     expect(member).toContain("還原");
+    expect(entry).toContain("role=\"dialog\"");
+    expect(entry).toContain("取消");
+    expect(entry).toContain("還原");
+    expect(entry).toContain("現金會按不變式重計");
   });
 
   it("entry stays on the page and shows a success hint", () => {
@@ -93,13 +98,14 @@ describe("product copy", () => {
     const kline = readFileSync("src/components/kline-chart.tsx", "utf8");
     const chrome = readFileSync("src/components/app-chrome.tsx", "utf8");
     const css = readFileSync("src/app/globals.css", "utf8");
+    const components = readFileSync("src/app/components.css", "utf8");
     const loading = readFileSync("src/app/(app)/loading.tsx", "utf8");
     const errorPage = readFileSync("src/app/(app)/error.tsx", "utf8");
     expect(overview).toContain("asOfLabel");
     expect(kline).toContain("未有日線");
     expect(kline).toContain("這檔還沒有可畫的區間");
     expect(chrome).toContain('aria-current={active ? "page"');
-    expect(css).toContain("nav-item-active");
+    expect(components).toContain("nav-item-active");
     expect(css).toContain("skeleton");
     expect(css).toContain("tabular-nums");
     expect(loading).toContain("skeleton");

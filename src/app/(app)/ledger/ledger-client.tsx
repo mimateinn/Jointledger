@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEven
 import { EmptyPanel } from "@/components/empty-panel";
 import { Icon } from "@/components/icons";
 import { InstrumentLabel } from "@/components/instrument-label";
+import { LedgerEntryDelete } from "@/components/ledger-entry-delete";
 import { formatHkd, formatMoney, formatQty, formatRelativeDate, formatUsd } from "@/lib/format";
 import {
   JOINT_MEMBER,
@@ -11,6 +12,7 @@ import {
   LEDGER_KIND_LABEL,
   emptyLedgerFilters,
   filterLedgerRows,
+  ledgerKindLabel,
   isJointMemberFilter,
   kindsForView,
   ledgerFiltersActive,
@@ -171,7 +173,7 @@ export function LedgerClient({
         <>
           <div className="card stack">
             <form className="filter-bar" onSubmit={applyFromForm}>
-              <div className="field-with-icon" style={{ flex: "1 1 200px" }}>
+              <div className="field-with-icon">
                 <Icon name="search" size={16} />
                 <input
                   ref={searchRef}
@@ -319,19 +321,20 @@ function CashTable({ rows }: { rows: CashRow[] }) {
           <th className="num">HKD</th>
           <th className="num">匯率</th>
           <th className="num">USD</th>
+          <th />
         </tr>
       </thead>
       <tbody>
         {grouped(rows).flatMap((group) => [
           <tr className="month-row" key={`m-${group.month}`}>
-            <td colSpan={6}>{group.month}</td>
+            <td colSpan={7}>{group.month}</td>
           </tr>,
           ...group.rows.map((row) => (
             <tr key={row.id}>
               <td title={row.occurredOn.slice(0, 10)}>{formatRelativeDate(row.occurredOn)}</td>
               <td>{row.memberName}</td>
               <td>
-                <span className="chip">{LEDGER_KIND_LABEL[row.kind]}</span>
+                <span className="chip">{ledgerKindLabel(row.kind, row.note)}</span>
               </td>
               <td className="num card-meta" data-label="HKD">
                 {formatHkd(row.amountHkd)}
@@ -341,6 +344,9 @@ function CashTable({ rows }: { rows: CashRow[] }) {
               </td>
               <td className="num card-primary" data-label="USD">
                 {formatUsd(row.amountUsd)}
+              </td>
+              <td className="card-action">
+                <LedgerEntryDelete id={row.id} kind="cash" label={`${ledgerKindLabel(row.kind, row.note)} ${row.occurredOn.slice(0, 10)}`} />
               </td>
             </tr>
           )),
@@ -366,12 +372,13 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
           <th className="num">價格</th>
           <th className="num">金額</th>
           <th>備註</th>
+          <th />
         </tr>
       </thead>
       <tbody>
         {grouped(rows).flatMap((group) => [
           <tr className="month-row" key={`m-${group.month}`}>
-            <td colSpan={8}>{group.month}</td>
+            <td colSpan={9}>{group.month}</td>
           </tr>,
           ...group.rows.map((row) => {
             const amount = Number(row.quantity) * Number(row.price);
@@ -379,7 +386,7 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
               <tr key={row.id}>
                 <td title={row.occurredOn.slice(0, 10)}>{formatRelativeDate(row.occurredOn)}</td>
                 <td data-label="類型">
-                  <span className="chip">{LEDGER_KIND_LABEL[row.kind]}</span>
+                  <span className="chip">{ledgerKindLabel(row.kind, row.note)}</span>
                 </td>
                 <td>
                   <InstrumentLabel ticker={row.symbol ?? "—"} name={row.name ?? null} />
@@ -395,6 +402,13 @@ function TradeTable({ rows }: { rows: TradeRow[] }) {
                   {Number.isFinite(amount) ? formatUsd(amount.toFixed(2)) : "—"}
                 </td>
                 <td className="muted">{row.note ?? "—"}</td>
+                <td className="card-action">
+                  <LedgerEntryDelete
+                    id={row.id}
+                    kind="trade"
+                    label={`${ledgerKindLabel(row.kind, row.note)} ${row.symbol ?? ""}`.trim()}
+                  />
+                </td>
               </tr>
             );
           }),

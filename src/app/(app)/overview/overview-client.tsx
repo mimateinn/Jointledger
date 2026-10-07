@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type CSSProperties } from "react";
+import { FirstRunTips } from "@/components/first-run-tips";
 import { InstrumentLabel } from "@/components/instrument-label";
 import { Icon } from "@/components/icons";
 import { formatQty, formatSharePercent, formatUsd, todayChangeLabel } from "@/lib/format";
@@ -168,6 +169,8 @@ export function OverviewClient({
           ))}
         </div>
       </div>
+
+      <FirstRunTips />
 
       {emptyBook ? (
         <section className="card state-panel">

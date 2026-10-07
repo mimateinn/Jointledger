@@ -89,7 +89,7 @@ describe("local two-sheet xlsx export", () => {
     expect(snap.navUsd.toFixed(2)).not.toBe("1500.00");
   });
 
-  it("exports split and adjustment kinds; import skips those rows", async () => {
+  it("exports split and adjustment kinds; import writes those rows", async () => {
     const store = createMemoryStore();
     const { book, member, account } = await createBook(store, {
       name: "聯倉",
@@ -141,8 +141,11 @@ describe("local two-sheet xlsx export", () => {
     const mapping = mapUpload(transinfo, accountSheet);
     expect(mapping.blocking).toBe(false);
     const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, accountSheet, mapping);
-    expect(plan.trades.every((trade) => trade.symbol === "NVDA")).toBe(true);
-    expect(plan.trades).toHaveLength(1);
+    expect(plan.trades.map((trade) => trade.side ?? "buy")).toEqual(["buy", "split", "adjustment"]);
+    expect(plan.trades.filter((trade) => trade.side !== "adjustment").every((trade) => trade.symbol === "NVDA")).toBe(
+      true,
+    );
+    expect(plan.trades).toHaveLength(3);
   });
 
   it("writes local bytes with no Sheets/OAuth", () => {

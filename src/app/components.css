@@ -22,6 +22,7 @@ html, body {
 .main { padding: var(--page-pad); }
 .page { width: 100%; max-width: var(--content-max); margin-inline: auto; display: flex; flex-direction: column; gap: var(--gap); }
 .page-form { max-width: var(--form-max); }          /* 記一筆、首次入門單欄卡 */
+.page-form-wide { max-width: 880px; margin-inline: 0; align-self: start; width: min(880px, 100%); }
 .page-read { max-width: var(--reading-max); }       /* 單欄設定 */
 .page-head { align-items: center; margin-bottom: var(--sp-2); min-height: var(--hit-min); }
 .page-head-stack { flex-direction: column; align-items: flex-start; justify-content: flex-start; }
@@ -165,7 +166,7 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
 
 /* ---- 側欄補充 ---- */
 .nav-list { gap: 2px; }
-.nav-item { min-height: 40px; padding: 0 var(--sp-4) 0 18px; border-left: 0; /* 指示條改由 ::before（motion.css）畫 */ }
+.nav-item { min-height: 40px; padding: 0 var(--sp-4); border-left: 0; /* 指示條改由 ::before（motion.css）畫 */ }
 .nav-item:hover { background: var(--surface-hover); }
 .nav-item-active { background: var(--surface); font-weight: var(--fw-medium); }
 .sidebar-footer { gap: var(--sp-3); }
@@ -218,6 +219,10 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
 .metric-card .metric-sub { margin-top: var(--sp-1); min-height: 0; }
 .page-head .chip-row { margin: 0; }
 .sticky-kline { position: sticky; top: var(--sp-6); }
+@media (max-width: 960px) {
+  .sticky-kline { position: static; }
+  .holdings-kline { display: none; }
+}
 .entry-sticky { position: sticky; bottom: calc(var(--bottom-bar-h) + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); padding: var(--sp-3) 0; z-index: 5; }
 @media (min-width: 801px) {
   .entry-sticky { position: static; border: 0; padding: 0; background: transparent; }
@@ -232,7 +237,12 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
 .field-with-icon .input { padding-left: 36px; }
 .watch-on .icon { fill: currentColor; }
 .table-cards tbody tr { cursor: pointer; }
-.page-form-wide { max-width: 880px; }
+.field { gap: var(--sp-2); }
+.lead-tight { margin-top: var(--sp-2); }
+.filter-bar .field-with-icon { flex: 1 1 200px; min-width: 0; }
+.tips-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.tips-list li { display: flex; align-items: flex-start; gap: var(--sp-3); }
+.tips-list .icon { color: var(--ink); margin-top: var(--sp-1); }
 .choice-card { min-height: 0; }
 .account-grid { align-items: start; }
 .joint-bar { display: flex; height: 8px; border-radius: var(--radius-pill); overflow: hidden; gap: 2px; background: transparent; }

@@ -217,4 +217,41 @@ describe("M4 import apply", () => {
     expect(plan.cashFlows).toHaveLength(0);
     expect(plan.trades).toHaveLength(0);
   });
+
+  it("imports split and adjustment rows via createSplit / createAdjustment", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Own", "Buy Date", "Buy Price", "Buy Total", "Kind"],
+      rows: [
+        ["NVDA", "10", "H", "2024-01-02", "50", "500", "buy"],
+        ["NVDA", "2", "H", "2024-06-10", "1", "", "split"],
+        ["NVDA", "", "H", "2024-07-01", "", "1.25", "adjustment"],
+      ],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.trades.filter((row) => row.side === "split")).toHaveLength(1);
+    expect(plan.trades.filter((row) => row.side === "adjustment")).toHaveLength(1);
+
+    const store = createMemoryStore();
+    const result = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      decisions: importAll(plan),
+    });
+    const trades = await store.listTrades(result.bookId);
+    const allocations = await store.listTradeAllocations(result.bookId);
+    expect(trades.some((row) => row.side === "split")).toBe(true);
+    expect(trades.some((row) => row.side === "adjustment" && row.note?.includes("匯入調整"))).toBe(true);
+    const lots = openLotsFromTrades(trades, allocations);
+    expect(lots).toHaveLength(1);
+    expect(lots[0]?.quantity).toBe("20.00000000");
+    expect(lots[0]?.splitLabel).toBe("2:1");
+  });
 });

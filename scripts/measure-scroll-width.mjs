@@ -26,7 +26,7 @@ const PASS = process.env.SHOT_PASS ?? "demo-pass-1";
 const INJECT_OLD_TAPE = process.argv.includes("--inject-old-tape");
 
 const WIDTHS = [360, 375, 414];
-const TAPE_WIDTHS = [360, 375, 414, 480, 520, 600];
+const TAPE_WIDTHS = [360, 375, 414, 480, 520, 600, 620, 630];
 const TAPE_MIN = 80;
 const MARKED_SCROLLERS = [".table-scroll", ".tape-track", ".chip-scroll"];
 const PAGES = [

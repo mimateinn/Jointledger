@@ -38,4 +38,5 @@ export type LedgerStore = {
   clearBookEntries(bookId: string): Promise<void>;
   deleteAllocations(ids: string[]): Promise<void>;
   deleteTradesIfUnused(bookId: string, tradeIds: string[]): Promise<void>;
+  deleteCashFlows(ids: string[]): Promise<void>;
 };

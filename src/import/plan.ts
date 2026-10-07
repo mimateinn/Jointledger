@@ -17,7 +17,8 @@ import type {
   PlannedCashFlow,
   PlannedTrade,
 } from "./types";
-import { isImportSkippedKind, parseRowKind } from "./row-kind";
+import { dividendNote } from "@/ledger/dividend";
+import { parseRowKind } from "./row-kind";
 import { absMoney, extractTickers, parseDate, parseInOut, parseMoney } from "./values";
 
 function issueId(prefix: string, row: number, extra = ""): string {
@@ -225,10 +226,8 @@ function planTransInfoRow(
   if (!symbol && !ownRaw && !qtyRaw && !dateRaw) {
     return null;
   }
-  const rowKind = parseRowKind(cell(row, map, "row_kind"));
-  if (isImportSkippedKind(rowKind)) {
-    return null;
-  }
+  const kindRaw = cell(row, map, "row_kind");
+  const rowKind = parseRowKind(kindRaw);
   const buyDate = parseDate(dateRaw);
   if (!buyDate) {
     issues.push({
@@ -241,6 +240,12 @@ function planTransInfoRow(
       pending: false,
     });
     return null;
+  }
+  if (rowKind === "split") {
+    return planSplitRow(row, excelRow, map, issues, symbol, ownRaw, buyDate);
+  }
+  if (rowKind === "adjustment") {
+    return planAdjustmentRow(row, excelRow, map, issues, symbol, ownRaw, buyDate, kindRaw);
   }
   const quantity = parseMoney(qtyRaw);
   if (!quantity) {
@@ -354,15 +359,159 @@ function planTransInfoRow(
     sellFee: parseMoney(cell(row, map, "sell_fee")),
     sellTotal: parseMoney(cell(row, map, "sell_total")),
     sheetPnl: parseMoney(cell(row, map, "pnl")),
+    side: "buy",
     skip: false,
     pending,
     warningIds,
   };
 }
 
+function resolveImportBook(
+  excelRow: number,
+  symbol: string,
+  ownRaw: string,
+  buyDate: string,
+  issues: ImportIssue[],
+): { own: string; book: NonNullable<ReturnType<typeof classifyTransInfoBook>> } | null {
+  const own = normalizeOwn(ownRaw);
+  const book = classifyTransInfoBook(own, buyDate);
+  if (!book) {
+    issues.push({
+      id: issueId("ti-own", excelRow, symbol || "row"),
+      sheet: "transinfo",
+      row: excelRow,
+      symbol: symbol || undefined,
+      own,
+      kind: "unknown_own",
+      message: `TransInfo 第 ${excelRow} 行 Own「${ownRaw}」唔識，無開幽靈成員，已略過。`,
+      pending: false,
+    });
+    return null;
+  }
+  return { own, book };
+}
+
+function planSplitRow(
+  row: string[],
+  excelRow: number,
+  map: ColumnMap,
+  issues: ImportIssue[],
+  symbol: string,
+  ownRaw: string,
+  buyDate: string,
+): PlannedTrade | null {
+  if (!symbol) {
+    issues.push({
+      id: issueId("ti-sym", excelRow),
+      sheet: "transinfo",
+      row: excelRow,
+      kind: "missing_qty",
+      message: `TransInfo 第 ${excelRow} 行拆股缺代碼，已略過。`,
+      pending: false,
+    });
+    return null;
+  }
+  const newShares = parseMoney(cell(row, map, "quantity"));
+  const oldShares = parseMoney(cell(row, map, "buy_price"));
+  if (!newShares) {
+    issues.push({
+      id: issueId("ti-qty", excelRow),
+      sheet: "transinfo",
+      row: excelRow,
+      symbol,
+      kind: "missing_qty",
+      message: `TransInfo 第 ${excelRow} 行拆股缺新股數量，已略過。`,
+      pending: false,
+    });
+    return null;
+  }
+  if (!oldShares) {
+    issues.push({
+      id: issueId("ti-px", excelRow),
+      sheet: "transinfo",
+      row: excelRow,
+      symbol,
+      kind: "missing_amount",
+      message: `TransInfo 第 ${excelRow} 行拆股缺舊股（買入價欄），已略過。`,
+      pending: false,
+    });
+    return null;
+  }
+  const resolved = resolveImportBook(excelRow, symbol, ownRaw, buyDate, issues);
+  if (!resolved) {
+    return null;
+  }
+  return {
+    id: issueId("tr", excelRow),
+    row: excelRow,
+    symbol,
+    own: resolved.own,
+    book: resolved.book,
+    quantity: newShares,
+    buyDate,
+    buyPrice: oldShares,
+    buyTotal: "0",
+    sellDate: null,
+    sellPrice: null,
+    sellFee: null,
+    sellTotal: null,
+    sheetPnl: null,
+    side: "split",
+    note: `拆股 ${newShares}:${oldShares}`,
+    skip: false,
+    pending: false,
+    warningIds: [],
+  };
+}
+
+function planAdjustmentRow(
+  row: string[],
+  excelRow: number,
+  map: ColumnMap,
+  issues: ImportIssue[],
+  symbol: string,
+  ownRaw: string,
+  buyDate: string,
+  kindRaw = "",
+): PlannedTrade | null {
+  const amount = parseMoney(cell(row, map, "buy_total")) ?? parseMoney(cell(row, map, "buy_price"));
+  const resolved = resolveImportBook(excelRow, symbol || "—", ownRaw, buyDate, issues);
+  if (!resolved) {
+    return null;
+  }
+  return {
+    id: issueId("tr", excelRow),
+    row: excelRow,
+    symbol: symbol || "—",
+    own: resolved.own,
+    book: resolved.book,
+    quantity: parseMoney(cell(row, map, "quantity")) ?? "0",
+    buyDate,
+    buyPrice: amount ?? "0",
+    buyTotal: amount ?? "0",
+    sellDate: null,
+    sellPrice: null,
+    sellFee: null,
+    sellTotal: null,
+    sheetPnl: null,
+    side: "adjustment",
+    note: /股息|dividend/i.test(kindRaw)
+      ? dividendNote(symbol && symbol !== "—" ? symbol : "")
+      : symbol
+        ? `匯入調整 ${symbol}`
+        : "匯入調整",
+    skip: false,
+    pending: false,
+    warningIds: [],
+  };
+}
+
 function flagSameDayJointMismatch(trades: PlannedTrade[], issues: ImportIssue[]): void {
   const groups = new Map<string, PlannedTrade[]>();
   for (const trade of trades) {
+    if (trade.side === "split" || trade.side === "adjustment") {
+      continue;
+    }
     const key = `${trade.buyDate}|${trade.symbol.toUpperCase()}`;
     const list = groups.get(key) ?? [];
     list.push(trade);

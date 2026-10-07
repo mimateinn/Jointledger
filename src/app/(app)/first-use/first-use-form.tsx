@@ -32,13 +32,11 @@ export function FirstUseForm() {
   }
 
   return (
-    <div className="page page-form-wide">{/* Narrow first-use chooser; stays centered in the main column (not x=244). */}
+    <div className="page page-form-wide">
       <div className="page-head">
         <div>
           <h1 className="page-title">{COPY.title}</h1>
-          <p className="muted" style={{ marginTop: 8 }}>
-            {COPY.lead}
-          </p>
+          <p className="muted lead-tight">{COPY.lead}</p>
         </div>
       </div>
 

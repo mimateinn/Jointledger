@@ -1,3 +1,5 @@
+import { isDividendNote } from "@/ledger/dividend";
+
 export const LEDGER_KINDS = [
   "deposit",
   "withdrawal",
@@ -191,4 +193,11 @@ export function filterLedgerRows<T extends FilterableLedgerRow>(
 
 export function kindsForView(view: LedgerView): LedgerKind[] {
   return LEDGER_KINDS.filter((kind) => (view === "cash" ? isCashKind(kind) : !isCashKind(kind)));
+}
+
+export function ledgerKindLabel(kind: LedgerKind, note?: string | null): string {
+  if (kind === "adjustment" && isDividendNote(note)) {
+    return "股息";
+  }
+  return LEDGER_KIND_LABEL[kind];
 }

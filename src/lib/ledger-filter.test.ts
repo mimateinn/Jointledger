@@ -4,6 +4,7 @@ import {
   filterLedgerRows,
   ledgerFiltersActive,
   ledgerFiltersToSearch,
+  ledgerKindLabel,
   parseLedgerFilters,
   type FilterableLedgerRow,
 } from "./ledger-filter";
@@ -101,5 +102,11 @@ describe("ledger filter", () => {
       "c1",
       "c2",
     ]);
+  });
+
+  it("labels a dividend adjustment from its note", () => {
+    expect(ledgerKindLabel("adjustment", "股息 AAPL")).toBe("股息");
+    expect(ledgerKindLabel("adjustment", "round")).toBe("調整");
+    expect(ledgerKindLabel("buy")).toBe("買入");
   });
 });
