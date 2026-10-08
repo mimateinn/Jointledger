@@ -4,10 +4,19 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/auth/session";
 import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
-import { createAdjustment, createCashFlow, createSplit, createTrade, deleteEntry, deleteLot, dividendNote } from "@/ledger";
+import { checkDeleteEntry, createAdjustment, createCashFlow, createSplit, createTrade, deleteEntry, deleteLot, dividendNote } from "@/ledger";
 import { getCurrentMembership } from "@/lib/current-book";
-import { humanFormError } from "@/lib/human-error";
+import { ISO_DATE_INVALID, requireIsoDate } from "@/lib/format";
+import { DELETE_FAILED, humanFormError } from "@/lib/human-error";
 import { refreshMarksAfterSplit } from "@/quotes";
+
+function readOccurredOn(formData: FormData): { occurredOn: string } | { error: string } {
+  try {
+    return { occurredOn: requireIsoDate(String(formData.get("occurredOn") ?? "")) };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : ISO_DATE_INVALID };
+  }
+}
 
 export type EntryState = { error?: string; ok?: string };
 
@@ -28,6 +37,11 @@ export async function createDepositAction(
     return { error: "搵唔到呢個成員" };
   }
 
+  const occurredOn = readOccurredOn(formData);
+  if ("error" in occurredOn) {
+    return occurredOn;
+  }
+
   try {
     const store = createDrizzleStore();
     await createCashFlow(store, {
@@ -36,7 +50,7 @@ export async function createDepositAction(
       ledgerAccountId: account.id,
       amountHkd: String(formData.get("amountHkd") ?? ""),
       fxRate: String(formData.get("fxRate") ?? ""),
-      occurredOn: String(formData.get("occurredOn") ?? ""),
+      occurredOn: occurredOn.occurredOn,
     });
   } catch (error) {
     return { error: humanFormError(error instanceof Error ? error.message : "入金失敗") };
@@ -68,6 +82,11 @@ export async function createBuyAction(
     return { error: "搵唔到帳簿" };
   }
 
+  const occurredOn = readOccurredOn(formData);
+  if ("error" in occurredOn) {
+    return occurredOn;
+  }
+
   try {
     await withLedgerTransaction((store) =>
       createTrade(store, {
@@ -77,7 +96,7 @@ export async function createBuyAction(
         symbol: String(formData.get("symbol") ?? ""),
         quantity: String(formData.get("quantity") ?? ""),
         price: String(formData.get("price") ?? ""),
-        occurredOn: String(formData.get("occurredOn") ?? ""),
+        occurredOn: occurredOn.occurredOn,
         note: String(formData.get("note") ?? "") || null,
       }),
     );
@@ -114,6 +133,10 @@ export async function createBookkeepingAction(
 
   const kind = String(formData.get("kind") ?? "adjustment");
   const symbol = String(formData.get("symbol") ?? "");
+  const occurredOn = readOccurredOn(formData);
+  if ("error" in occurredOn) {
+    return occurredOn;
+  }
   try {
     await withLedgerTransaction((store) => {
       if (kind === "split") {
@@ -124,7 +147,7 @@ export async function createBookkeepingAction(
           symbol,
           newShares: String(formData.get("newShares") ?? ""),
           oldShares: String(formData.get("oldShares") ?? ""),
-          occurredOn: String(formData.get("occurredOn") ?? ""),
+          occurredOn: occurredOn.occurredOn,
           note: String(formData.get("note") ?? "") || null,
         });
       }
@@ -137,7 +160,7 @@ export async function createBookkeepingAction(
           bookId: ctx.book.id,
           ledgerAccountId: account.id,
           memberId,
-          occurredOn: String(formData.get("occurredOn") ?? ""),
+          occurredOn: occurredOn.occurredOn,
           note: dividendNote(String(formData.get("note") ?? "") || symbol),
           symbol: symbol || null,
           amountUsd,
@@ -147,7 +170,7 @@ export async function createBookkeepingAction(
         bookId: ctx.book.id,
         ledgerAccountId: account.id,
         memberId,
-        occurredOn: String(formData.get("occurredOn") ?? ""),
+        occurredOn: occurredOn.occurredOn,
         note: String(formData.get("note") ?? ""),
         symbol: symbol || null,
         amountUsd: String(formData.get("amountUsd") ?? "") || null,
@@ -192,7 +215,7 @@ export async function deleteHoldingAction(
       }),
     );
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "刪持倉失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : DELETE_FAILED, DELETE_FAILED) };
   }
   revalidatePath("/overview");
   revalidatePath("/holdings");
@@ -227,7 +250,7 @@ export async function deleteLedgerEntryAction(
       }),
     );
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "刪除失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : DELETE_FAILED, DELETE_FAILED) };
   }
   revalidatePath("/overview");
   revalidatePath("/holdings");
@@ -235,4 +258,30 @@ export async function deleteLedgerEntryAction(
   revalidatePath("/returns");
   revalidatePath("/entry");
   return { ok: "已刪呢筆" };
+}
+
+export async function checkDeleteLedgerEntryAction(
+  _prev: EntryState,
+  formData: FormData,
+): Promise<EntryState> {
+  const user = await requireUser();
+  const ctx = await getCurrentMembership(user);
+  if (!ctx) {
+    return { error: "未有記帳表" };
+  }
+  const kind = String(formData.get("kind") ?? "");
+  if (kind !== "cash" && kind !== "trade") {
+    return { error: "唔識呢種類型" };
+  }
+  try {
+    const store = createDrizzleStore();
+    await checkDeleteEntry(store, {
+      bookId: ctx.book.id,
+      kind,
+      id: String(formData.get("entryId") ?? ""),
+    });
+  } catch (error) {
+    return { error: humanFormError(error instanceof Error ? error.message : DELETE_FAILED, DELETE_FAILED) };
+  }
+  return { ok: "可以刪" };
 }

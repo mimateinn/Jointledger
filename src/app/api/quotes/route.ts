@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const lotSymbols = await listOpenLotSymbols(user).catch(() => []);
-  const tape = await refreshAndLoadTape(lotSymbols).catch(() => emptyTapeViews());
+  const tape = await refreshAndLoadTape(lotSymbols, { refresh: "background" }).catch(() => emptyTapeViews());
   return NextResponse.json({
     items: tape.items,
     fx: tape.fx,

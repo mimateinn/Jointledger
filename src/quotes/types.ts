@@ -47,6 +47,8 @@ export type QuoteView = {
   lastUpdateLabel: string | null;
   isEtfProxy: boolean;
   planLimited: boolean;
+  stale: boolean;
+  fetchedAt: Date | null;
 };
 
 export type UpstreamOutcome =

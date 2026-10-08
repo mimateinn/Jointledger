@@ -10,13 +10,9 @@
  *   CHROME_PATH=/path/to/chrome node scripts/measure-sticky.mjs --inject-overflow-hidden
  */
 import { createRequire } from "node:module";
-import { writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { resolveChrome } from "./chrome-path.mjs";
 
 const puppeteer = createRequire(import.meta.url)("puppeteer-core");
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.SHOT_BASE ?? "http://127.0.0.1:3000";
 const USER = process.env.SHOT_USER ?? "Member A";
 const PASS = process.env.SHOT_PASS ?? "demo-pass-1";
@@ -124,30 +120,6 @@ for (const vp of VIEWPORTS) {
   console.log(
     `entry@${vp.w}x${vp.h} scroll=${atMid.scrollY} ${STICKY_SEL} top=${atMid.top ?? "-"} pageH=${atMid.pageHeight} ancestor=${atMid.offender ?? "visible"} ${midJudge.ok ? "ok" : `FAIL ${midJudge.why}`}`,
   );
-}
-
-if (!INJECT_OVERFLOW) {
-  const md = [
-    "# Sticky tops at 375",
-    "",
-    "`.entry-sticky` is `position: sticky` and must sit in the viewport at **scrollY = 0**.",
-    "The entry page is taller than the phone viewport (page height 1167 > 812), so a broken ancestor (`overflow-x: hidden` / `clip`) parks the bar below the fold until you scroll to the bottom.",
-    "`.mobile-bar` is `position: fixed` and is not a sticky proof.",
-    "",
-    "Pass condition: at scroll 0, `.entry-sticky` top < viewport height, and every ancestor has computed `overflow-x` and `overflow-y` of `visible`.",
-    "",
-    "Negative control: `node scripts/measure-sticky.mjs --inject-overflow-hidden` injects `.app-frame{overflow-x:hidden}` + `html,body{overflow-x:clip}` and must exit non-zero.",
-    "",
-    "| Viewport | scroll | top | bottom | pageH | ancestor | result |",
-    "|---|---|---:|---:|---:|---|---|",
-  ];
-  for (const row of rows) {
-    md.push(
-      `| ${row.w}x${row.h} | ${row.at} (${row.scrollY ?? 0}) | ${row.top ?? "-"} | ${row.bottom ?? "-"} | ${row.pageHeight ?? "-"} | ${row.offender ?? "visible"} | ${row.ok ? "ok" : `FAIL ${row.why}`} |`,
-    );
-  }
-  md.push("");
-  writeFileSync(join(ROOT, "docs/screenshots/sticky-tops.md"), `${md.join("\n")}\n`);
 }
 
 await browser.close();

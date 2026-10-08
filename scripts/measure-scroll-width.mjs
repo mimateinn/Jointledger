@@ -122,13 +122,22 @@ for (const item of PAGES) {
       });
     }
     const measured = await page.evaluate(measureOverflow, MARKED_SCROLLERS);
-    const layout = await page.evaluate(() => ({
-      pagePad: document.querySelector("main")
-        ? Math.round(parseFloat(getComputedStyle(document.querySelector("main")).paddingLeft))
-        : null,
-      pageW: document.querySelector(".page") ? Math.round(document.querySelector(".page").getBoundingClientRect().width) : null,
-      barH: document.querySelector(".mobile-bar") ? Math.round(document.querySelector(".mobile-bar").getBoundingClientRect().height) : null,
-    }));
+    const layout = await page.evaluate(() => {
+      const main = document.querySelector("main");
+      const cs = main ? getComputedStyle(main) : null;
+      return {
+        pagePad: cs ? Math.round(parseFloat(cs.paddingLeft)) : null,
+        pagePadBottom: cs ? Math.round(parseFloat(cs.paddingBottom)) : null,
+        pageW: document.querySelector(".page") ? Math.round(document.querySelector(".page").getBoundingClientRect().width) : null,
+        barH: document.querySelector(".mobile-bar") ? Math.round(document.querySelector(".mobile-bar").getBoundingClientRect().height) : null,
+      };
+    });
+    if (width === 375 && item.name === "holdings" && (layout.pagePadBottom ?? 0) < 160) {
+      bad += 1;
+      console.log(`main@375 padding-bottom=${layout.pagePadBottom} FAIL (need toast stack space >= 160)`);
+    } else if (width === 375 && item.name === "holdings") {
+      console.log(`main@375 padding-bottom=${layout.pagePadBottom} ok`);
+    }
     const scrollOk = measured.scrollWidth <= measured.viewport;
     const ok = measured.overflowCount === 0 && scrollOk;
     if (!ok) {

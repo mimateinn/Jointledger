@@ -42,7 +42,7 @@ export async function refreshAndLoadTape(
     return toQuoteView(instrument, {
       last: row?.last ?? null,
       percentChange: row?.percentChange ?? null,
-      fetchedAt: row?.quotedAt ?? row?.fetchedAt ?? null,
+      fetchedAt: row?.fetchedAt ?? null,
       status: row?.status,
     });
   });
@@ -82,7 +82,7 @@ export async function loadMarksForLots(
       views[display] = toQuoteView(instrument, {
         last: row?.last ?? null,
         percentChange: row?.percentChange ?? null,
-        fetchedAt: row?.quotedAt ?? row?.fetchedAt ?? null,
+        fetchedAt: row?.fetchedAt ?? null,
         status: row?.status,
       });
     } else {
@@ -95,6 +95,8 @@ export async function loadMarksForLots(
         lastUpdateLabel: null,
         isEtfProxy: false,
         planLimited: false,
+        stale: false,
+        fetchedAt: null,
       };
     }
   }
@@ -103,7 +105,7 @@ export async function loadMarksForLots(
 
 export async function loadInstrumentView(code: string): Promise<QuoteView> {
   const display = code.trim().toUpperCase();
-  await ensureQuotes([]);
+  void ensureQuotes([]);
   const instrument = resolveInstrument(display);
   const rows = await quoteRowsForDisplays([display]);
   const row = rows.get(display);
@@ -117,12 +119,14 @@ export async function loadInstrumentView(code: string): Promise<QuoteView> {
       lastUpdateLabel: null,
       isEtfProxy: false,
       planLimited: false,
+      stale: false,
+      fetchedAt: null,
     };
   }
   return toQuoteView(instrument, {
     last: row?.last ?? null,
     percentChange: row?.percentChange ?? null,
-    fetchedAt: row?.quotedAt ?? row?.fetchedAt ?? null,
+    fetchedAt: row?.fetchedAt ?? null,
     status: row?.status,
   });
 }

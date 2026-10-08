@@ -8,6 +8,7 @@ import { createDrizzleStore } from "@/db/drizzle-store";
 import { addMember } from "@/ledger";
 import { deleteMemberCascade } from "@/ledger/delete-member";
 import { getCurrentMembership } from "@/lib/current-book";
+import { DELETE_FAILED, humanFormError } from "@/lib/human-error";
 
 export type MemberState = {
   error?: string;
@@ -110,7 +111,7 @@ export async function deleteMemberAction(
       memberId: target.id,
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "刪成員失敗" };
+    return { error: humanFormError(error instanceof Error ? error.message : DELETE_FAILED, DELETE_FAILED) };
   }
   if (result.deletedUserId === loaded.user.id) {
     await destroySession();

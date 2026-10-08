@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
-import { useFormStatus } from "react-dom";
-import { deleteLedgerEntryAction, type EntryState } from "@/app/actions/entry";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  checkDeleteLedgerEntryAction,
+  deleteLedgerEntryAction,
+  type EntryState,
+} from "@/app/actions/entry";
+import { ErrorToast } from "./error-toast";
 import { Icon } from "./icons";
-import { SubmitButton } from "./submit-button";
-import { useUndoCommit } from "./undo-commit";
+import { UndoToast } from "./undo-toast";
+import { UNDO_MS, useUndoCommit } from "./undo-commit";
 
 const COPY = {
   delete: "刪除",
@@ -13,77 +18,107 @@ const COPY = {
   confirm: "確認刪除",
   cancel: "取消",
   undo: "還原",
-  pending: "儲存中",
+  checking: "檢查緊",
+  failed: "刪除失敗",
   cash: "刪除後，呢筆出入金會消失，現金會按不變式重計。",
   trade: "刪除後，呢筆記帳列會消失。相關持倉同現金會按剩餘列重計。若之後仲有呢隻嘅賣出／拆股／調整，要先刪或處理嗰啲。",
-  wait: "幾秒後會刪除呢筆記錄。還原就唔刪。",
 };
 
-const initial: EntryState = {};
+export type LedgerDeleteFn = (prev: EntryState, formData: FormData) => Promise<EntryState>;
 
-function UndoBanner({ onUndo }: { onUndo: () => void }) {
-  const { pending } = useFormStatus();
-  if (pending) {
-    return <p className="meta">{COPY.pending}</p>;
-  }
-  return (
-    <div className="stack">
-      <p className="body">{COPY.wait}</p>
-      <button className="btn btn-secondary" type="button" onClick={onUndo}>
-        {COPY.undo}
-      </button>
-    </div>
-  );
+function deleteFormData(id: string, kind: "cash" | "trade"): FormData {
+  const fd = new FormData();
+  fd.set("entryId", id);
+  fd.set("kind", kind);
+  fd.set("confirm", "1");
+  return fd;
 }
 
 export function LedgerEntryDelete({
   id,
   kind,
   label,
+  checkDelete = checkDeleteLedgerEntryAction,
+  deleteAction = deleteLedgerEntryAction,
+  undoMs = UNDO_MS,
 }: {
   id: string;
   kind: "cash" | "trade";
   label: string;
+  checkDelete?: LedgerDeleteFn;
+  deleteAction?: LedgerDeleteFn;
+  undoMs?: number;
 }) {
-  const { phase, setPhase, formRef } = useUndoCommit();
-  const [state, action] = useActionState(deleteLedgerEntryAction, initial);
+  const router = useRouter();
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [committing, setCommitting] = useState(false);
 
-  if (phase === "idle") {
-    return (
-      <button className="btn btn-ghost btn-icon" type="button" aria-label={`${COPY.delete} ${label}`} onClick={() => setPhase("confirm")}>
-        <Icon name="delete-trash" size={16} />
-      </button>
-    );
+  const { phase, setPhase } = useUndoCommit(undoMs, () => {
+    void commitDelete();
+  });
+
+  async function commitDelete() {
+    setCommitting(true);
+    try {
+      const result = await deleteAction({}, deleteFormData(id, kind));
+      if (result.error) {
+        setPhase("idle");
+        setRejectError(result.error);
+      }
+    } catch {
+      setPhase("idle");
+      setRejectError(COPY.failed);
+      router.refresh();
+    } finally {
+      setCommitting(false);
+    }
   }
 
-  if (phase === "confirm") {
-    return (
-      <div className="card stack confirm-dialog" role="dialog" aria-modal="true" aria-label={COPY.confirmTitle}>
-        <p className="body">{kind === "cash" ? COPY.cash : COPY.trade}</p>
-        <div className="submit-row">
-          <button className="btn btn-danger" type="button" onClick={() => setPhase("undo")}>
-            {COPY.confirm}
-          </button>
-          <button className="btn btn-secondary" type="button" onClick={() => setPhase("idle")}>
-            {COPY.cancel}
-          </button>
-        </div>
-      </div>
-    );
+  async function onConfirm() {
+    setChecking(true);
+    setRejectError(null);
+    try {
+      const result = await checkDelete({}, deleteFormData(id, kind));
+      if (result.error) {
+        setPhase("idle");
+        setRejectError(result.error);
+        return;
+      }
+      setPhase("undo");
+    } catch {
+      setPhase("idle");
+      setRejectError(COPY.failed);
+    } finally {
+      setChecking(false);
+    }
   }
 
   return (
-    <form ref={formRef} action={action} className="card stack confirm-dialog">
-      <input type="hidden" name="entryId" value={id} />
-      <input type="hidden" name="kind" value={kind} />
-      <input type="hidden" name="confirm" value="1" />
-      {state.error ? <p className="alert">{state.error}</p> : null}
-      <UndoBanner onUndo={() => setPhase("idle")} />
-      <span hidden>
-        <SubmitButton className="btn btn-danger" pendingLabel={COPY.pending}>
-          {COPY.confirm}
-        </SubmitButton>
-      </span>
-    </form>
+    <>
+      {phase === "idle" ? (
+        <button className="btn btn-ghost btn-icon" type="button" aria-label={`${COPY.delete} ${label}`} onClick={() => setPhase("confirm")}>
+          <Icon name="delete-trash" size={16} />
+        </button>
+      ) : null}
+
+      {phase === "confirm" ? (
+        <div className="card stack confirm-dialog" role="dialog" aria-modal="true" aria-label={COPY.confirmTitle}>
+          <p className="body">{kind === "cash" ? COPY.cash : COPY.trade}</p>
+          <div className="submit-row">
+            <button className="btn btn-danger" type="button" disabled={checking} onClick={() => void onConfirm()}>
+              {checking ? COPY.checking : COPY.confirm}
+            </button>
+            <button className="btn btn-secondary" type="button" onClick={() => setPhase("idle")} disabled={checking}>
+              {COPY.cancel}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {phase === "undo" ? <UndoToast onUndo={() => setPhase("idle")} pending={committing} label={label} /> : null}
+
+      {rejectError ? <ErrorToast message={rejectError} label={label} onDismiss={() => setRejectError(null)} /> : null}
+    </>
   );
 }

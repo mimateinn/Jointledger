@@ -3,7 +3,9 @@ import { isDeniedSymbol, toTwelveDataQuery } from "./symbol-map";
 import type { CanonInstrument, UpstreamOutcome } from "./types";
 
 const TD_BASE = "https://api.twelvedata.com";
-const TIMEOUT_MS = 8_000;
+export const TWELVE_DATA_TIMEOUT_MS = 6_000;
+export const BATCH_BUDGET_MS = 10_000;
+const TIMEOUT_MS = TWELVE_DATA_TIMEOUT_MS;
 
 export function getTwelveDataApiKey(): string | null {
   const key = process.env.TWELVE_DATA_API_KEY?.trim();
@@ -162,7 +164,16 @@ export async function fetchTwelveDataBatch(
 
   let rateLimited = false;
   let credits = 0;
+  const deadline = Date.now() + BATCH_BUDGET_MS;
   for (const group of groupForBatch(instruments)) {
+    if (Date.now() >= deadline) {
+      for (const row of group.instruments) {
+        if (!results.has(row.display)) {
+          results.set(row.display, { kind: "upstream" });
+        }
+      }
+      continue;
+    }
     if (rateLimited) {
       for (const row of group.instruments) {
         if (!results.has(row.display)) {

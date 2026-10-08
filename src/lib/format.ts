@@ -101,15 +101,25 @@ export function todayChangeLabel(last: string | null | undefined, percentChange:
   return percentChange;
 }
 
-/** Clock next to NAV, e.g. 截至 21:04 */
-export function formatAsOfClock(now = new Date()): string {
+/** Clock next to NAV from the quote's fetched_at, e.g. 截至 21:04 */
+export function formatAsOfClock(fetchedAt: Date): string {
   const clock = new Intl.DateTimeFormat("zh-Hant", {
     timeZone: "Asia/Hong_Kong",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-  }).format(now);
+  }).format(fetchedAt);
   return `截至 ${clock}`;
+}
+
+export const STALE_QUOTE_AS_OF = "上次報價";
+
+export function formatQuoteAsOf(fetchedAt: Date | null | undefined, stale = false): string {
+  if (!fetchedAt) {
+    return "";
+  }
+  const clock = formatAsOfClock(fetchedAt);
+  return stale ? `${clock} · ${STALE_QUOTE_AS_OF}` : clock;
 }
 
 export function tradeSideLabel(side: string): string {
@@ -135,4 +145,35 @@ export function todayIso(now = new Date()): string {
     month: "2-digit",
     day: "2-digit",
   }).format(now);
+}
+
+/** Display and stored calendar dates stay YYYY-MM-DD. */
+export const ISO_DATE_INPUT = "\\d{4}-\\d{2}-\\d{2}";
+export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+export const ISO_DATE_INVALID = "日期要係有效嘅 YYYY-MM-DD";
+
+function calendarParts(value: string): { year: number; month: number; day: number } | null {
+  if (!ISO_DATE_PATTERN.test(value)) {
+    return null;
+  }
+  const year = Number(value.slice(0, 4));
+  const month = Number(value.slice(5, 7));
+  const day = Number(value.slice(8, 10));
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  if (utc.getUTCFullYear() !== year || utc.getUTCMonth() !== month - 1 || utc.getUTCDate() !== day) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+/** YYYY-MM-DD and a real calendar day (rejects 2026-13-45, 2025-02-29). */
+export function isIsoDate(value: string): boolean {
+  return calendarParts(value) !== null;
+}
+
+export function requireIsoDate(value: string): string {
+  if (!calendarParts(value.trim())) {
+    throw new Error(ISO_DATE_INVALID);
+  }
+  return value.trim();
 }

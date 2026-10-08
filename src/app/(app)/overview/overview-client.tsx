@@ -284,20 +284,20 @@ export function OverviewClient({
                           <InstrumentLabel ticker={lot.symbol} name={lot.name} />
                         </Link>
                       </td>
-                      <td>
+                      <td className="card-sub">
                         <span className="chip">{lot.memberLabel ?? accountName(lot.ledgerAccountId)}</span>
                         {lot.joint && lot.sharePercent ? (
                           <span className="meta muted"> {formatSharePercent(lot.sharePercent)}</span>
                         ) : null}
                       </td>
-                      <td className="num" data-label="數量">
+                      <td className="num card-meta" data-label="數量">
                         {formatQty(lot.quantity)}
                         {lot.splitLabel ? <span className="meta muted"> 拆股 {lot.splitLabel}</span> : null}
                       </td>
-                      <td className="num" data-label="現價">
+                      <td className="num card-meta" data-label="現價">
                         {lot.lastDisplay ?? "—"}
                       </td>
-                      <td className={`num ${lot.lastDisplay ? changeClass(lot.percentChange) : "muted"}`} data-label="今日">
+                      <td className={`num card-meta ${lot.lastDisplay ? changeClass(lot.percentChange) : "muted"}`} data-label="今日">
                         {todayChangeLabel(lot.lastDisplay, lot.percentChange)}
                       </td>
                       <td className="num card-primary" data-label="市值">

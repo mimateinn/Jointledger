@@ -36,18 +36,6 @@ export function ThemeToggle() {
     setReduced(document.documentElement.classList.contains("is-reduced"));
   }, []);
 
-  useEffect(() => {
-    if (pref !== "system") {
-      return;
-    }
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const sync = () => {
-      document.documentElement.setAttribute("data-theme", resolveTheme("system"));
-    };
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, [pref]);
-
   function applyPref(next: ThemePref) {
     setPref(next);
     const root = document.documentElement;

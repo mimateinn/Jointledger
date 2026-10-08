@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/auth/session";
 import { loadBookView } from "@/lib/book-view";
 import { ensureCurrentBook } from "@/lib/ensure-book";
-import { formatAsOfClock } from "@/lib/format";
+import { formatQuoteAsOf } from "@/lib/format";
 import { resolveInstrument } from "@/quotes";
 import { OverviewClient } from "./overview-client";
 
@@ -32,7 +32,13 @@ export default async function OverviewPage() {
       }))}
       all={view.all}
       joint={view.joint}
-      asOfLabel={formatAsOfClock()}
+      asOfLabel={formatQuoteAsOf(
+        Object.values(view.quoteViews)
+          .map((row) => row.fetchedAt)
+          .filter((at): at is Date => at instanceof Date)
+          .sort((a, b) => b.getTime() - a.getTime())[0] ?? null,
+        Object.values(view.quoteViews).some((row) => row.stale),
+      )}
       byMember={view.byMember.map((row) => ({
         memberId: row.member.id,
         displayName: row.member.displayName,

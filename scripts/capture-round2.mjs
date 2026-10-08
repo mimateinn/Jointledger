@@ -48,9 +48,14 @@ async function shot(page, name, viewport, theme, extra = {}) {
     await page.reload({ waitUntil: "networkidle0", timeout: 60000 });
   }
   await page.waitForSelector("body", { timeout: 30000 });
-  await page.evaluate(() => {
+  await page.evaluate((vp) => {
     document.querySelectorAll("nextjs-portal, #__next-build-watcher").forEach((el) => el.remove());
-  });
+    if (vp === 375) {
+      document.querySelectorAll(".mobile-bar").forEach((el) => {
+        el.style.setProperty("display", "none", "important");
+      });
+    }
+  }, viewport);
   await new Promise((r) => setTimeout(r, extra.wait ?? 350));
   const file = `${name}-${viewport}-${theme}${extra.reduced ? "-reduced" : ""}.png`;
   const path = join(OUT, file);
@@ -58,18 +63,52 @@ async function shot(page, name, viewport, theme, extra = {}) {
   console.log("shot", file);
 }
 
-async function login(page) {
+async function login(page, user = USER) {
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle0", timeout: 60000 });
   const identifier = await page.$("#identifier");
   if (!identifier) {
+    const current = await page.evaluate(() => document.body?.innerText ?? "");
+    if (current.includes(user)) {
+      return;
+    }
+    await page.evaluate(() => {
+      [...document.querySelectorAll("button, a")].find((el) => el.textContent?.includes("登出"))?.click();
+    });
+    await page.waitForNavigation({ waitUntil: "networkidle0", timeout: 60000 }).catch(() => {});
+    await page.goto(`${BASE}/login`, { waitUntil: "networkidle0", timeout: 60000 });
+  }
+  const field = await page.$("#identifier");
+  if (!field) {
     return;
   }
-  await page.type("#identifier", USER);
+  await page.evaluate(() => {
+    const id = document.querySelector("#identifier");
+    const pw = document.querySelector("#password");
+    if (id) id.value = "";
+    if (pw) pw.value = "";
+  });
+  await page.type("#identifier", user);
   await page.type("#password", PASS);
   await Promise.all([
     page.waitForNavigation({ waitUntil: "networkidle0", timeout: 60000 }),
     page.click("button[type=submit]"),
   ]);
+}
+
+async function evalClick(page, fn) {
+  await page.evaluate(fn);
+  await new Promise((r) => setTimeout(r, 250));
+}
+
+async function openLedgerUndo(page) {
+  await page.goto(`${BASE}/ledger?view=trades`, { waitUntil: "networkidle0", timeout: 60000 });
+  await evalClick(page, () => {
+    document.querySelector('button[aria-label^="刪除"]')?.click();
+  });
+  await evalClick(page, () => {
+    [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "確認刪除")?.click();
+  });
+  await page.waitForSelector("[data-undo-toast]", { timeout: 5000 });
 }
 
 async function clickText(page, selector, label) {
@@ -123,11 +162,11 @@ async function captureApp(page) {
 }
 
 async function captureFirstUse(page) {
-  await login(page);
+  await login(page, process.env.SHOT_FIRST_USE_USER ?? "First Use");
   await page.goto(`${BASE}/first-use`, { waitUntil: "networkidle0", timeout: 60000 });
   for (const vp of [1440, 375]) {
     for (const theme of ["light", "dark"]) {
-      await shot(page, "first-use", vp, theme, { reload: true });
+      await shot(page, "first-use", vp, theme, { reload: false, wait: 300 });
     }
   }
 }
@@ -140,8 +179,7 @@ async function captureFeatures(page) {
   }
 
   await page.goto(`${BASE}/entry`, { waitUntil: "networkidle0", timeout: 60000 });
-  await clickText(page, "button", "調整");
-  await page.select("#bookKind", "dividend").catch(() => {});
+  await clickText(page, "button", "股息");
   await new Promise((r) => setTimeout(r, 250));
   for (const vp of [1440, 375]) {
     for (const theme of ["light", "dark"]) {
@@ -149,11 +187,13 @@ async function captureFeatures(page) {
     }
   }
 
-  await page.goto(`${BASE}/ledger?view=trades`, { waitUntil: "networkidle0", timeout: 60000 });
-  await page.click('button[aria-label^="刪除"]').catch(() => {});
-  await new Promise((r) => setTimeout(r, 250));
   for (const vp of [1440, 375]) {
-    await shot(page, "ledger-delete", vp, "light", { wait: 200 });
+    for (const theme of ["light", "dark"]) {
+      await page.setViewport({ ...SIZES[vp], deviceScaleFactor: 1 });
+      await setTheme(page, theme);
+      await openLedgerUndo(page);
+      await shot(page, "ledger-delete-undo", vp, theme, { wait: 200, fullPage: vp !== 375 });
+    }
   }
 }
 

@@ -14,17 +14,13 @@ export type DeleteEntryInput = {
 export const DELETE_BLOCKED_BY_LATER =
   "之後仲有呢隻嘅賣出／拆股／調整，要先刪或處理嗰啲先可以刪呢筆。";
 
-/**
- * Remove one ledger row. Cash is whatever the remaining rows say — never rewritten.
- * Callers must keep the 8s undo window so the user can still restore.
- */
-export async function deleteEntry(store: LedgerStore, input: DeleteEntryInput): Promise<void> {
+/** Read-only FIFO / existence check. Does not write. */
+export async function checkDeleteEntry(store: LedgerStore, input: DeleteEntryInput): Promise<void> {
   if (input.kind === "cash") {
     const flows = await store.listCashFlows(input.bookId);
     if (!flows.some((row) => row.id === input.id)) {
       throw new Error("搵唔到呢筆記錄");
     }
-    await store.deleteCashFlows(input.bookId, [input.id]);
     return;
   }
 
@@ -34,6 +30,19 @@ export async function deleteEntry(store: LedgerStore, input: DeleteEntryInput): 
   }
   const allocations = await store.listTradeAllocations(input.bookId);
   assertSafeToRemoveTrade(trades, allocations, input.id);
+}
+
+/**
+ * Remove one ledger row. Cash is whatever the remaining rows say — never rewritten.
+ * Callers must keep the 8s undo window so the user can still restore.
+ */
+export async function deleteEntry(store: LedgerStore, input: DeleteEntryInput): Promise<void> {
+  await checkDeleteEntry(store, input);
+  if (input.kind === "cash") {
+    await store.deleteCashFlows(input.bookId, [input.id]);
+    return;
+  }
+  const allocations = await store.listTradeAllocations(input.bookId);
   const remove = allocations.filter((row) => row.tradeId === input.id);
   await store.deleteAllocations(remove.map((row) => row.id));
   await store.deleteTradesIfUnused(input.bookId, [input.id]);

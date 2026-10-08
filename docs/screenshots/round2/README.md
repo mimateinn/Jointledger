@@ -41,4 +41,4 @@ Opened a v0.1.8 SQLite file (`data/safety-v018.sqlite`) with this build’s `pnp
 
 login, first-use, overview, entry, holdings, watchlist, instrument-aapl, ledger, returns, account.
 
-Plus AFTER-only: `overview-tips-*`, `entry-dividend-*`, `ledger-delete-*`, and `overview-1440-light-reduced.png`.
+Plus AFTER-only: `overview-tips-*`, `entry-dividend-*`, `ledger-delete-undo-*`, and `overview-1440-light-reduced.png`.

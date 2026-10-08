@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { DateInput } from "@/components/date-input";
 import { EmptyPanel } from "@/components/empty-panel";
 import { Icon } from "@/components/icons";
 import { InstrumentLabel } from "@/components/instrument-label";
@@ -92,10 +93,13 @@ export function LedgerClient({
       return;
     }
     const params = new URLSearchParams(window.location.search);
-    if (params.get("view") === "trades" || !isJointMemberFilter(params.get("member") ?? "")) {
+    const rawMember = params.get("member") ?? "";
+    const jointOnCash = isJointMemberFilter(rawMember) && filters.view !== "trades";
+    const unknownMember = rawMember !== "" && rawMember !== filters.member && rawMember !== JOINT_MEMBER && rawMember !== JOINT_MEMBER_LABEL;
+    if (!jointOnCash && !unknownMember) {
       return;
     }
-    const url = `${window.location.pathname}${ledgerFiltersToSearch({ ...filters, member: "" })}`;
+    const url = `${window.location.pathname}${ledgerFiltersToSearch(filters)}`;
     window.history.replaceState(null, "", url);
   }, [filters]);
 
@@ -220,17 +224,13 @@ export function LedgerClient({
                   </option>
                 ))}
               </select>
-              <input
-                className="input"
-                type="date"
+              <DateInput
                 name="from"
                 value={draft.from}
                 onChange={(event) => setDraft({ ...draft, from: event.target.value })}
                 aria-label={COPY.from}
               />
-              <input
-                className="input"
-                type="date"
+              <DateInput
                 name="to"
                 value={draft.to}
                 onChange={(event) => setDraft({ ...draft, to: event.target.value })}
@@ -337,10 +337,10 @@ function CashTable({ rows }: { rows: CashRow[] }) {
             <td colSpan={7}>{group.month}</td>
           </tr>,
           ...group.rows.map((row) => (
-            <tr key={row.id}>
+              <tr key={row.id}>
               <td title={row.occurredOn.slice(0, 10)}>{formatRelativeDate(row.occurredOn)}</td>
-              <td>{row.memberName}</td>
-              <td>
+              <td className="card-sub">{row.memberName}</td>
+              <td className="card-sub">
                 <span className="chip">{ledgerKindLabel(row.kind, row.note)}</span>
               </td>
               <td className="num card-meta" data-label="HKD">
@@ -392,13 +392,13 @@ function TradeTable({ rows, member }: { rows: TradeRow[]; member: string }) {
             return (
               <tr key={row.id}>
                 <td title={row.occurredOn.slice(0, 10)}>{formatRelativeDate(row.occurredOn)}</td>
-                <td data-label="類型">
+                <td className="card-sub" data-label="類型">
                   <span className="chip">{ledgerKindLabel(row.kind, row.note)}</span>
                 </td>
-                <td>
+                <td className="card-sub">
                   <InstrumentLabel ticker={row.symbol ?? "—"} name={row.name ?? null} />
                 </td>
-                <td>{row.memberName}</td>
+                <td className="card-sub">{row.memberName}</td>
                 <td className="num card-meta" data-label="數量">
                   {formatQty(row.quantity)}
                 </td>
@@ -408,7 +408,7 @@ function TradeTable({ rows, member }: { rows: TradeRow[]; member: string }) {
                 <td className="num card-primary" data-label="金額">
                   {formatLedgerTradeAmount(row.kind, amount)}
                 </td>
-                <td className="muted">{row.note ?? "—"}</td>
+                <td className="muted card-meta" data-label="備註">{row.note ?? "—"}</td>
                 <td className="card-action">
                   <LedgerEntryDelete
                     id={row.id}

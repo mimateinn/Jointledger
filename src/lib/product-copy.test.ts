@@ -50,6 +50,7 @@ describe("product copy", () => {
     expect(entry).toContain("取消");
     expect(entry).toContain("還原");
     expect(entry).toContain("現金會按不變式重計");
+    expect(readFileSync("src/components/undo-toast.tsx", "utf8")).toContain("已刪除・還原");
   });
 
   it("entry stays on the page and shows a success hint", () => {

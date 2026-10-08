@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ErrorToast } from "./error-toast";
 import { FailurePanel } from "./failure-panel";
 import { InstrumentLabel } from "./instrument-label";
 import {
@@ -54,6 +56,302 @@ function changeClass(change: string | null): string | undefined {
   return "muted";
 }
 
+export type WatchMutateFn = (prev: WatchState, formData: FormData) => Promise<WatchState>;
+
+const WATCH_COPY = {
+  mute: "靜音新聞",
+  unmute: "恢復新聞",
+  remove: "取消關注",
+  failed: "更新失敗",
+};
+
+function WatchMuteStatus({ muted }: { muted: boolean }) {
+  return <span className="meta muted">{muted ? "已靜音" : "僅關注"}</span>;
+}
+
+export function WatchActions({
+  row,
+  muteAction = muteWatchAction,
+  removeAction = removeWatchAction,
+  muted: mutedProp,
+  onMutedChange,
+  onRemoved,
+  onRemoveRevert,
+  onRemoveThrown,
+}: {
+  row: WatchRow;
+  muteAction?: WatchMutateFn;
+  removeAction?: WatchMutateFn;
+  muted?: boolean;
+  onMutedChange?: (muted: boolean) => void;
+  onRemoved?: (id: string) => void;
+  onRemoveRevert?: (id: string) => void;
+  onRemoveThrown?: () => void;
+}) {
+  const controlled = onMutedChange != null;
+  const [localMuted, setLocalMuted] = useState(row.muted);
+  const muted = controlled ? (mutedProp ?? row.muted) : localMuted;
+  const setMuted = onMutedChange ?? setLocalMuted;
+  const [mutePending, setMutePending] = useState(false);
+  const [removePending, setRemovePending] = useState(false);
+  const [muteError, setMuteError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const toastLabel = row.name?.trim() || row.displayCode;
+  const muteGen = useRef(0);
+  const removeGen = useRef(0);
+  const muteInFlight = useRef(false);
+  const removeInFlight = useRef(false);
+
+  useEffect(() => {
+    if (!controlled) {
+      setLocalMuted(row.muted);
+    }
+  }, [row.muted, controlled]);
+
+  async function onMute() {
+    if (muteInFlight.current) {
+      return;
+    }
+    muteInFlight.current = true;
+    const next = !muted;
+    const generation = (muteGen.current += 1);
+    setMuteError(null);
+    setMuted(next);
+    setMutePending(true);
+    try {
+      const fd = new FormData();
+      fd.set("id", row.id);
+      fd.set("muted", next ? "1" : "0");
+      const result = await muteAction({}, fd);
+      if (result.error && generation === muteGen.current) {
+        setMuted(!next);
+        setMuteError(WATCH_COPY.failed);
+      }
+    } catch {
+      if (generation === muteGen.current) {
+        setMuted(!next);
+        setMuteError(WATCH_COPY.failed);
+      }
+    } finally {
+      if (generation === muteGen.current) {
+        muteInFlight.current = false;
+        setMutePending(false);
+      }
+    }
+  }
+
+  async function onRemove() {
+    if (removeInFlight.current) {
+      return;
+    }
+    removeInFlight.current = true;
+    const generation = (removeGen.current += 1);
+    setRemovePending(true);
+    setRemoveError(null);
+    let thrown = false;
+    try {
+      const fd = new FormData();
+      fd.set("id", row.id);
+      const result = await removeAction({}, fd);
+      if (result.error) {
+        onRemoveRevert?.(row.id);
+        if (generation === removeGen.current) {
+          setRemoveError(WATCH_COPY.failed);
+        }
+        return;
+      }
+      onRemoved?.(row.id);
+    } catch {
+      thrown = true;
+      onRemoveThrown?.();
+      onRemoveRevert?.(row.id);
+      if (generation === removeGen.current) {
+        setRemoveError(WATCH_COPY.failed);
+      }
+    } finally {
+      if (thrown) {
+        onRemoveThrown?.();
+      }
+      if (generation === removeGen.current) {
+        removeInFlight.current = false;
+        setRemovePending(false);
+      }
+    }
+  }
+
+  return (
+    <div className="watch-actions">
+      <button
+        className="btn btn-secondary"
+        type="button"
+        disabled={mutePending}
+        aria-busy={mutePending || undefined}
+        onClick={() => void onMute()}
+      >
+        {muted ? WATCH_COPY.unmute : WATCH_COPY.mute}
+      </button>
+      <button className="btn btn-ghost" type="button" disabled={removePending} onClick={() => void onRemove()}>
+        {WATCH_COPY.remove}
+      </button>
+      {muteError ? <ErrorToast message={muteError} label={toastLabel} onDismiss={() => setMuteError(null)} /> : null}
+      {removeError ? <ErrorToast message={removeError} label={toastLabel} onDismiss={() => setRemoveError(null)} /> : null}
+    </div>
+  );
+}
+
+function WatchNews({
+  row,
+  item,
+  newsVia,
+}: {
+  row: WatchRow;
+  item?: { headline: string; source?: string; url?: string };
+  newsVia: "finnhub" | "rss" | null;
+}) {
+  if (row.muted || !item) {
+    return <span className="muted">—</span>;
+  }
+  return (
+    <div className="watch-news">
+      {item.url ? (
+        <a href={item.url} target="_blank" rel="noopener noreferrer">
+          {item.headline}
+        </a>
+      ) : (
+        item.headline
+      )}
+      {newsVia === "rss" ? (
+        <div className="muted">公開新聞{item.source ? ` · ${item.source}` : ""}</div>
+      ) : item.source ? (
+        <div className="muted">{item.source}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function WatchCard({
+  row,
+  item,
+  newsVia,
+  interactive,
+  onRemoved,
+  onRemoveRevert,
+  onRemoveThrown,
+}: {
+  row: WatchRow;
+  item?: { headline: string; source?: string; url?: string };
+  newsVia: "finnhub" | "rss" | null;
+  interactive: boolean;
+  onRemoved?: (id: string) => void;
+  onRemoveRevert?: (id: string) => void;
+  onRemoveThrown?: () => void;
+}) {
+  const [muted, setMuted] = useState(row.muted);
+  useEffect(() => {
+    setMuted(row.muted);
+  }, [row.muted]);
+  return (
+    <li className="watch-card">
+      <div className="watch-card-head">
+        <InstrumentLabel ticker={row.displayCode} name={row.name} />
+        <div className="watch-card-quote">
+          <div className="tabular">{row.lastDisplay ?? "未有報價"}</div>
+          <div className={`meta tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
+            {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
+          </div>
+        </div>
+      </div>
+      <div className="watch-card-meta">
+        <span className="chip">{row.marketLabel}</span>
+        <WatchMuteStatus muted={muted} />
+      </div>
+      <div className="watch-card-news">
+        <span className="meta muted">最新新聞</span>
+        <WatchNews row={{ ...row, muted }} item={item} newsVia={newsVia} />
+      </div>
+      {interactive ? (
+        <WatchActions
+          row={row}
+          muted={muted}
+          onMutedChange={setMuted}
+          onRemoved={onRemoved}
+          onRemoveRevert={onRemoveRevert}
+          onRemoveThrown={onRemoveThrown}
+        />
+      ) : (
+        <div className="watch-actions watch-actions-slot" aria-hidden="true" />
+      )}
+    </li>
+  );
+}
+
+function WatchTableRow({
+  row,
+  item,
+  newsVia,
+  interactive,
+  onRemoved,
+  onRemoveRevert,
+  onRemoveThrown,
+}: {
+  row: WatchRow;
+  item?: { headline: string; source?: string; url?: string };
+  newsVia: "finnhub" | "rss" | null;
+  interactive: boolean;
+  onRemoved?: (id: string) => void;
+  onRemoveRevert?: (id: string) => void;
+  onRemoveThrown?: () => void;
+}) {
+  const [muted, setMuted] = useState(row.muted);
+  useEffect(() => {
+    setMuted(row.muted);
+  }, [row.muted]);
+  return (
+    <tr>
+      <td>
+        <InstrumentLabel ticker={row.displayCode} name={row.name} />
+      </td>
+      <td><span className="chip">{row.marketLabel}</span></td>
+      <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
+      <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
+        {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
+      </td>
+      <td className="meta">
+        <WatchNews row={{ ...row, muted }} item={item} newsVia={newsVia} />
+      </td>
+      <td>
+        <WatchMuteStatus muted={muted} />
+      </td>
+      <td>
+        {interactive ? (
+          <WatchActions
+            row={row}
+            muted={muted}
+            onMutedChange={setMuted}
+            onRemoved={onRemoved}
+            onRemoveRevert={onRemoveRevert}
+            onRemoveThrown={onRemoveThrown}
+          />
+        ) : (
+          <div className="watch-actions watch-actions-slot" aria-hidden="true" />
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function useWatchLayout(): "table" | "list" | null {
+  const [layout, setLayout] = useState<"table" | "list" | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 800px)");
+    const sync = () => setLayout(mq.matches ? "list" : "table");
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return layout;
+}
+
 export function WatchlistPanel({ items }: { items: WatchRow[] }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WatchSearchHit[]>([]);
@@ -62,10 +360,18 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
   const [newsVia, setNewsVia] = useState<"finnhub" | "rss" | null>(null);
   const [newsFailed, setNewsFailed] = useState(false);
   const [newsReload, setNewsReload] = useState(0);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [pendingSearch, startSearch] = useTransition();
   const [addState, addAction, addPending] = useActionState(addWatchAction, initial);
-  const [, removeAction, removePending] = useActionState(removeWatchAction, initial);
-  const [, muteAction, mutePending] = useActionState(muteWatchAction, initial);
+  const router = useRouter();
+  const layout = useWatchLayout();
+
+  function hideWatchRow(id: string) {
+    setHiddenIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+  function showWatchRow(id: string) {
+    setHiddenIds((prev) => prev.filter((rowId) => rowId !== id));
+  }
 
   useEffect(() => {
     const q = query.trim();
@@ -111,19 +417,20 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
     };
   }, [items, newsReload]);
 
-  const visible = items.filter((row) => filter === "all" || row.market === filter);
+  const present = items.filter((row) => !hiddenIds.includes(row.id));
+  const visible = present.filter((row) => filter === "all" || row.market === filter);
 
   return (
     <section className="card stack">
-      {items.length > 0 ? (
+      {present.length > 0 ? (
         <div className="row">
           <div className="meta muted">
-            {items.length} / {WATCH_CAP}
+            {present.length} / {WATCH_CAP}
           </div>
           {newsVia === "rss" ? <div className="chip">公開新聞</div> : null}
         </div>
       ) : null}
-      {items.length > 0 ? (
+      {present.length > 0 ? (
         <div className="chip-row">
           {FILTERS.map((item) => (
             <button
@@ -168,7 +475,7 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
         {addState.error ? <p className="alert">{addState.error}</p> : null}
         {addState.ok ? <p className="ok">{addState.ok}</p> : null}
       </form>
-      {items.length === 0 ? (
+      {present.length === 0 ? (
         <p className="body">
           未有關注，加入代碼或先去加持倉。{" "}
           <Link href="/entry" prefetch className="btn btn-primary">
@@ -179,10 +486,25 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
       {newsFailed ? (
         <FailurePanel sentence="新聞暫時載唔到，唔好緊，再試一次就得。" onRetry={() => setNewsReload((n) => n + 1)} />
       ) : null}
-      {items.length === 0 ? null : visible.length === 0 ? (
+      {present.length === 0 ? null : visible.length === 0 ? (
         <p className="empty">呢個市場未有關注。</p>
       ) : (
-        <div className="table-scroll">
+        <>
+        <ul className="watch-list">
+          {visible.map((row) => (
+            <WatchCard
+              key={`list-${row.id}`}
+              row={row}
+              item={news[row.displayCode]?.[0]}
+              newsVia={newsVia}
+              interactive={layout === "list"}
+              onRemoved={hideWatchRow}
+              onRemoveRevert={showWatchRow}
+              onRemoveThrown={() => router.refresh()}
+            />
+          ))}
+        </ul>
+        <div className="table-scroll watch-table">
         <table className="table">
           <thead>
             <tr>
@@ -196,64 +518,23 @@ export function WatchlistPanel({ items }: { items: WatchRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {visible.map((row) => {
-              const item = news[row.displayCode]?.[0];
-              return (
-              <tr key={row.id}>
-                <td>
-                  <InstrumentLabel ticker={row.displayCode} name={row.name} />
-                </td>
-                <td>{row.marketLabel}</td>
-                <td className="tabular">{row.lastDisplay ?? "未有報價"}</td>
-                <td className={`tabular ${changeClass(row.lastDisplay ? row.percentChange : null)}`}>
-                  {row.lastDisplay ? (row.percentChange ?? "—") : "—"}
-                </td>
-                <td className="meta">
-                  {row.muted || !item ? (
-                    "—"
-                  ) : (
-                    <div>
-                      {item.url ? (
-                        <a href={item.url} target="_blank" rel="noopener noreferrer">
-                          {item.headline}
-                        </a>
-                      ) : (
-                        item.headline
-                      )}
-                      {newsVia === "rss" ? (
-                        <div className="muted">公開新聞{item.source ? ` · ${item.source}` : ""}</div>
-                      ) : item.source ? (
-                        <div className="muted">{item.source}</div>
-                      ) : null}
-                    </div>
-                  )}
-                </td>
-                <td className="meta muted">{row.muted ? "已靜音" : "僅關注"}</td>
-                <td>
-                  <div className="submit-row">
-                    <form action={muteAction}>
-                      <input type="hidden" name="id" value={row.id} />
-                      <input type="hidden" name="muted" value={row.muted ? "0" : "1"} />
-                      <button className="btn btn-ghost" type="submit" disabled={mutePending}>
-                        {row.muted ? "恢復新聞" : "靜音新聞"}
-                      </button>
-                    </form>
-                    <form action={removeAction}>
-                      <input type="hidden" name="id" value={row.id} />
-                      <button className="btn btn-ghost" type="submit" disabled={removePending}>
-                        取消關注
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-              );
-            })}
+            {visible.map((row) => (
+              <WatchTableRow
+                key={`table-${row.id}`}
+                row={row}
+                item={news[row.displayCode]?.[0]}
+                newsVia={newsVia}
+                interactive={layout === "table"}
+                onRemoved={hideWatchRow}
+                onRemoveRevert={showWatchRow}
+                onRemoveThrown={() => router.refresh()}
+              />
+            ))}
           </tbody>
         </table>
         </div>
+        </>
       )}
     </section>
   );
 }
-

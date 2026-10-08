@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeScheduleLegs } from "@/import/canon";
 import {
   formatAsOfClock,
+  formatQuoteAsOf,
   formatQty,
   formatRelativeDate,
   formatSchedulePercent,
@@ -11,6 +12,9 @@ import {
   todayChangeLabel,
   todayIso,
   tradeSideLabel,
+  ISO_DATE_INVALID,
+  isIsoDate,
+  requireIsoDate,
 } from "./format";
 
 describe("formatSchedulePercent", () => {
@@ -77,8 +81,10 @@ describe("todayChangeLabel", () => {
 });
 
 describe("formatAsOfClock", () => {
-  it("labels NAV as-of with 截至", () => {
+  it("labels NAV as-of with 截至 from the quote fetched_at, not now", () => {
     expect(formatAsOfClock(new Date("2026-08-17T21:04:00+08:00"))).toBe("截至 21:04");
+    expect(formatAsOfClock(new Date("2026-08-17T09:15:00+08:00"))).toBe("截至 09:15");
+    expect(formatQuoteAsOf(new Date("2026-08-17T21:04:00+08:00"), true)).toBe("截至 21:04 · 上次報價");
   });
 });
 
@@ -87,6 +93,25 @@ describe("tradeSideLabel", () => {
     expect(tradeSideLabel("split")).toBe("拆股");
     expect(tradeSideLabel("adjustment")).toBe("調整");
     expect(tradeSideLabel("buy")).toBe("買入");
+  });
+});
+
+describe("isIsoDate", () => {
+  it("accepts YYYY-MM-DD and rejects locale slashes", () => {
+    expect(isIsoDate("2026-10-07")).toBe(true);
+    expect(isIsoDate("10/07/2026")).toBe(false);
+    expect(isIsoDate("07-10-2026")).toBe(false);
+  });
+
+  it("rejects invalid month, day, and non-leap 29 Feb", () => {
+    expect(isIsoDate("2026-13-45")).toBe(false);
+    expect(isIsoDate("2026-00-10")).toBe(false);
+    expect(isIsoDate("2026-04-31")).toBe(false);
+    expect(isIsoDate("2025-02-29")).toBe(false);
+    expect(isIsoDate("2024-02-29")).toBe(true);
+    expect(() => requireIsoDate("2026-13-45")).toThrow(ISO_DATE_INVALID);
+    expect(() => requireIsoDate("2025-02-29")).toThrow(ISO_DATE_INVALID);
+    expect(requireIsoDate("2024-02-29")).toBe("2024-02-29");
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { deleteHoldingAction, type EntryState } from "@/app/actions/entry";
 import { Icon } from "./icons";
@@ -35,7 +35,10 @@ export function HoldingDelete({
   symbol: string;
   closed?: boolean;
 }) {
-  const { phase, setPhase, formRef } = useUndoCommit();
+  const formRef = useRef<HTMLFormElement>(null);
+  const { phase, setPhase } = useUndoCommit(undefined, () => {
+    formRef.current?.requestSubmit();
+  });
   const [state, action] = useActionState(deleteHoldingAction, initial);
 
   if (phase === "idle") {
