@@ -11,6 +11,7 @@ export type TapeItem = {
   lastUpdateLabel: string | null;
   isEtfProxy: boolean;
   planLimited: boolean;
+  stale?: boolean;
 };
 
 function changeClass(change: string | null): string {
@@ -39,6 +40,7 @@ function TapeCell({ item }: { item: TapeItem }) {
           {item.percentChange}
         </span>
       ) : null}
+      {item.stale ? <span className="chip">上次報價</span> : null}
     </Link>
   );
 }

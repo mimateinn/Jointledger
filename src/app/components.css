@@ -192,12 +192,14 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
   gap: var(--sp-2);
   width: max-content;
   max-width: min(92vw, 420px);
+  max-height: var(--toast-reserve);
+  overflow-x: hidden;
+  overflow-y: auto;
   pointer-events: none;
 }
 @media (min-width: 801px) { .toast-host { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }
 .toast { position: fixed; z-index: var(--z-toast); left: 50%; translate: -50% 0; bottom: calc(var(--bottom-bar-h) + var(--sp-4) + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: var(--sp-3); width: max-content; max-width: min(92vw, 420px); padding: var(--sp-3) var(--sp-4); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); }
-.toast-host .toast { position: static; translate: none; left: auto; bottom: auto; pointer-events: auto; width: auto; max-width: 100%; }
-.toast-host .toast:nth-last-child(n+3) { display: none; }
+.toast-host .toast { position: static; translate: none; left: auto; bottom: auto; pointer-events: auto; width: auto; max-width: 100%; padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
 .toast span { white-space: nowrap; }
 .toast .toast-label { color: var(--muted); font-size: var(--meta-size); }
 .toast-error span { white-space: normal; }
@@ -222,7 +224,12 @@ button.chip.chip-active { border-color: var(--text); background: var(--surface-s
     padding-top: calc(var(--page-pad) + var(--toast-reserve));
   }
 }
-@media (min-width: 801px) { .toast { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); } }
+@media (min-width: 801px) {
+  .toast { left: auto; right: var(--sp-6); translate: none; bottom: var(--sp-6); }
+  body:has(.toast) main.main {
+    padding-bottom: calc(var(--page-pad) + var(--toast-reserve));
+  }
+}
 .toast .icon { color: var(--ink-text); } .toast-error .icon { color: var(--down); }
 .scrim { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); }
 .dialog { position: fixed; z-index: calc(var(--z-dialog) + 1); left: 50%; top: 50%; translate: -50% -50%; width: min(92vw, 440px); padding: var(--sp-6); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-3); display: flex; flex-direction: column; gap: var(--sp-4); }

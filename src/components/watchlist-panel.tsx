@@ -163,6 +163,7 @@ export function WatchActions({
       onRemoved?.(row.id);
     } catch {
       thrown = true;
+      onRemoveThrown?.();
       onRemoveRevert?.(row.id);
       if (generation === removeGen.current) {
         setRemoveError(WATCH_COPY.failed);

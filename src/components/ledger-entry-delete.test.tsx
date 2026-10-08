@@ -1,20 +1,38 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
+import { readFileSync } from "node:fs";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE_BLOCKED_BY_LATER } from "@/ledger";
 import { LedgerEntryDelete } from "./ledger-entry-delete";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), prefetch: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+}));
 
 vi.mock("@/app/actions/entry", () => ({
   deleteLedgerEntryAction: vi.fn(async () => ({})),
   checkDeleteLedgerEntryAction: vi.fn(async () => ({})),
 }));
 
+function injectToastCss() {
+  document.getElementById("toast-css")?.remove();
+  const style = document.createElement("style");
+  style.id = "toast-css";
+  style.textContent = `${readFileSync("src/app/tokens.css", "utf8")}\n${readFileSync("src/app/components.css", "utf8")}`;
+  document.head.appendChild(style);
+}
+
+beforeEach(() => {
+  injectToastCss();
+});
+
 afterEach(() => {
   cleanup();
   document.getElementById("toast-host")?.remove();
+  document.getElementById("toast-css")?.remove();
 });
 
 async function confirmDelete(user: ReturnType<typeof userEvent.setup>, label: string) {
@@ -172,6 +190,63 @@ describe("ledger entry delete undo and reject", () => {
     }, { timeout: 4000 });
     expect(deleteA).not.toHaveBeenCalled();
   });
+
+  it("keeps every undo button visible and clickable across 3 deletes 1.2s apart", async () => {
+    const user = userEvent.setup();
+    const deleteA = vi.fn(async () => ({}));
+    const deleteB = vi.fn(async () => ({}));
+    const deleteC = vi.fn(async () => ({}));
+    render(
+      <table>
+        <tbody>
+          {[
+            ["a", "列 A", deleteA],
+            ["b", "列 B", deleteB],
+            ["c", "列 C", deleteC],
+          ].map(([id, label, deleteAction]) => (
+            <tr key={id as string}>
+              <td>
+                <LedgerEntryDelete
+                  id={id as string}
+                  kind="trade"
+                  label={label as string}
+                  checkDelete={async () => ({ ok: "可以刪" })}
+                  deleteAction={deleteAction as (prev: object, formData: FormData) => Promise<object>}
+                  undoMs={8000}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>,
+    );
+
+    await confirmDelete(user, "列 A");
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await confirmDelete(user, "列 B");
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await confirmDelete(user, "列 C");
+
+    const undoNames = ["還原 列 A", "還原 列 B", "還原 列 C"];
+    for (const name of undoNames) {
+      const button = screen.getByRole("button", { name });
+      expect(getComputedStyle(button).display).not.toBe("none");
+      const toast = button.closest(".toast");
+      expect(toast).toBeTruthy();
+      expect(getComputedStyle(toast!).display).not.toBe("none");
+    }
+
+    await user.click(screen.getByRole("button", { name: "還原 列 A" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "還原 列 A" })).toBeNull();
+    });
+    expect(screen.getByRole("button", { name: "刪除 列 A" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "還原 列 B" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "還原 列 C" })).toBeTruthy();
+    expect(deleteA).not.toHaveBeenCalled();
+    expect(deleteB).not.toHaveBeenCalled();
+    expect(deleteC).not.toHaveBeenCalled();
+  }, 15_000);
 
   it("shows 刪除失敗 when the delete throws after the countdown", async () => {
     const user = userEvent.setup();

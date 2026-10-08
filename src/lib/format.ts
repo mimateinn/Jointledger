@@ -101,15 +101,25 @@ export function todayChangeLabel(last: string | null | undefined, percentChange:
   return percentChange;
 }
 
-/** Clock next to NAV, e.g. 截至 21:04 */
-export function formatAsOfClock(now = new Date()): string {
+/** Clock next to NAV from the quote's fetched_at, e.g. 截至 21:04 */
+export function formatAsOfClock(fetchedAt: Date): string {
   const clock = new Intl.DateTimeFormat("zh-Hant", {
     timeZone: "Asia/Hong_Kong",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-  }).format(now);
+  }).format(fetchedAt);
   return `截至 ${clock}`;
+}
+
+export const STALE_QUOTE_AS_OF = "上次報價";
+
+export function formatQuoteAsOf(fetchedAt: Date | null | undefined, stale = false): string {
+  if (!fetchedAt) {
+    return "";
+  }
+  const clock = formatAsOfClock(fetchedAt);
+  return stale ? `${clock} · ${STALE_QUOTE_AS_OF}` : clock;
 }
 
 export function tradeSideLabel(side: string): string {

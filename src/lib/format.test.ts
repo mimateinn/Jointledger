@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeScheduleLegs } from "@/import/canon";
 import {
   formatAsOfClock,
+  formatQuoteAsOf,
   formatQty,
   formatRelativeDate,
   formatSchedulePercent,
@@ -80,8 +81,10 @@ describe("todayChangeLabel", () => {
 });
 
 describe("formatAsOfClock", () => {
-  it("labels NAV as-of with 截至", () => {
+  it("labels NAV as-of with 截至 from the quote fetched_at, not now", () => {
     expect(formatAsOfClock(new Date("2026-08-17T21:04:00+08:00"))).toBe("截至 21:04");
+    expect(formatAsOfClock(new Date("2026-08-17T09:15:00+08:00"))).toBe("截至 09:15");
+    expect(formatQuoteAsOf(new Date("2026-08-17T21:04:00+08:00"), true)).toBe("截至 21:04 · 上次報價");
   });
 });
 

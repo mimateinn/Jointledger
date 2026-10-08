@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DELETE_BLOCKED_BY_LATER } from "@/ledger/delete-entry";
-import { humanFormError } from "./human-error";
+import { DELETE_FAILED, humanFormError } from "./human-error";
 
 describe("humanFormError", () => {
   it("maps domain throws to one human sentence", () => {
@@ -27,6 +27,7 @@ describe("humanFormError", () => {
   });
 
   it("maps a locked delete to 刪除失敗", () => {
-    expect(humanFormError("SQLITE_BUSY: database is locked", "刪除失敗")).toBe("刪除失敗");
+    expect(DELETE_FAILED).toBe("刪除失敗");
+    expect(humanFormError("SQLITE_BUSY: database is locked", DELETE_FAILED)).toBe("刪除失敗");
   });
 });

@@ -1,7 +1,6 @@
 "use client";
 
 export const TOAST_HOST_ID = "toast-host";
-export const MAX_VISIBLE_TOASTS = 2;
 
 export function ensureToastHost(): HTMLElement {
   const existing = document.getElementById(TOAST_HOST_ID);

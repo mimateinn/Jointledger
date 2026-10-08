@@ -62,6 +62,15 @@ Official auto-updates only accept `mimateinn/Jointledger`.
 4. On an empty system, register first. For a demo, use 小明 / demo@example.com. Do not use real personal data.
 5. To add someone later, create a one-time invite key on the account page. They claim that seat and join the same book.
 
+## Tests
+
+```bash
+pnpm test
+pnpm test:busy-e2e
+```
+
+`test:busy-e2e` needs `BUSY_E2E=1` (the script sets it) and a native libsql lock child. CI runs both.
+
 ## Keys stay here
 
 Twelve Data and Finnhub keys are optional. If you set them, they live only in a local `.env`.

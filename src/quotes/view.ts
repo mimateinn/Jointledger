@@ -6,6 +6,7 @@ import type { CanonInstrument } from "./types";
 export const DELAY_15 = "延遲 15 分";
 export const DELAY_UPGRADE = "延遲／升級";
 export const PARTIAL_NAV = "部分市值";
+export const STALE_QUOTE_LABEL = "上次報價";
 
 export function delayLabelFor(args: {
   last: string | null;
@@ -88,5 +89,7 @@ export function toQuoteView(
     lastUpdateLabel: mark.last ? formatLastUpdate(mark.fetchedAt ?? null) : null,
     isEtfProxy: instrument.isEtfProxy,
     planLimited,
+    stale: Boolean(mark.last && mark.status && mark.status !== "ok"),
+    fetchedAt: mark.fetchedAt ?? null,
   };
 }

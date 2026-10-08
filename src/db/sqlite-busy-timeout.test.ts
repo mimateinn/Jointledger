@@ -55,4 +55,19 @@ describe("sqlite busy_timeout", () => {
     const src = readFileSync(new URL("./client.ts", import.meta.url), "utf8");
     expect(src).toMatch(/client\.reconnect = \(\(\) =>\s*enqueue\(async \(\) => \{\s*await reconnect\(\);\s*await applySqliteConnectionPragmas\(execute\);/s);
   });
+
+  it("reapplies PRAGMA busy_timeout = 5000 after discardHandle reconnects on execute error", async () => {
+    dir = mkdtempSync(join(tmpdir(), "joint-ledger-busy-discard-"));
+    process.env.DATABASE_URL = `file:${join(dir, "joint-ledger.sqlite")}`;
+    resetDbClients();
+    const db = getDb();
+    await db.all(sql`SELECT 1`);
+    await expect(db.all(sql`SELECT * FROM __no_such_table_busy_reapply`)).rejects.toThrow();
+    const rows = await db.all(sql`PRAGMA busy_timeout`);
+    expect(timeoutFromRows(rows)).toBe(SQLITE_BUSY_TIMEOUT_MS);
+    const src = readFileSync(new URL("./client.ts", import.meta.url), "utf8");
+    expect(src).toMatch(
+      /async function discardHandle\([\s\S]*?await reconnect\(\);\s*await applySqliteConnectionPragmas\(execute\);/s,
+    );
+  });
 });

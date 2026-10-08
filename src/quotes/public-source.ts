@@ -6,8 +6,8 @@ import type { CanonInstrument, QuoteSource, UpstreamOutcome } from "./types";
 export const BINANCE_PUBLIC_BASE = "https://data-api.binance.vision/api/v3";
 export const COINGECKO_BASE = "https://api.coingecko.com/api/v3";
 export const YAHOO_CHART_BASE = "https://query1.finance.yahoo.com/v8/finance/chart";
-const TIMEOUT_MS = 8_000;
-export const QUOTE_FETCH_BUDGET_MS = 10_000;
+const TIMEOUT_MS = 6_000;
+export const QUOTE_FETCH_BUDGET_MS = 12_000;
 
 const COINGECKO_IDS: Record<string, string> = {
   "BTC/USD": "bitcoin",

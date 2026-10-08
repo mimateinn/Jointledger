@@ -1,94 +1,64 @@
 /**
- * Fail if the error toast overlaps any interactive control at 375 / 390.
+ * Fail if 3 undo toasts + 1 error overlap controls, or if any undo is hidden.
  *
- *   CHROME_PATH=/path/to/chrome pnpm test:toast-geometry
+ *   CHROME_PATH=/path/to/chrome SHOT_BASE=http://127.0.0.1:3002 pnpm test:toast-geometry
  */
-import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { resolve } from "node:path";
 import { resolveChrome } from "./chrome-path.mjs";
 
 const puppeteer = createRequire(import.meta.url)("puppeteer-core");
-const WIDTHS = [360, 375, 414];
+const BASE = process.env.SHOT_BASE ?? "http://127.0.0.1:3000";
+const USER = process.env.SHOT_USER ?? "Member A";
+const PASS = process.env.SHOT_PASS ?? "demo-pass-1";
+const WIDTHS = [360, 375, 414, 1440];
 
-const tokens = readFileSync(resolve("src/app/tokens.css"), "utf8").replace(/@import[^;]+;/g, "");
-const components = readFileSync(resolve("src/app/components.css"), "utf8");
-const globals = readFileSync(resolve("src/app/globals.css"), "utf8").replace(/@import[^;]+;/g, "");
-
-const html = `<!doctype html>
-<html lang="zh-Hant" data-theme="dark">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<style>
-${tokens}
-${globals}
-${components}
-body { margin: 0; }
-</style>
-</head>
-<body>
-  <div class="app-frame">
-    <div class="tape" aria-label="市場行情"><a class="tape-cell" href="/holdings">NVDA</a></div>
-    <div class="shell">
-      <main class="main">
-        <section class="card stack">
-          <ul class="watch-list">
-            <li class="watch-card">
-              <div class="watch-card-head">NVDA</div>
-              <div class="watch-actions">
-                <button class="btn btn-secondary" type="button">靜音新聞</button>
-                <button class="btn btn-ghost" type="button">取消關注</button>
-              </div>
-            </li>
-          </ul>
-        </section>
-      </main>
-      <nav class="mobile-bar" aria-label="手機導覽">
-        <a href="/overview">總覽</a>
-        <a href="/holdings">持倉</a>
-        <a href="/entry">記帳</a>
-      </nav>
-    </div>
-  </div>
-  <div id="toast-host" class="toast-host" data-toast-host="">
-    <div class="toast toast-error" role="alert" data-error-toast="">
-      <span>更新失敗 1</span>
-      <button class="btn btn-ghost btn-icon" type="button" aria-label="關閉">×</button>
-    </div>
-    <div class="toast toast-error" role="alert" data-error-toast="">
-      <span>更新失敗 2</span>
-      <button class="btn btn-ghost btn-icon" type="button" aria-label="關閉">×</button>
-    </div>
-    <div class="toast toast-error" role="alert" data-error-toast="">
-      <span>更新失敗 3</span>
-      <button class="btn btn-ghost btn-icon" type="button" aria-label="關閉">×</button>
-    </div>
-  </div>
-</body>
-</html>`;
+function injectToasts() {
+  let host = document.getElementById("toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "toast-host";
+    host.className = "toast-host";
+    host.dataset.toastHost = "";
+    document.body.appendChild(host);
+  }
+  host.replaceChildren();
+  for (const label of ["列 A", "列 B", "列 C"]) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.setAttribute("data-undo-toast", "");
+    toast.innerHTML = `<span>已刪除・還原</span><span class="toast-label">${label}</span><button class="btn btn-secondary" type="button" aria-label="還原 ${label}">還原</button>`;
+    host.appendChild(toast);
+  }
+  const error = document.createElement("div");
+  error.className = "toast toast-error";
+  error.setAttribute("data-error-toast", "");
+  error.setAttribute("role", "alert");
+  error.innerHTML = `<span>更新失敗</span><button class="btn btn-ghost btn-icon" type="button" aria-label="關閉">×</button>`;
+  host.appendChild(error);
+}
 
 function measure() {
-  const toasts = [...document.querySelectorAll("[data-error-toast]")];
+  const toasts = [...document.querySelectorAll("[data-undo-toast], [data-error-toast]")];
   const visible = toasts.filter((el) => {
     const cs = getComputedStyle(el);
     const rect = el.getBoundingClientRect();
     return rect.height >= 1 && cs.display !== "none" && cs.visibility !== "hidden";
   });
   const toastBoxes = visible.map((el) => el.getBoundingClientRect());
-  const host = document.querySelector("[data-toast-host]");
+  const host = document.querySelector("[data-toast-host], #toast-host");
   const hostBox = host?.getBoundingClientRect();
-  const toastArea = hostBox && hostBox.height >= 1
-    ? hostBox
-    : toastBoxes.reduce(
-        (acc, rect) => ({
-          top: Math.min(acc.top, rect.top),
-          left: Math.min(acc.left, rect.left),
-          bottom: Math.max(acc.bottom, rect.bottom),
-          right: Math.max(acc.right, rect.right),
-        }),
-        { top: Infinity, left: Infinity, bottom: 0, right: 0 },
-      );
+  const toastArea =
+    hostBox && hostBox.height >= 1
+      ? hostBox
+      : toastBoxes.reduce(
+          (acc, rect) => ({
+            top: Math.min(acc.top, rect.top),
+            left: Math.min(acc.left, rect.left),
+            bottom: Math.max(acc.bottom, rect.bottom),
+            right: Math.max(acc.right, rect.right),
+          }),
+          { top: Infinity, left: Infinity, bottom: 0, right: 0 },
+        );
   const interactive = [...document.querySelectorAll("a, button, input, select, textarea")].filter((el) => {
     if (toasts.some((toast) => toast.contains(el))) {
       return false;
@@ -108,12 +78,22 @@ function measure() {
       return {
         text: (el.textContent ?? "").trim().slice(0, 24),
         hit,
-        rect: { top: rect.top, left: rect.left, bottom: rect.bottom, right: rect.right },
       };
     })
     .filter((row) => row.hit);
+  const undo = [...document.querySelectorAll("[data-undo-toast]")].map((el) => {
+    const cs = getComputedStyle(el);
+    const button = el.querySelector("button");
+    const btnCs = button ? getComputedStyle(button) : null;
+    return {
+      display: cs.display,
+      height: el.getBoundingClientRect().height,
+      buttonDisplay: btnCs?.display ?? "missing",
+    };
+  });
   return {
     visibleCount: visible.length,
+    undoHidden: undo.filter((row) => row.display === "none" || row.height < 1 || row.buttonDisplay === "none").length,
     toast: {
       top: toastArea.top,
       left: toastArea.left,
@@ -129,16 +109,25 @@ const browser = await puppeteer.launch({
   headless: "new",
   args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
 });
+const page = await browser.newPage();
 
 try {
+  await page.goto(`${BASE}/login`, { waitUntil: "networkidle0" });
+  await page.type("#identifier", USER);
+  await page.type("#password", PASS);
+  await Promise.all([page.waitForNavigation({ waitUntil: "networkidle0" }), page.click("button[type=submit]")]);
+
   for (const width of WIDTHS) {
-    const page = await browser.newPage();
-    await page.setViewport({ width, height: 812, deviceScaleFactor: 1 });
-    await page.setContent(html, { waitUntil: "load" });
+    await page.setViewport({ width, height: width >= 800 ? 900 : 812, deviceScaleFactor: 1 });
+    await page.goto(`${BASE}/holdings`, { waitUntil: "networkidle0", timeout: 60000 });
+    await page.evaluate(() => {
+      [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "關注")?.click();
+    });
+    await page.waitForSelector(".watch-list .watch-actions .btn, main.main", { timeout: 15000 });
+    await page.evaluate(injectToasts);
     const result = await page.evaluate(measure);
-    await page.close();
-    if (result.visibleCount > 2) {
-      console.error(`more than 2 toasts visible at ${width}px`, result);
+    if (result.visibleCount < 4 || result.undoHidden > 0) {
+      console.error(`hidden undo/error toasts at ${width}px`, result);
       process.exit(1);
     }
     if (result.overlaps.length > 0) {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { lastGoodStillFresh, resolveDisplayedMark } from "./apply-status";
+import { resolveInstrument } from "./symbol-map";
 import { classifyTwelveDataBody } from "./twelve-data";
+import { STALE_QUOTE_LABEL, toQuoteView } from "./view";
 
 describe("quote failure mapping", () => {
   const lastGood = { last: "60", percentChange: "1.2", fetchedAt: new Date("2026-08-14T00:00:00Z") };
@@ -58,5 +60,29 @@ describe("quote failure mapping", () => {
       kind: "ok",
       last: "178.42",
     });
+  });
+
+  it("marks last-good quotes stale and keeps fetched_at", () => {
+    const instrument = resolveInstrument("NVDA");
+    if (!instrument) {
+      throw new Error("NVDA");
+    }
+    const fetchedAt = new Date("2026-08-14T00:00:00Z");
+    const stale = toQuoteView(instrument, {
+      last: "60",
+      percentChange: "1.2",
+      fetchedAt,
+      status: "upstream",
+    });
+    expect(stale.stale).toBe(true);
+    expect(stale.fetchedAt?.getTime()).toBe(fetchedAt.getTime());
+    expect(STALE_QUOTE_LABEL).toBe("上次報價");
+    const fresh = toQuoteView(instrument, {
+      last: "60",
+      percentChange: "1.2",
+      fetchedAt,
+      status: "ok",
+    });
+    expect(fresh.stale).toBe(false);
   });
 });

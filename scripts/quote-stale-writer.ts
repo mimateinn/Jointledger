@@ -1,12 +1,12 @@
-import { saveQuoteRow } from "./store";
-import type { QuoteStatus } from "./types";
+import { saveQuoteRow } from "../src/quotes/store";
+import type { QuoteStatus } from "../src/quotes/types";
 
 async function main() {
   const instrumentId = process.argv[2];
   const mode = process.argv[3];
   const base = Number(process.argv[4] ?? "");
   if (!instrumentId || (mode !== "fresh" && mode !== "stale") || !Number.isFinite(base)) {
-    throw new Error("usage: tsx src/quotes/quote-stale-writer.ts <instrumentId> fresh|stale <baseMs>");
+    throw new Error("usage: tsx scripts/quote-stale-writer.ts <instrumentId> fresh|stale <baseMs>");
   }
 
   const status: QuoteStatus = "ok";

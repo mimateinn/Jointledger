@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   checkDeleteLedgerEntryAction,
   deleteLedgerEntryAction,
@@ -48,6 +49,7 @@ export function LedgerEntryDelete({
   deleteAction?: LedgerDeleteFn;
   undoMs?: number;
 }) {
+  const router = useRouter();
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -67,6 +69,7 @@ export function LedgerEntryDelete({
     } catch {
       setPhase("idle");
       setRejectError(COPY.failed);
+      router.refresh();
     } finally {
       setCommitting(false);
     }

@@ -1,13 +1,15 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDbClients } from "@/db/client";
 import { withPackLock } from "./pack-lock";
+import { QUOTE_FETCH_BUDGET_MS } from "./public-source";
+import { ensureQuotes } from "./refresh";
 import {
   claimQuoteRefreshLease,
   loadQuoteRows,
@@ -16,6 +18,8 @@ import {
   upsertInstruments,
 } from "./store";
 import { resolveInstrument } from "./symbol-map";
+import * as twelveData from "./twelve-data";
+import { TWELVE_DATA_TIMEOUT_MS } from "./twelve-data";
 
 const prevUrl = process.env.DATABASE_URL;
 
@@ -89,7 +93,7 @@ describe("quote lease and fetched_at", () => {
       new Promise<void>((resolve, reject) => {
         const child = spawn(
           join(process.cwd(), "node_modules/.bin/tsx"),
-          [join(process.cwd(), "src/quotes/quote-stale-writer.ts"), id, mode, String(base)],
+          [join(process.cwd(), "scripts/quote-stale-writer.ts"), id, mode, String(base)],
           { env: { ...process.env, DATABASE_URL: url }, stdio: ["ignore", "pipe", "pipe"] },
         );
         let stderr = "";
@@ -122,5 +126,41 @@ describe("quote lease and fetched_at", () => {
     expect(first).toBe(true);
     expect(second).toBe(false);
     expect(after).toBe(true);
+  });
+
+  it("keeps the stale-writer fixture outside src", () => {
+    expect(existsSync(join(process.cwd(), "src/quotes/quote-stale-writer.ts"))).toBe(false);
+    expect(existsSync(join(process.cwd(), "scripts/quote-stale-writer.ts"))).toBe(true);
+  });
+
+  it("keeps the quote fetch budget below the lease", () => {
+    expect(QUOTE_FETCH_BUDGET_MS).toBeLessThan(QUOTE_LEASE_MS);
+    expect(TWELVE_DATA_TIMEOUT_MS).toBeLessThan(QUOTE_LEASE_MS);
+  });
+
+  it("releases the quote lease when a fetch throws", async () => {
+    const prevKey = process.env.TWELVE_DATA_API_KEY;
+    process.env.TWELVE_DATA_API_KEY = "test-key";
+    const spy = vi.spyOn(twelveData, "fetchTwelveDataBatch").mockRejectedValue(new Error("upstream"));
+    try {
+      const instrument = resolveInstrument("NVDA");
+      if (!instrument) {
+        throw new Error("NVDA must resolve");
+      }
+      await upsertInstruments([instrument]);
+      const now = new Date("2024-06-02T00:00:00Z");
+      await ensureQuotes(["NVDA"], now, { forceDisplays: ["NVDA"] });
+      const again = await withPackLock((tx) =>
+        claimQuoteRefreshLease(new Date(now.getTime() + 1_000), tx, QUOTE_LEASE_MS),
+      );
+      expect(again).toBe(true);
+    } finally {
+      spy.mockRestore();
+      if (prevKey === undefined) {
+        delete process.env.TWELVE_DATA_API_KEY;
+      } else {
+        process.env.TWELVE_DATA_API_KEY = prevKey;
+      }
+    }
   });
 });

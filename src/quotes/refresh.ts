@@ -211,6 +211,7 @@ export async function ensureQuotes(
 ): Promise<void> {
   const universe = buildUniverse(openLotSymbols);
   const run = async () => {
+    let claimed = false;
     try {
       const prepared = await withPackLock((tx) =>
         prepareRefresh(universe, now, tx, options?.forceDisplays),
@@ -218,11 +219,13 @@ export async function ensureQuotes(
       if (!prepared) {
         return;
       }
+      claimed = true;
       if (prepared.via === "twelve_data") {
         const { results, rateLimited, credits } = await fetchTwelveDataBatch(prepared.due);
         await withPackLock((tx) =>
           persistRefresh(prepared, { results, rateLimited, credits }, now, tx),
         );
+        claimed = false;
         return;
       }
       const publicHits = await fetchPublicQuotes(prepared.due);
@@ -234,8 +237,11 @@ export async function ensureQuotes(
           tx,
         ),
       );
+      claimed = false;
     } catch {
-      // Render last-good / em-dash. Never fail the page.
+      if (claimed) {
+        await withPackLock((tx) => releaseQuoteRefreshLease(tx)).catch(() => undefined);
+      }
     }
   };
 

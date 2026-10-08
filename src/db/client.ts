@@ -45,10 +45,27 @@ export function getSql() {
 }
 
 const sqlitePatched = new WeakSet<object>();
-const sqliteTxContext = new AsyncLocalStorage<true>();
+
+type SqliteTxScope = { id: symbol };
+
+const sqliteTxContext = new AsyncLocalStorage<SqliteTxScope>();
+let activeSqliteTxId: symbol | null = null;
 
 export const SQLITE_TX_EXECUTE_ERROR =
   "getDb() execute inside an open SQLite transaction is not supported";
+export const SQLITE_TX_TIMEOUT_ERROR = "SQLite transaction exceeded the maximum duration";
+export const SQLITE_TX_MAX_MS = 15_000;
+
+let sqliteTxMaxMs = SQLITE_TX_MAX_MS;
+
+export function setSqliteTxMaxMs(ms: number = SQLITE_TX_MAX_MS) {
+  sqliteTxMaxMs = ms;
+}
+
+function isInActiveSqliteTx(): boolean {
+  const store = sqliteTxContext.getStore();
+  return Boolean(store && activeSqliteTxId === store.id);
+}
 
 /** libsql 無 pg 嘅 execute；transaction 一定要 bind 返 Drizzle instance（要有 session）。 */
 function withSqliteExecute(db: object, role: "root" | "tx" = "root"): PgDatabase {
@@ -65,7 +82,7 @@ function withSqliteExecute(db: object, role: "root" | "tx" = "root"): PgDatabase
   const all = sqlite.all.bind(sqlite);
   const run = sqlite.run.bind(sqlite);
   function rejectRootExecuteInTx() {
-    if (role === "root" && sqliteTxContext.getStore()) {
+    if (role === "root" && isInActiveSqliteTx()) {
       throw new Error(SQLITE_TX_EXECUTE_ERROR);
     }
   }
@@ -89,16 +106,30 @@ function withSqliteExecute(db: object, role: "root" | "tx" = "root"): PgDatabase
 
   const transaction = sqlite.transaction.bind(sqlite);
   sqlite.transaction = (fn, config) => {
-    if (sqliteTxContext.getStore()) {
+    if (isInActiveSqliteTx()) {
       return Promise.reject(new Error("nested SQLite transaction is not supported"));
     }
-    return transaction(
-      (tx) =>
-        sqliteTxContext.run(true, () =>
-          fn(withSqliteExecute(tx as object, "tx") as unknown as SqliteLike),
-        ),
-      config,
-    );
+    return transaction((tx) => {
+      const id = Symbol("sqlite-tx");
+      activeSqliteTxId = id;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(SQLITE_TX_TIMEOUT_ERROR));
+        }, sqliteTxMaxMs);
+      });
+      const work = sqliteTxContext.run({ id }, () =>
+        Promise.resolve(fn(withSqliteExecute(tx as object, "tx") as unknown as SqliteLike)),
+      );
+      return Promise.race([work, timeout]).finally(() => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (activeSqliteTxId === id) {
+          activeSqliteTxId = null;
+        }
+      });
+    }, config);
   };
 
   return sqlite as unknown as PgDatabase;
@@ -165,13 +196,24 @@ function serializeSqliteClient(client: Client) {
 
   tail = applySqliteConnectionPragmas(execute);
 
-  client.execute = ((stmt: Parameters<Client["execute"]>[0], args?: Parameters<Client["execute"]>[1]) =>
-    enqueue(() => runOrDiscard(() => execute(stmt, args)))) as Client["execute"];
+  function rejectForeignTxCall() {
+    if (isInActiveSqliteTx()) {
+      throw new Error(SQLITE_TX_EXECUTE_ERROR);
+    }
+  }
+
+  client.execute = ((stmt: Parameters<Client["execute"]>[0], args?: Parameters<Client["execute"]>[1]) => {
+    rejectForeignTxCall();
+    return enqueue(() => runOrDiscard(() => execute(stmt, args)));
+  }) as Client["execute"];
   if (batch) {
-    client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) =>
-      enqueue(() => runOrDiscard(() => batch(stmts, mode)))) as Client["batch"];
+    client.batch = ((stmts: Parameters<Client["batch"]>[0], mode?: Parameters<Client["batch"]>[1]) => {
+      rejectForeignTxCall();
+      return enqueue(() => runOrDiscard(() => batch(stmts, mode)));
+    }) as Client["batch"];
   }
   client.transaction = ((...args: unknown[]) => {
+    rejectForeignTxCall();
     let released = false;
     let release = () => {};
     const held = new Promise<void>((resolve) => {
@@ -208,6 +250,9 @@ function serializeSqliteClient(client: Client) {
         const closeTx = (tx as { close?: () => void }).close?.bind(tx);
         let settled = false;
         let commitError: unknown;
+        const watchdog = setTimeout(() => {
+          void finish(rollback, "rollback").catch(() => undefined);
+        }, sqliteTxMaxMs);
         const finish = async (op: () => ReturnType<typeof commit>, kind: "commit" | "rollback") => {
           if (settled && kind === "rollback") {
             if (commitError) {
@@ -234,6 +279,7 @@ function serializeSqliteClient(client: Client) {
             throw kind === "rollback" && commitError ? commitError : error;
           } finally {
             settled = true;
+            clearTimeout(watchdog);
             release();
           }
         };
@@ -245,6 +291,7 @@ function serializeSqliteClient(client: Client) {
               return closeTx();
             } finally {
               settled = true;
+              clearTimeout(watchdog);
               release();
             }
           };
@@ -276,7 +323,7 @@ function serializeSqliteClient(client: Client) {
   }
 }
 
-function getSqliteClient() {
+export function getSqliteClient() {
   const url = getDatabaseUrl();
   if (globalForDb.sqlite && globalForDb.sqliteUrl === url) {
     return globalForDb.sqlite;
@@ -309,6 +356,8 @@ export function resetDbClients() {
   globalForDb.sqlite?.close();
   globalForDb.sqlite = undefined;
   globalForDb.sqliteUrl = undefined;
+  activeSqliteTxId = null;
+  setSqliteTxMaxMs();
 }
 
 export type Database = PgDatabase;
