@@ -3,10 +3,10 @@ import { positionLotsFromTrades } from "@/ledger/summary";
 import { tradeCashAmountUsd } from "@/ledger/trade-amount";
 import type { CashFlow, LedgerAccount, Member, Trade, TradeAllocation } from "@/ledger/types";
 import { ACCOUNT_OWN } from "./own";
-import type { RowKind } from "./row-kind";
+import { exportRowKind, type ExportRowKind } from "./row-kind";
 
 export type TransInfoExportRow = {
-  kind: RowKind;
+  kind: ExportRowKind;
   symbol: string;
   quantity: string;
   own: string;
@@ -142,7 +142,7 @@ export function buildExportPayload(input: {
         allocations: input.allocations.filter((row) => row.tradeId === trade.id),
       });
       transinfo.push({
-        kind: "adjustment",
+        kind: exportRowKind("adjustment", trade.note),
         symbol: trade.symbol,
         quantity: num(trade.quantity),
         own,
