@@ -42,12 +42,14 @@ describe("export adjustment / dividend amount", () => {
       trades: await store.listTrades(book.id),
       allocations: await store.listTradeAllocations(book.id),
     });
-    const row = payload.transinfo.find((item) => item.kind === "adjustment");
+    const row = payload.transinfo.find((item) => item.symbol === "MSFT");
     expect(row).toBeTruthy();
+    expect(row?.kind).toBe("dividend");
     expect(row?.quantity === "0" || row?.quantity.startsWith("0")).toBe(true);
     expect(row?.buyPrice).toBe("0");
     expect(row?.buyTotal).toBe("100");
     expect(transinfoCells(row!)).toContain("100");
+    expect(transinfoCells(row!)).toContain("dividend");
   });
 
   it("writes a signed cost adjustment, not an unsigned zero", async () => {

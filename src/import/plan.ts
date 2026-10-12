@@ -18,7 +18,7 @@ import type {
   PlannedTrade,
 } from "./types";
 import { dividendNote } from "@/ledger/dividend";
-import { parseRowKind } from "./row-kind";
+import { isDividendKindRaw, parseRowKind } from "./row-kind";
 import { absMoney, extractTickers, parseDate, parseInOut, parseMoney } from "./values";
 
 function issueId(prefix: string, row: number, extra = ""): string {
@@ -494,7 +494,7 @@ function planAdjustmentRow(
     sellTotal: null,
     sheetPnl: null,
     side: "adjustment",
-    note: /股息|dividend/i.test(kindRaw)
+    note: isDividendKindRaw(kindRaw)
       ? dividendNote(symbol && symbol !== "—" ? symbol : "")
       : symbol
         ? `匯入調整 ${symbol}`
