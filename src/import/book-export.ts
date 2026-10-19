@@ -168,7 +168,7 @@ export async function exportBookXlsx(store: LedgerStore, bookId: string): Promis
   const sheets = buildBookSheets({ members, accounts, cashFlows, trades, allocations, schedules });
   return writeBookXlsx(sheets.transinfo, sheets.account, {
     members: sheets.members,
-    allocation: sheets.allocation.rows.length > 0 ? sheets.allocation : undefined,
+    allocation: sheets.allocation,
     tradeSplits: sheets.tradeSplits,
   });
 }

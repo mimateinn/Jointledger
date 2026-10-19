@@ -104,4 +104,34 @@ describe("import confirm blocking", () => {
     expect(preview.some((item) => item.message.includes("Members") && item.message.includes("3"))).toBe(true);
     expect(commitBlockingResponse(plan)?.needsMap).toBe(false);
   });
+
+  it("treats TradeSplits and duplicate TradeId issues as preview-blocking errors", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total", "TradeId"],
+      rows: [
+        ["NVDA", "10", "F", "2024-02-01", "100", "T1"],
+        ["AAPL", "4", "F", "2024-03-01", "40", "T1"],
+      ],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [
+        ["2024-02-01", "NVDA", "F", "", "", "", ""],
+        ["2024-03-01", "AAPL", "F", "", "", "", ""],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.blocking).toBe(true);
+    expect(plan.counts.errors).toBeGreaterThan(0);
+    expect(allocationBlockingIssues(plan).some((item) => item.kind === "tradesplit_invalid")).toBe(true);
+    expect(previewBlockingIssues(plan).some((item) => item.message.includes("TransInfo") && item.message.includes("3"))).toBe(
+      true,
+    );
+    expect(commitBlockingResponse(plan)?.needsMap).toBe(false);
+    expect(commitBlockingResponse(plan)?.error).toContain("T1");
+  });
 });

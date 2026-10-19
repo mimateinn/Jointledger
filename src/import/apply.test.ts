@@ -267,9 +267,17 @@ describe("M4 import apply", () => {
       headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
       rows: [],
     };
-    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Hey"], ["Sze"]],
+      },
+    });
     expect(plan.trades[0]?.book).toBe("joint");
     expect(plan.trades[0]?.side).toBe("adjustment");
+    expect(plan.trades[0]?.legacyHeySze).toBeFalsy();
 
     const store = createMemoryStore();
     const { book, member: hey } = await createBook(store, {

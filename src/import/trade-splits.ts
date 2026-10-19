@@ -164,6 +164,45 @@ export function attachCustomTradeSplits(
       continue;
     }
 
+    const hasMoney = legs.some((leg) => money(leg.costUsd).gt(0) || money(leg.proceedsUsd).gt(0));
+    const moneyField =
+      trade.side === "sell" ||
+      trade.side === "adjustment" ||
+      legs.some((leg) => money(leg.proceedsUsd).gt(0))
+        ? "proceedsUsd"
+        : "costUsd";
+    const amountSum = legs.reduce((sum, leg) => sum.plus(money(leg[moneyField])), money("0"));
+    let expectedAmount = trade.buyTotal || "0";
+    if (trade.side === "sell") {
+      expectedAmount = trade.sellTotal ?? trade.buyTotal ?? "0";
+    } else if (trade.side === "adjustment") {
+      try {
+        expectedAmount = money(trade.buyTotal || "0").abs().toString();
+      } catch {
+        expectedAmount = trade.buyTotal || "0";
+      }
+    }
+    const feeRaw = trade.side === "sell" ? trade.sellFee : trade.buyFee;
+    let expectedFee = "0";
+    try {
+      expectedFee = feeRaw && feeRaw.trim() ? money(feeRaw).abs().toString() : "0";
+    } catch {
+      expectedFee = "0";
+    }
+    const amountOk = amountSum.minus(money(expectedAmount || "0")).abs().lte("0.01");
+    const amountPlusFeeOk = amountSum.minus(money(expectedAmount || "0").plus(money(expectedFee))).abs().lte("0.01");
+    if (hasMoney && !amountOk && !amountPlusFeeOk) {
+      issues.push({
+        id: issueId("ts-amt", first.excelRow, tradeId),
+        sheet: "tradesplits",
+        row: first.excelRow,
+        kind: "tradesplit_invalid",
+        message: `TradeSplits 第 ${first.excelRow} 行分帳金額加唔返買賣／股息金額（第 ${trade.row} 行）。`,
+        pending: false,
+      });
+      continue;
+    }
+
     if (!membersOk) {
       continue;
     }

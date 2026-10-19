@@ -207,6 +207,27 @@ export function buildPlan(
 
   flagSameDayJointMismatch(trades, issues);
   suppressOpenLotWhenSold(trades, issues);
+  const seenTradeIds = new Map<string, number>();
+  for (const trade of trades) {
+    const id = trade.exportId?.trim();
+    if (!id || id.startsWith("row:")) {
+      continue;
+    }
+    const prior = seenTradeIds.get(id);
+    if (prior) {
+      issues.push({
+        id: issueId("ti-tid", trade.row, id),
+        sheet: "transinfo",
+        row: trade.row,
+        symbol: trade.symbol,
+        kind: "tradesplit_invalid",
+        message: `TransInfo 第 ${trade.row} 行 TradeId「${id}」同第 ${prior} 行重複。`,
+        pending: false,
+      });
+      continue;
+    }
+    seenTradeIds.set(id, trade.row);
+  }
   const splitMembers = [...knownMembers];
   for (const flow of cashFlows) {
     if (!flow.holderError && flow.memberName.trim() && !splitMembers.includes(flow.memberName)) {

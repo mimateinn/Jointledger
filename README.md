@@ -12,7 +12,7 @@
 
 頂欄有行情跑馬燈。持倉現價可選 Twelve Data。沒有 key 也能開，只是延遲或部份市值。從跑馬燈或持倉打開標的頁，看日線 K 線。
 
-舊表可上傳兩頁 xlsx（或 csv），預覽後再寫入。不連 Google 試算表。再匯入要明示 **追加** 或 **取代**：取代會清走這本表現有的出入金同買賣（成員同聯名戶口保留）。檔案有 Allocation 表（即使空白）就一併清走分配表再寫入檔案內容；檔案沒有 Allocation 表則保留現有分配，不會靜默刪除。追加是加在後面。同一生效日若檔案的分配同已存的不同，追加會報錯而不覆蓋；完全一樣就跳過。
+舊表可上傳兩頁 xlsx（或 csv），預覽後再寫入。不連 Google 試算表。本 app 匯出一定有 Allocation 表；沒有分配就只寫表頭。再匯入要明示 **追加** 或 **取代**：取代會清走這本表現有的出入金同買賣（成員同聯名戶口保留）。檔案有 Allocation 表（即使空白）就一併清走分配表再寫入檔案內容。檔案沒有 Allocation 表（舊版 v0.1.12 兩頁）則保留現有分配，不會靜默刪除，但 F／聯名（Hey + Sze）列一律當 Hey/Sze 50/50，並會建立 Hey 同 Sze，唔受目的地分配影響。追加是加在後面。同一生效日若檔案的分配同已存的不同，追加會報錯而不覆蓋；完全一樣就跳過。
 
 收益率看期間淨值金額，以及 Modified Dietz 百分比（不滿一年不年化）。持倉頁有關注名單。新聞有 Finnhub key 用官方來源，沒有就用公開 RSS。
 
@@ -46,7 +46,7 @@ You can deposit cash, add a position, and delete a position or a user. Stock spl
 
 A ticker runs along the top. Position prices can use Twelve Data. The app still opens with no key; quotes may be delayed, or NAV may be marked partial. Open a symbol from the ticker or from positions to see a daily candlestick chart.
 
-You can upload a two-sheet xlsx (or csv), preview it, then write it in. Google Sheets is not connected. Re-import must choose **append** or **replace**. Replace clears this book's cash flows and trades (members and the joint account stay). If the file includes an Allocation sheet (even an empty one), existing allocation schedules are cleared and rewritten from the file. If the file has no Allocation sheet, existing schedules are kept — they are not silently deleted. Append adds rows. A same-date allocation that differs from the one already stored is an error in append; an identical schedule is skipped.
+You can upload a two-sheet xlsx (or csv), preview it, then write it in. Google Sheets is not connected. App export always includes an Allocation sheet; when the book has no schedule the sheet is header-only. Re-import must choose **append** or **replace**. Replace clears this book's cash flows and trades (members and the joint account stay). If the file includes an Allocation sheet (even an empty one), existing allocation schedules are cleared and rewritten from the file. If the file has no Allocation sheet (legacy v0.1.12 two-sheet files), existing schedules are kept — they are not silently deleted — but `F` / `聯名（Hey + Sze）` rows always become Hey/Sze 50/50 and always create Hey and Sze; a destination schedule never affects those legs. Append adds rows. A same-date allocation that differs from the one already stored is an error in append; an identical schedule is skipped.
 
 Returns show period NAV in dollars and a Modified Dietz percent (not annualized under one year). Positions have a watchlist. News uses Finnhub when a key is set, or public RSS when it is not.
 

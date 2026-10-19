@@ -112,4 +112,45 @@ describe("import wizard blocking errors", () => {
     expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(true);
     expect(document.querySelector("ul.muted")?.textContent ?? "").not.toContain("KIT");
   });
+
+  it("shows TradeSplits errors in the red alert and disables 確認寫入", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total", "TradeId"],
+      rows: [["NVDA", "10", "Kit", "2024-02-01", "100", "T1"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "Kit", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Kit"]],
+      },
+      tradeSplits: {
+        kind: "tradesplits",
+        name: "TradeSplits",
+        headers: ["TradeId", "Member", "Quantity"],
+        rows: [
+          ["T1", "Kit", "7"],
+          ["T1", "Kit", "3"],
+        ],
+      },
+    });
+
+    await renderWizard(plan);
+
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("TradeSplits");
+    expect(alert.textContent).toContain("2");
+    expect(alert.textContent).toContain("唔可以確認寫入");
+    expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(document.querySelector("ul.muted")?.textContent ?? "").not.toContain("TradeSplits");
+  });
 });

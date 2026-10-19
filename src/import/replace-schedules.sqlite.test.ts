@@ -171,5 +171,8 @@ describe("replace clears schedules on sqlite", () => {
     const nvdaIds = new Set(trades.filter((row) => row.symbol === "NVDA").map((row) => row.id));
     const allocations = (await store.listTradeAllocations(book.id)).filter((row) => nvdaIds.has(row.tradeId));
     expect(allocations).toHaveLength(2);
+    const names = new Map((await store.listMembers(book.id)).map((row) => [row.id, row.displayName]));
+    expect(allocations.find((row) => names.get(row.memberId) === "Hey")?.quantity).toBe("5.00000000");
+    expect(allocations.find((row) => names.get(row.memberId) === "Sze")?.quantity).toBe("5.00000000");
   });
 });

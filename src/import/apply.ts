@@ -8,6 +8,7 @@ import {
   createTrade,
   setAllocationSchedule,
 } from "@/ledger";
+import { jointTradeLegs } from "@/ledger/joint-legs";
 import { money, moneyString } from "@/ledger/money";
 import { scheduleInForce } from "@/ledger/set-allocation-schedule";
 import type { AllocationScheduleView, LedgerStore } from "@/ledger/store";
@@ -107,10 +108,37 @@ function heySzeFiftyFifty(
   }));
 }
 
+function tradeAmountField(trade: PlannedTrade): {
+  quantity: string;
+  total: string;
+  field: "cost" | "proceeds";
+} {
+  if (trade.side === "sell") {
+    return {
+      quantity: trade.quantity || "0",
+      total: trade.sellTotal ?? trade.buyTotal,
+      field: "proceeds",
+    };
+  }
+  if (trade.side === "adjustment") {
+    const raw = (trade.buyTotal ?? "0").trim();
+    try {
+      if (money(raw).lt(0)) {
+        return { quantity: trade.quantity || "0", total: money(raw).abs().toString(), field: "cost" };
+      }
+    } catch {
+      /* proceeds */
+    }
+    return { quantity: trade.quantity || "0", total: raw || "0", field: "proceeds" };
+  }
+  return { quantity: trade.quantity || "0", total: trade.buyTotal, field: "cost" };
+}
+
 function resolvedTradeLegs(
   trade: PlannedTrade,
   lookup: (name: string) => { memberId: string; accountId: string },
   destSchedules: AllocationScheduleView[],
+  fileMemberIds: { id: string }[],
 ): CreateTradeLeg[] | undefined {
   if (trade.customLegs?.length) {
     return trade.customLegs.map((leg) => ({
@@ -120,31 +148,25 @@ function resolvedTradeLegs(
       proceedsUsd: leg.proceedsUsd,
     }));
   }
-  if (!trade.legacyHeySze || trade.book !== "joint") {
+  if (trade.legacyHeySze && trade.book === "joint") {
+    const { quantity, total, field } = tradeAmountField(trade);
+    return heySzeFiftyFifty(lookup, quantity, total, field);
+  }
+  if (trade.book !== "joint") {
     return undefined;
   }
   const occurredOn = trade.side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate;
-  if (scheduleInForce(destSchedules, occurredOn)) {
+  if (scheduleInForce(destSchedules, occurredOn) || fileMemberIds.length === 0) {
     return undefined;
   }
-  if (trade.side === "sell") {
-    return heySzeFiftyFifty(lookup, trade.quantity, trade.sellTotal ?? trade.buyTotal, "proceeds");
-  }
-  if (trade.side === "adjustment") {
-    const raw = (trade.buyTotal ?? "0").trim();
-    let amount = raw;
-    let field: "cost" | "proceeds" = "proceeds";
-    try {
-      if (money(raw).lt(0)) {
-        amount = money(raw).abs().toString();
-        field = "cost";
-      }
-    } catch {
-      field = "proceeds";
-    }
-    return heySzeFiftyFifty(lookup, trade.quantity || "0", amount, field);
-  }
-  return heySzeFiftyFifty(lookup, trade.quantity, trade.buyTotal, "cost");
+  const { quantity, total, field } = tradeAmountField(trade);
+  return jointTradeLegs({
+    scheduleLegs: null,
+    members: fileMemberIds,
+    quantity,
+    total,
+    field,
+  });
 }
 
 function scheduleSignature(
@@ -233,14 +255,16 @@ export async function applyImport(
       issue.kind === "missing_required" ||
       issue.kind === "allocation_invalid" ||
       issue.kind === "tradesplit_invalid" ||
-      issue.kind === "duplicate_member",
+      issue.kind === "duplicate_member" ||
+      (issue.kind === "unknown_member" && issue.sheet === "tradesplits"),
   );
   if (mappingBlock) {
     const named = plan.issues.find(
       (issue) =>
         issue.kind === "allocation_invalid" ||
         issue.kind === "tradesplit_invalid" ||
-        issue.kind === "duplicate_member",
+        issue.kind === "duplicate_member" ||
+        (issue.kind === "unknown_member" && issue.sheet === "tradesplits"),
     );
     if (named) {
       throw new Error(named.message);
@@ -319,23 +343,7 @@ async function applyImportBody(
 
   const importedSchedules = plan.schedules ?? [];
   const needed = new Set<string>(plan.members);
-  const destSchedulesForMembers = input.existingBookId
-    ? await store.listAllocationSchedules(bookId)
-    : [];
-  if (
-    plan.trades.some(
-      (trade) =>
-        Boolean(trade.legacyHeySze) &&
-        !trade.skip &&
-        !trade.holderError &&
-        trade.book === "joint" &&
-        !trade.customLegs?.length &&
-        !scheduleInForce(
-          destSchedulesForMembers,
-          trade.side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate,
-        ),
-    )
-  ) {
+  if (plan.trades.some((trade) => trade.legacyHeySze && !trade.skip && !trade.holderError)) {
     needed.add(MEMBER_HEY);
     needed.add(MEMBER_SZE);
   }
@@ -412,6 +420,19 @@ async function applyImportBody(
     input.decisions.reimportMode,
   );
   const destSchedules = await store.listAllocationSchedules(bookId);
+  const fileMemberIds: { id: string }[] = [];
+  const seenFileMembers = new Set<string>();
+  for (const name of needed) {
+    try {
+      const id = lookup(name).memberId;
+      if (!seenFileMembers.has(id)) {
+        seenFileMembers.add(id);
+        fileMemberIds.push({ id });
+      }
+    } catch {
+      /* not on this book */
+    }
+  }
 
   let cashFlowCount = 0;
   let tradeCount = 0;
@@ -468,7 +489,7 @@ async function applyImportBody(
     }
     const accountId = trade.book === "joint" ? joint!.id : memberRef.accountId;
     const memberId = memberRef.memberId;
-    const customLegs = resolvedTradeLegs(trade, lookup, destSchedules);
+    const customLegs = resolvedTradeLegs(trade, lookup, destSchedules, fileMemberIds);
 
     if (trade.side === "split") {
       await w.createSplit(store, {
