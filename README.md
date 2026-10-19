@@ -12,7 +12,7 @@
 
 頂欄有行情跑馬燈。持倉現價可選 Twelve Data。沒有 key 也能開，只是延遲或部份市值。從跑馬燈或持倉打開標的頁，看日線 K 線。
 
-舊表可上傳兩頁 xlsx（或 csv），預覽後再寫入。不連 Google 試算表。
+舊表可上傳兩頁 xlsx（或 csv），預覽後再寫入。不連 Google 試算表。再匯入要明示 **追加** 或 **取代**：取代會清走這本表現有的出入金、買賣、同分配表再寫入（成員同聯名戶口保留）；追加是加在後面。同一生效日若檔案的分配同已存的不同，追加會報錯而不覆蓋；完全一樣就跳過。
 
 收益率看期間淨值金額，以及 Modified Dietz 百分比（不滿一年不年化）。持倉頁有關注名單。新聞有 Finnhub key 用官方來源，沒有就用公開 RSS。
 
@@ -46,7 +46,7 @@ You can deposit cash, add a position, and delete a position or a user. Stock spl
 
 A ticker runs along the top. Position prices can use Twelve Data. The app still opens with no key; quotes may be delayed, or NAV may be marked partial. Open a symbol from the ticker or from positions to see a daily candlestick chart.
 
-You can upload a two-sheet xlsx (or csv), preview it, then write it in. Google Sheets is not connected.
+You can upload a two-sheet xlsx (or csv), preview it, then write it in. Google Sheets is not connected. Re-import must choose **append** or **replace**. Replace clears this book's cash flows, trades, and allocation schedules, then writes the file (members and the joint account stay). Append adds rows. A same-date allocation that differs from the one already stored is an error in append; an identical schedule is skipped.
 
 Returns show period NAV in dollars and a Modified Dietz percent (not annualized under one year). Positions have a watchlist. News uses Finnhub when a key is set, or public RSS when it is not.
 

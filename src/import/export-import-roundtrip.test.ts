@@ -15,6 +15,7 @@ import { applyImport } from "./apply";
 import { EXPORT_FILENAME, exportBookXlsx, writeBookXlsx } from "./book-export";
 import { mapUpload } from "./columns";
 import { legacyV012ExportSheets } from "./fixtures/legacy-v0-1-12";
+import { legacyV012WahExportSheets } from "./fixtures/legacy-v0-1-12-wah";
 import { buildPlan } from "./plan";
 
 vi.mock("server-only", () => ({}));
@@ -81,8 +82,8 @@ async function snapshotBook(store: LedgerStore, bookId: string) {
         };
       })
       .sort((a, b) =>
-        `${a.occurredOn}:${a.side}:${a.symbol}:${a.note ?? ""}`.localeCompare(
-          `${b.occurredOn}:${b.side}:${b.symbol}:${b.note ?? ""}`,
+        `${a.occurredOn}:${a.side}:${a.symbol}:${a.quantity}:${a.accountKind}:${a.note ?? ""}`.localeCompare(
+          `${b.occurredOn}:${b.side}:${b.symbol}:${b.quantity}:${b.accountKind}:${b.note ?? ""}`,
         ),
       ),
     allocations: trades
@@ -103,8 +104,8 @@ async function snapshotBook(store: LedgerStore, bookId: string) {
           }));
       })
       .sort((a, b) =>
-        `${a.occurredOn}:${a.side}:${a.symbol}:${a.memberName}`.localeCompare(
-          `${b.occurredOn}:${b.side}:${b.symbol}:${b.memberName}`,
+        `${a.occurredOn}:${a.side}:${a.symbol}:${a.quantity}:${a.memberName}`.localeCompare(
+          `${b.occurredOn}:${b.side}:${b.symbol}:${b.quantity}:${b.memberName}`,
         ),
       ),
     schedules: schedules
@@ -299,7 +300,9 @@ describe("export / import round-trip", () => {
     const bytes = await exportBookXlsx(store, bookId);
     const { empty, result, extras } = await importExportedBook(bytes);
     expect(extras.members?.rows.flat()).toEqual(expect.arrayContaining(["Hey", "Kit", "Sze", "Wah"]));
-    expect(extras.allocation?.rows.some((row) => row.includes("0.6") || row.includes("0.60"))).toBe(true);
+    expect(
+      extras.allocation?.rows.some((row) => row.some((cell) => cell.startsWith("0.6"))),
+    ).toBe(true);
 
     const after = await snapshotBook(empty, result.bookId);
     expect(after.members).toEqual(before.members);
@@ -435,19 +438,15 @@ describe("export / import round-trip", () => {
     ]);
 
     const bytes = await exportBookXlsx(store, book.id);
+    const before = await snapshotBook(store, book.id);
     const { empty, result, extras } = await importExportedBook(bytes, "小明");
-    expect(extras.allocation?.rows.length).toBeGreaterThan(0);
+    expect(extras.allocation).toBeUndefined();
     expect(extras.members?.rows.flat()).toEqual(expect.arrayContaining(["小明", "小紅", "小華"]));
     expect(extras.members?.rows.flat().some((name) => name === "Hey" || name === "Sze")).toBe(false);
 
     const after = await snapshotBook(empty, result.bookId);
-    expect(after.members.map((row) => row.displayName).sort()).toEqual(["小明", "小紅", "小華"]);
-    expect(after.members.some((row) => row.displayName === "Hey" || row.displayName === "Sze")).toBe(false);
-    expect(after.schedules).toHaveLength(1);
-    expect(after.schedules[0]?.legs).toHaveLength(3);
-    const percents = after.schedules[0]!.legs.map((leg) => Number(leg.percent));
-    expect(percents.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1, 7);
-    expect(percents.every((value) => Math.abs(value - 1 / 3) < 0.0001)).toBe(true);
+    expect(after).toEqual(before);
+    expect(after.schedules).toEqual([]);
     const nvda = after.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
     expect(nvda).toHaveLength(3);
     expect(nvda.map((row) => row.memberName).sort()).toEqual(["小明", "小紅", "小華"]);
@@ -944,10 +943,10 @@ describe("export / import round-trip", () => {
       },
     });
     expect(plan.blocking).toBe(true);
-    const issue = plan.issues.find((item) => item.kind === "ambiguous_holder");
-    expect(issue?.row).toBe(2);
-    expect(issue?.message).toContain("KIT");
-    expect(issue?.message).toContain("2");
+    const issue = plan.issues.find((item) => item.kind === "duplicate_member");
+    expect(issue?.row).toBe(3);
+    expect(issue?.message).toContain("kit");
+    expect(issue?.message).toContain("3");
   });
 
   it("round-trips members A/H/明 on a no-schedule joint book with Member A NAV 1080", async () => {
@@ -1007,6 +1006,7 @@ describe("export / import round-trip", () => {
     const afterNav = await memberNav(empty, result.bookId, afterA.id);
     expect(afterNav.cashUsd.toFixed(2)).toBe("1080.00");
     expect(afterNav.navUsd.toFixed(2)).toBe("1080.00");
+    expect(await empty.listAllocationSchedules(result.bookId)).toEqual([]);
   });
 
   it("keeps schedule count unchanged across three replace imports, and export1 equals export2 including Members", async () => {
@@ -1123,6 +1123,275 @@ describe("export / import round-trip", () => {
     const nvda = after.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
     expect(nvda.find((row) => row.memberName === "Hey")?.quantity).toBe(moneyKey("7"));
     expect(nvda.find((row) => row.memberName === "Sze")?.quantity).toBe(moneyKey("3"));
+  });
+
+  it("keeps same-day joint and personal NVDA buys distinct using the app export TradeId", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey, account: heyCash } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const kit = await addMember(store, { bookId: book.id, displayName: "Kit" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.5" },
+        { memberId: sze.member.id, percent: "0.5" },
+      ],
+    });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: kit.member.id,
+      ledgerAccountId: kit.account.id,
+      amountHkd: "1000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: hey.id,
+      ledgerAccountId: heyCash.id,
+      amountHkd: "1000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-02-01",
+      legs: [
+        { memberId: hey.id, quantity: "7", costUsd: "70", proceedsUsd: "0" },
+        { memberId: sze.member.id, quantity: "3", costUsd: "30", proceedsUsd: "0" },
+      ],
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      symbol: "NVDA",
+      quantity: "2",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: kit.account.id,
+      memberId: kit.member.id,
+      symbol: "NVDA",
+      quantity: "2",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+
+    const before = await snapshotBook(store, book.id);
+    const bytes = await exportBookXlsx(store, book.id);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    expect(parsed.sheets.some((sheet) => sheet.kind === "tradesplits")).toBe(true);
+    const { empty, result } = await importExportedBook(bytes);
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after).toEqual(before);
+    const jointBuys = after.allocations.filter(
+      (row) => row.symbol === "NVDA" && row.side === "buy" && row.accountKind === "joint",
+    );
+    expect(jointBuys.find((row) => row.memberName === "Hey" && row.quantity === moneyKey("7"))).toBeTruthy();
+    expect(jointBuys.find((row) => row.memberName === "Sze" && row.quantity === moneyKey("3"))).toBeTruthy();
+    expect(jointBuys.find((row) => row.memberName === "Hey" && row.quantity === moneyKey("1"))).toBeTruthy();
+    expect(jointBuys.find((row) => row.memberName === "Sze" && row.quantity === moneyKey("1"))).toBeTruthy();
+    const kitBuy = after.allocations.find(
+      (row) => row.symbol === "NVDA" && row.side === "buy" && row.memberName === "Kit",
+    );
+    expect(kitBuy?.quantity).toBe(moneyKey("2"));
+    expect(kitBuy?.accountKind).toBe("personal");
+  });
+
+  it("errors when TradeSplits quantities 99+1 do not sum to the trade quantity 10", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.5" },
+        { memberId: sze.member.id, percent: "0.5" },
+      ],
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-02-01",
+      legs: [
+        { memberId: hey.id, quantity: "7", costUsd: "70", proceedsUsd: "0" },
+        { memberId: sze.member.id, quantity: "3", costUsd: "30", proceedsUsd: "0" },
+      ],
+    });
+    const bytes = await exportBookXlsx(store, book.id);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    const { transinfo, account } = pickSheets(parsed);
+    const extras = pickOptionalSheets(parsed);
+    expect(extras.tradeSplits).toBeTruthy();
+    const qtyIndex = extras.tradeSplits!.headers.findIndex((header) => header === "Quantity");
+    extras.tradeSplits!.rows = extras.tradeSplits!.rows.map((row, index) => {
+      const next = [...row];
+      next[qtyIndex] = index === 0 ? "99" : "1";
+      return next;
+    });
+    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapUpload(transinfo, account), extras);
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find((item) => item.kind === "tradesplit_invalid");
+    expect(issue?.message).toMatch(/第 \d+ 行/);
+    expect(issue?.row).toBeGreaterThan(0);
+    await expect(
+      applyImport(createMemoryStore(), plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow(/第 \d+ 行/);
+  });
+
+  it("keeps a Hey/Sze 4.5/4.5 joint dividend after Wah joins", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await createAdjustment(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      occurredOn: "2024-07-01",
+      note: "股息 MSFT",
+      symbol: "MSFT",
+      amountUsd: "9",
+    });
+    const beforeWah = (await store.listTradeAllocations(book.id)).map((row) => row.proceedsUsd).sort();
+    expect(beforeWah).toEqual(["4.50000000", "4.50000000"]);
+    await addMember(store, { bookId: book.id, displayName: "Wah" });
+
+    const bytes = await exportBookXlsx(store, book.id);
+    const { empty, result } = await importExportedBook(bytes);
+    const after = await snapshotBook(empty, result.bookId);
+    const div = after.allocations.filter((row) => row.symbol === "MSFT" && row.side === "adjustment");
+    expect(div.find((row) => row.memberName === "Hey")?.proceedsUsd).toBe(moneyKey("4.5"));
+    expect(div.find((row) => row.memberName === "Sze")?.proceedsUsd).toBe(moneyKey("4.5"));
+    expect(div.some((row) => row.memberName === "Wah")).toBe(false);
+  });
+
+  it("round-trips a personal-only book with no schedule and no phantom 聯名 account", async () => {
+    const store = createMemoryStore();
+    const { book, member, account } = await createBook(store, {
+      name: "獨倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Kit",
+    });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: member.id,
+      ledgerAccountId: account.id,
+      amountHkd: "1000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "NVDA",
+      quantity: "2",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+    const before = await snapshotBook(store, book.id);
+    expect(before.accounts.some((row) => row.kind === "joint")).toBe(false);
+    expect(before.schedules).toEqual([]);
+    const { empty, result, extras } = await importExportedBook(await exportBookXlsx(store, book.id), "Kit");
+    expect(extras.allocation).toBeUndefined();
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after).toEqual(before);
+    expect(after.accounts.some((row) => row.kind === "joint" || row.name === "聯名")).toBe(false);
+    expect(after.schedules).toEqual([]);
+  });
+
+  it("keeps legacy F / 聯名（Hey + Sze） as Hey/Sze 50/50 even when Wah is a member", async () => {
+    const { transinfo, account } = legacyV012WahExportSheets();
+    const mapping = mapUpload(transinfo, account);
+    const plan = buildPlan("book-export.xlsx", "legacy-wah", transinfo, account, mapping);
+    expect(plan.blocking).toBe(false);
+    expect(plan.trades.every((row) => row.legacyHeySze)).toBe(true);
+    const store = createMemoryStore();
+    const result = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      decisions: importAll(plan),
+    });
+    const after = await snapshotBook(store, result.bookId);
+    expect(after.members.map((row) => row.displayName).sort()).toEqual(["Hey", "Sze", "Wah"]);
+    const nvda = after.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
+    expect(nvda.find((row) => row.memberName === "Hey")?.quantity).toBe(moneyKey("5"));
+    expect(nvda.find((row) => row.memberName === "Sze")?.quantity).toBe(moneyKey("5"));
+    expect(nvda.some((row) => row.memberName === "Wah")).toBe(false);
+    const aapl = after.allocations.filter((row) => row.symbol === "AAPL" && row.side === "buy");
+    expect(aapl.find((row) => row.memberName === "Hey")?.quantity).toBe(moneyKey("2"));
+    expect(aapl.find((row) => row.memberName === "Sze")?.quantity).toBe(moneyKey("2"));
+    expect(aapl.some((row) => row.memberName === "Wah")).toBe(false);
+  });
+
+  it("errors on Members names that differ only by case", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "Kit", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "Kit", "1000", "1", "1000", "in"]],
+    };
+    const members = {
+      kind: "members" as const,
+      name: "Members",
+      headers: ["Name"],
+      rows: [["Kit"], ["KIT"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { members });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find((item) => item.kind === "duplicate_member");
+    expect(issue?.message).toContain("KIT");
+    expect(issue?.row).toBe(3);
+    const sameCase = {
+      kind: "members" as const,
+      name: "Members",
+      headers: ["Name"],
+      rows: [["Kit"], ["Kit"]],
+    };
+    const planSame = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: sameCase,
+    });
+    expect(planSame.blocking).toBe(true);
+    expect(planSame.issues.some((item) => item.kind === "duplicate_member")).toBe(true);
   });
 });
 

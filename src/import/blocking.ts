@@ -8,7 +8,12 @@ export function holderBlockingIssues(plan: Pick<ImportPlan, "issues">): ImportIs
 }
 
 export function allocationBlockingIssues(plan: Pick<ImportPlan, "issues">): ImportIssue[] {
-  return plan.issues.filter((issue) => issue.kind === "allocation_invalid");
+  return plan.issues.filter(
+    (issue) =>
+      issue.kind === "allocation_invalid" ||
+      issue.kind === "tradesplit_invalid" ||
+      issue.kind === "duplicate_member",
+  );
 }
 
 export function mappingBlockingIssues(plan: Pick<ImportPlan, "issues">): ImportIssue[] {

@@ -8,7 +8,7 @@ export function normalizeScheduleLegs(legs: readonly { name: string; raw: string
   const total = legs.reduce((sum, leg) => sum.plus(money(leg.raw)), money("0"));
   return legs.map((leg) => ({
     name: leg.name,
-    percent: money(leg.raw).div(total).toString(),
+    percent: money(leg.raw).div(total).toFixed(8),
   }));
 }
 

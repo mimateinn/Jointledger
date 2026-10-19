@@ -74,6 +74,9 @@ const TRANSINFO_ALIASES: Record<string, TransInfoTarget> = {
   備註: "note",
   备注: "note",
   附註: "note",
+  tradeid: "trade_id",
+  rowref: "trade_id",
+  編號: "trade_id",
   hey: "split_hey",
   heypercent: "split_hey",
   hpercent: "split_hey",
@@ -119,6 +122,10 @@ export function normalizeHeader(header: string): string {
     .trim()
     .toLowerCase()
     .replace(/[\s_\-./()（）：:]+/g, "");
+}
+
+export function headerIndex(headers: string[], aliases: string[]): number {
+  return headers.findIndex((header) => aliases.includes(normalizeHeader(header)));
 }
 
 export function guessTarget(kind: SheetKind, header: string): ColumnTarget | null {

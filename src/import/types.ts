@@ -16,6 +16,7 @@ export type TransInfoTarget =
   | "pnl"
   | "row_kind"
   | "note"
+  | "trade_id"
   | "split_hey"
   | "split_sze"
   | "split_wah";
@@ -77,6 +78,8 @@ export type IssueKind =
   | "empty_holder"
   | "ambiguous_holder"
   | "allocation_invalid"
+  | "tradesplit_invalid"
+  | "duplicate_member"
   | "missing_fx"
   | "missing_date"
   | "missing_qty"
@@ -146,6 +149,10 @@ export type PlannedTrade = {
   pending: boolean;
   warningIds: string[];
   holderError?: "empty" | "unknown" | "ambiguous";
+  /** Stable id from the export TradeId column; used to attach TradeSplits. */
+  exportId?: string;
+  /** v0.1.12 F / 聯名（Hey + Sze） → Hey/Sze 50/50 even if Wah is a member. */
+  legacyHeySze?: boolean;
   customLegs?: { memberName: string; quantity: string; costUsd: string; proceedsUsd: string }[];
 };
 

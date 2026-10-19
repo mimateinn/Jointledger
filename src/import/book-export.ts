@@ -33,6 +33,7 @@ export const TRANSINFO_EXPORT_HEADERS = [
   "盈虧",
   "種類",
   "備註",
+  "TradeId",
 ] as const;
 
 /** v0.1.12 and earlier: no note column, no Members/Allocation sheets. */
@@ -67,6 +68,7 @@ export const ALLOCATION_EXPORT_HEADERS = ["Effective Date", "Member", "Percent"]
 
 export const TRADE_SPLITS_SHEET_NAME = "TradeSplits";
 export const TRADE_SPLITS_EXPORT_HEADERS = [
+  "TradeId",
   "Date",
   "Symbol",
   "Side",
@@ -166,7 +168,7 @@ export async function exportBookXlsx(store: LedgerStore, bookId: string): Promis
   const sheets = buildBookSheets({ members, accounts, cashFlows, trades, allocations, schedules });
   return writeBookXlsx(sheets.transinfo, sheets.account, {
     members: sheets.members,
-    allocation: sheets.allocation,
+    allocation: sheets.allocation.rows.length > 0 ? sheets.allocation : undefined,
     tradeSplits: sheets.tradeSplits,
   });
 }

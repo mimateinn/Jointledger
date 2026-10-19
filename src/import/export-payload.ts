@@ -1,5 +1,5 @@
 import { jointTradeLegs } from "@/ledger/joint-legs";
-import { money, moneyString } from "@/ledger/money";
+import { money } from "@/ledger/money";
 import { scheduleInForce } from "@/ledger/set-allocation-schedule";
 import type { AllocationScheduleView } from "@/ledger/store";
 import { tradeCashAmountUsd } from "@/ledger/trade-amount";
@@ -8,6 +8,7 @@ import { cashOwnForMember, jointHolderToken, tradeOwnForAccount } from "./own";
 import { exportRowKind, type ExportRowKind } from "./row-kind";
 
 export type TransInfoExportRow = {
+  tradeId: string;
   kind: ExportRowKind;
   symbol: string;
   quantity: string;
@@ -45,6 +46,7 @@ export type AllocationExportRow = {
 };
 
 export type TradeSplitExportRow = {
+  tradeId: string;
   occurredOn: string;
   symbol: string;
   side: string;
@@ -96,23 +98,12 @@ function holderForTrade(
   return tradeOwnForAccount(account?.kind, member?.displayName, jointToken);
 }
 
-function equalMemberPercents(count: number): string[] {
-  if (count <= 0) {
-    return [];
+function percentCell(value: string): string {
+  try {
+    return money(value).toFixed(8);
+  } catch {
+    return value;
   }
-  const each = money("1").div(count);
-  const parts: string[] = [];
-  let left = money("1");
-  for (let i = 0; i < count; i += 1) {
-    if (i === count - 1) {
-      parts.push(left.toString());
-      break;
-    }
-    const part = each.toString();
-    parts.push(part);
-    left = left.minus(money(part));
-  }
-  return parts;
 }
 
 function feeCell(value: string): string {
@@ -137,24 +128,20 @@ export function buildExportPayload(input: {
 
   const transinfo: TransInfoExportRow[] = [];
   const tradeRows = input.trades.slice().sort((a, b) => {
-    const byDate = a.occurredOn.localeCompare(b.occurredOn);
-    if (byDate !== 0) {
-      return byDate;
-    }
-    const rank = (side: Trade["side"]) =>
-      side === "buy" ? 0 : side === "split" ? 1 : side === "adjustment" ? 2 : 3;
-    const bySide = rank(a.side) - rank(b.side);
-    if (bySide !== 0) {
-      return bySide;
-    }
-    return a.symbol.localeCompare(b.symbol);
+    const ownA = holderForTrade(a, accountsById, membersById, jointToken);
+    const ownB = holderForTrade(b, accountsById, membersById, jointToken);
+    const keyA = `${a.occurredOn}|${a.side}|${a.symbol}|${a.quantity}|${ownA}|${a.note ?? ""}`;
+    const keyB = `${b.occurredOn}|${b.side}|${b.symbol}|${b.quantity}|${ownB}|${b.note ?? ""}`;
+    return keyA.localeCompare(keyB);
   });
+  const exportIds = new Map(tradeRows.map((trade, index) => [trade.id, `T${index + 1}`]));
 
   for (const trade of tradeRows) {
     const own = holderForTrade(trade, accountsById, membersById, jointToken);
     const note = trade.note ?? "";
     if (trade.side === "split") {
       transinfo.push({
+        tradeId: exportIds.get(trade.id) ?? trade.id,
         kind: "split",
         symbol: trade.symbol,
         quantity: num(trade.quantity),
@@ -180,6 +167,7 @@ export function buildExportPayload(input: {
         allocations: input.allocations.filter((row) => row.tradeId === trade.id),
       });
       transinfo.push({
+        tradeId: exportIds.get(trade.id) ?? trade.id,
         kind: exportRowKind("adjustment", trade.note),
         symbol: trade.symbol,
         quantity: num(trade.quantity),
@@ -200,6 +188,7 @@ export function buildExportPayload(input: {
     if (trade.side === "sell") {
       const sellTotal = sumAlloc(input.allocations, trade.id, "proceedsUsd");
       transinfo.push({
+        tradeId: exportIds.get(trade.id) ?? trade.id,
         kind: "sell",
         symbol: trade.symbol,
         quantity: num(trade.quantity),
@@ -220,6 +209,7 @@ export function buildExportPayload(input: {
 
     const buyTotal = sumAlloc(input.allocations, trade.id, "costUsd");
     transinfo.push({
+      tradeId: exportIds.get(trade.id) ?? trade.id,
       kind: "buy",
       symbol: trade.symbol,
       quantity: num(trade.quantity),
@@ -288,42 +278,51 @@ export function buildExportPayload(input: {
         allocations.push({
           effectiveOn: schedule.effectiveOn,
           memberName,
-          percent: num(leg.percent),
+          percent: percentCell(leg.percent),
         });
       }
     }
-  } else if (input.members.length > 0) {
-    const eventDates = [
-      ...input.cashFlows.map((row) => row.occurredOn),
-      ...input.trades.map((row) => row.occurredOn),
-    ].sort((a, b) => a.localeCompare(b));
-    const effectiveOn = eventDates[0] ?? "1970-01-01";
-    const named = input.members
-      .slice()
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
-    const percents = equalMemberPercents(named.length);
-    named.forEach((member, index) => {
-      allocations.push({
-        effectiveOn,
-        memberName: member.displayName,
-        percent: percents[index] ?? moneyString("0"),
-      });
-    });
   }
 
+  const tradeSplits = collectCustomTradeSplits({
+    tradeRows,
+    exportIds,
+    accountsById,
+    membersById,
+    members: input.members,
+    allocations: input.allocations,
+    schedules: input.schedules ?? [],
+  });
+
+  return { transinfo, account, members, allocations, tradeSplits };
+}
+
+function collectCustomTradeSplits(input: {
+  tradeRows: Trade[];
+  exportIds: Map<string, string>;
+  accountsById: Map<string, LedgerAccount>;
+  membersById: Map<string, Member>;
+  members: Member[];
+  allocations: TradeAllocation[];
+  schedules: AllocationScheduleView[];
+}): TradeSplitExportRow[] {
   const tradeSplits: TradeSplitExportRow[] = [];
-  for (const trade of tradeRows) {
-    const account = accountsById.get(trade.ledgerAccountId);
-    if (account?.kind !== "joint" || (trade.side !== "buy" && trade.side !== "sell")) {
+  for (const trade of input.tradeRows) {
+    const account = input.accountsById.get(trade.ledgerAccountId);
+    if (account?.kind !== "joint" || trade.side === "split") {
       continue;
     }
     const actual = input.allocations.filter((row) => row.tradeId === trade.id);
-    if (actual.length < 2) {
+    if (actual.length === 0) {
       continue;
     }
-    const field = trade.side === "sell" ? "proceeds" : "cost";
-    const total = actual.reduce((sum, row) => sum.plus(money(row[field === "cost" ? "costUsd" : "proceedsUsd"])), money("0"));
-    const schedule = scheduleInForce(input.schedules ?? [], trade.occurredOn);
+    const field =
+      trade.side === "sell" || actual.some((row) => money(row.proceedsUsd).gt(0)) ? "proceeds" : "cost";
+    const total = actual.reduce(
+      (sum, row) => sum.plus(money(row[field === "cost" ? "costUsd" : "proceedsUsd"])),
+      money("0"),
+    );
+    const schedule = scheduleInForce(input.schedules, trade.occurredOn);
     const expected = jointTradeLegs({
       scheduleLegs: schedule?.legs ?? null,
       members: input.members,
@@ -331,25 +330,42 @@ export function buildExportPayload(input: {
       total: total.toString(),
       field,
     });
-    const expectedQty = new Map(expected.map((leg) => [leg.memberId, money(leg.quantity)]));
-    const custom = actual.length !== expected.length || actual.some((row) => {
-      const want = expectedQty.get(row.memberId);
-      return !want || !money(row.quantity).eq(want);
-    });
+    const expectedByMember = new Map(
+      expected.map((leg) => [
+        leg.memberId,
+        {
+          quantity: money(leg.quantity),
+          costUsd: money(leg.costUsd ?? "0"),
+          proceedsUsd: money(leg.proceedsUsd ?? "0"),
+        },
+      ]),
+    );
+    const custom =
+      actual.length !== expected.length ||
+      actual.some((row) => {
+        const want = expectedByMember.get(row.memberId);
+        return (
+          !want ||
+          !money(row.quantity).eq(want.quantity) ||
+          !money(row.costUsd).eq(want.costUsd) ||
+          !money(row.proceedsUsd).eq(want.proceedsUsd)
+        );
+      });
     if (!custom) {
       continue;
     }
     const sorted = actual.slice().sort((a, b) => {
-      const nameA = membersById.get(a.memberId)?.displayName ?? a.memberId;
-      const nameB = membersById.get(b.memberId)?.displayName ?? b.memberId;
+      const nameA = input.membersById.get(a.memberId)?.displayName ?? a.memberId;
+      const nameB = input.membersById.get(b.memberId)?.displayName ?? b.memberId;
       return nameA.localeCompare(nameB);
     });
     for (const leg of sorted) {
-      const memberName = membersById.get(leg.memberId)?.displayName;
+      const memberName = input.membersById.get(leg.memberId)?.displayName;
       if (!memberName) {
         continue;
       }
       tradeSplits.push({
+        tradeId: input.exportIds.get(trade.id) ?? trade.id,
         occurredOn: trade.occurredOn,
         symbol: trade.symbol,
         side: trade.side,
@@ -360,8 +376,7 @@ export function buildExportPayload(input: {
       });
     }
   }
-
-  return { transinfo, account, members, allocations, tradeSplits };
+  return tradeSplits;
 }
 
 export function transinfoCells(row: TransInfoExportRow): string[] {
@@ -380,6 +395,7 @@ export function transinfoCells(row: TransInfoExportRow): string[] {
     row.pnl,
     row.kind,
     row.note,
+    row.tradeId,
   ];
 }
 
@@ -396,5 +412,14 @@ export function allocationCells(row: AllocationExportRow): string[] {
 }
 
 export function tradeSplitCells(row: TradeSplitExportRow): string[] {
-  return [row.occurredOn, row.symbol, row.side, row.memberName, row.quantity, row.costUsd, row.proceedsUsd];
+  return [
+    row.tradeId,
+    row.occurredOn,
+    row.symbol,
+    row.side,
+    row.memberName,
+    row.quantity,
+    row.costUsd,
+    row.proceedsUsd,
+  ];
 }

@@ -30,6 +30,7 @@ const TI_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "pnl", label: "盈虧" },
   { value: "row_kind", label: "種類" },
   { value: "note", label: "備註" },
+  { value: "trade_id", label: "TradeId" },
   { value: "split_hey", label: "Hey 分帳" },
   { value: "split_sze", label: "Sze 分帳" },
   { value: "split_wah", label: "Wah 分帳" },

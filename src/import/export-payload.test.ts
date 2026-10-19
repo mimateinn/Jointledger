@@ -52,7 +52,7 @@ describe("export adjustment / dividend amount", () => {
     expect(transinfoCells(row!)).toContain("100");
     expect(transinfoCells(row!)).toContain("dividend");
     expect(row?.note).toBe("股息 MSFT");
-    expect(payload.allocations.some((item) => item.percent === "0.6" && item.memberName === "Hey")).toBe(
+    expect(payload.allocations.some((item) => item.percent === "0.60000000" && item.memberName === "Hey")).toBe(
       true,
     );
   });

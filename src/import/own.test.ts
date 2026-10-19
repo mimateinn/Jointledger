@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cashOwnForMember,
+  isLegacyHeySzeHolder,
   jointHolderToken,
   resolveHolder,
   tradeOwnForAccount,
@@ -19,6 +20,9 @@ describe("holder resolution", () => {
     expect(holder("F")?.book).toBe("joint");
     expect(holder("A")?.memberName).toBe("Sze");
     expect(holder("D")?.memberName).toBe("Wah");
+    expect(holder("聯名（Hey + Sze）")?.book).toBe("joint");
+    expect(isLegacyHeySzeHolder("聯名（Hey + Sze）")).toBe(true);
+    expect(isLegacyHeySzeHolder("F")).toBe(false);
   });
 
   it("recognises any listed ledger member by name", () => {

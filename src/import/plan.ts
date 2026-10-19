@@ -1,8 +1,10 @@
 import { money, moneyString } from "@/ledger/money";
 import { dividendNote } from "@/ledger/dividend";
-import { normalizeScheduleLegs } from "./canon";
+import { parseAllocationSheet } from "./allocation-sheet";
 import { cell, normalizeHeader } from "./columns";
-import { membersForBook, ownAccountLabel, resolveHolder, type ResolvedHolder } from "./own";
+import { issueId } from "./issue-id";
+import { MEMBER_HEY, MEMBER_SZE } from "./canon";
+import { isLegacyHeySzeHolder, membersForBook, ownAccountLabel, resolveHolder, type ResolvedHolder } from "./own";
 import type {
   ColumnMap,
   ColumnMapResult,
@@ -16,11 +18,8 @@ import type {
   PlannedTrade,
 } from "./types";
 import { isDividendKindRaw, parseRowKind } from "./row-kind";
+import { attachCustomTradeSplits } from "./trade-splits";
 import { absMoney, extractTickers, parseDate, parseInOut, parseMoney } from "./values";
-
-function issueId(prefix: string, row: number, extra = ""): string {
-  return `${prefix}-${row}${extra ? `-${extra}` : ""}`;
-}
 
 function looksLikeAllocation(detail: string): boolean {
   const text = detail.toLowerCase();
@@ -61,7 +60,7 @@ function holderIssue(
   };
 }
 
-function parseMembersSheet(sheet: ParsedSheet | undefined): string[] {
+function parseMembersSheet(sheet: ParsedSheet | undefined, issues: ImportIssue[]): string[] {
   if (!sheet) {
     return [];
   }
@@ -71,148 +70,32 @@ function parseMembersSheet(sheet: ParsedSheet | undefined): string[] {
   });
   const index = nameIndex >= 0 ? nameIndex : 0;
   const names: string[] = [];
-  const seen = new Set<string>();
-  for (const row of sheet.rows) {
+  const seenExact = new Set<string>();
+  const seenLower = new Map<string, { name: string; row: number }>();
+  for (const [rowIndex, row] of sheet.rows.entries()) {
+    const excelRow = rowIndex + 2;
     const name = (row[index] ?? "").trim();
     if (!name) {
       continue;
     }
-    if (seen.has(name)) {
+    const lower = name.toLowerCase();
+    const prior = seenLower.get(lower);
+    if (prior || seenExact.has(name)) {
+      issues.push({
+        id: issueId("mem-dup", excelRow, name),
+        sheet: "members",
+        row: excelRow,
+        kind: "duplicate_member",
+        message: `Members 第 ${excelRow} 行「${name}」同「${prior?.name ?? name}」重複（只差大小寫亦唔得），唔會合併。`,
+        pending: false,
+      });
       continue;
     }
-    seen.add(name);
+    seenExact.add(name);
+    seenLower.set(lower, { name, row: excelRow });
     names.push(name);
   }
   return names;
-}
-
-function headerIndex(headers: string[], aliases: string[]): number {
-  return headers.findIndex((header) => aliases.includes(normalizeHeader(header)));
-}
-
-function parsePercentRaw(raw: string): string | null {
-  return parseMoney(raw.replace(/%/g, ""));
-}
-
-function parseAllocationSheet(
-  sheet: ParsedSheet | undefined,
-  listedMembers: readonly string[],
-  issues: ImportIssue[],
-): PlannedAllocationSchedule[] {
-  if (!sheet) {
-    return [];
-  }
-  const dateIndex = headerIndex(sheet.headers, ["effectivedate", "effectiveon", "date", "生效日", "日期"]);
-  const memberIndex = headerIndex(sheet.headers, ["member", "name", "holder", "成員", "姓名"]);
-  const percentIndex = headerIndex(sheet.headers, ["percent", "percentage", "ratio", "share", "比例", "百分比"]);
-  if (dateIndex < 0 || memberIndex < 0 || percentIndex < 0) {
-    issues.push({
-      id: "alloc-headers",
-      sheet: "allocation",
-      row: 0,
-      kind: "allocation_invalid",
-      message: `Allocation 表頭缺必要欄（Effective Date / Member / Percent）。`,
-      pending: false,
-    });
-    return [];
-  }
-
-  const listed = new Set(listedMembers.map((name) => name.trim().toLowerCase()));
-  const groups = new Map<string, { name: string; raw: string; row: number }[]>();
-  for (const [index, row] of sheet.rows.entries()) {
-    const excelRow = index + 2;
-    const dateRaw = (row[dateIndex] ?? "").trim();
-    const name = (row[memberIndex] ?? "").trim();
-    const raw = (row[percentIndex] ?? "").trim();
-    if (!dateRaw && !name && !raw) {
-      continue;
-    }
-    const date = parseDate(dateRaw);
-    if (!date || !name || !raw) {
-      issues.push({
-        id: issueId("alloc-row", excelRow),
-        sheet: "allocation",
-        row: excelRow,
-        kind: "allocation_invalid",
-        message: `Allocation 第 ${excelRow} 行缺生效日／成員／比例。`,
-        pending: false,
-      });
-      continue;
-    }
-    const percent = parsePercentRaw(raw);
-    if (!percent) {
-      issues.push({
-        id: issueId("alloc-pct", excelRow),
-        sheet: "allocation",
-        row: excelRow,
-        kind: "allocation_invalid",
-        message: `Allocation 第 ${excelRow} 行 percent「${raw}」無效。`,
-        pending: false,
-      });
-      continue;
-    }
-    try {
-      if (!money(percent).gt(0)) {
-        issues.push({
-          id: issueId("alloc-pct", excelRow),
-          sheet: "allocation",
-          row: excelRow,
-          kind: "allocation_invalid",
-          message: `Allocation 第 ${excelRow} 行 percent「${raw}」無效。`,
-          pending: false,
-        });
-        continue;
-      }
-    } catch {
-      issues.push({
-        id: issueId("alloc-pct", excelRow),
-        sheet: "allocation",
-        row: excelRow,
-        kind: "allocation_invalid",
-        message: `Allocation 第 ${excelRow} 行 percent「${raw}」無效。`,
-        pending: false,
-      });
-      continue;
-    }
-    if (!listed.has(name.toLowerCase())) {
-      issues.push({
-        id: issueId("alloc-member", excelRow, name),
-        sheet: "allocation",
-        row: excelRow,
-        kind: "allocation_invalid",
-        message: `Allocation 第 ${excelRow} 行成員「${name}」唔喺 Members 表，無自動開戶。`,
-        pending: false,
-      });
-      continue;
-    }
-    const list = groups.get(date) ?? [];
-    list.push({ name, raw: percent, row: excelRow });
-    groups.set(date, list);
-  }
-
-  const schedules: PlannedAllocationSchedule[] = [];
-  for (const [effectiveOn, legs] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    try {
-      schedules.push({
-        effectiveOn,
-        legs: normalizeScheduleLegs(legs).map((leg) => ({
-          memberName: leg.name,
-          percent: leg.percent,
-        })),
-      });
-    } catch {
-      const row = legs[0]?.row ?? 0;
-      issues.push({
-        id: issueId("alloc-sum", row),
-        sheet: "allocation",
-        row,
-        kind: "allocation_invalid",
-        message: `Allocation 第 ${row} 行 percent 無法正規化。`,
-        pending: false,
-      });
-    }
-  }
-  return schedules;
 }
 
 export function buildPlan(
@@ -232,7 +115,7 @@ export function buildPlan(
     pending: false,
   }));
 
-  const listedMembers = parseMembersSheet(extras.members);
+  const listedMembers = parseMembersSheet(extras.members, issues);
   const schedules = parseAllocationSheet(extras.allocation, listedMembers, issues);
   const knownMembers = [...listedMembers];
 
@@ -264,6 +147,12 @@ export function buildPlan(
     const excelRow = index + 2;
     const planned = planTransInfoRow(row, excelRow, mapping.transinfo, issues, adSymbols, knownMembers);
     if (planned) {
+      planned.exportId = cell(row, mapping.transinfo, "trade_id") || `row:${excelRow}`;
+      if (planned.book === "joint" && !planned.holderError) {
+        planned.legacyHeySze =
+          isLegacyHeySzeHolder(ownRawForLegacy(row, mapping.transinfo)) ||
+          (!extras.members && !extras.allocation && !extras.tradeSplits);
+      }
       trades.push(planned);
       if (planned.symbol) {
         tiSymbols.add(planned.symbol.toUpperCase());
@@ -308,9 +197,19 @@ export function buildPlan(
 
   flagSameDayJointMismatch(trades, issues);
   suppressOpenLotWhenSold(trades, issues);
-  attachCustomTradeSplits(trades, extras.tradeSplits);
+  const splitMembers = [...knownMembers];
+  for (const flow of cashFlows) {
+    if (!flow.holderError && flow.memberName.trim() && !splitMembers.includes(flow.memberName)) {
+      splitMembers.push(flow.memberName);
+    }
+  }
+  attachCustomTradeSplits(trades, extras.tradeSplits, issues, splitMembers);
   const blocking = issues.some((item) => isHolderOrAllocationIssue(item.kind));
   return finish(filename, fileHash, cashFlows, trades, issues, blocking, listedMembers, schedules);
+}
+
+function ownRawForLegacy(row: string[], map: ColumnMap): string {
+  return cell(row, map, "own");
 }
 
 function isHolderOrAllocationIssue(kind: IssueKind): boolean {
@@ -318,7 +217,9 @@ function isHolderOrAllocationIssue(kind: IssueKind): boolean {
     kind === "unknown_member" ||
     kind === "empty_holder" ||
     kind === "ambiguous_holder" ||
-    kind === "allocation_invalid"
+    kind === "allocation_invalid" ||
+    kind === "tradesplit_invalid" ||
+    kind === "duplicate_member"
   );
 }
 
@@ -539,7 +440,10 @@ function planTransInfoRow(
     const adHolder = resolveHolder(hit.own, knownMembers);
     return adHolder.ok && adHolder.holder.book === "joint";
   });
-  if (adHasJoint && book !== "joint") {
+  const holderIsListedMember = knownMembers.some(
+    (name) => name.trim() === resolved.holder.memberName.trim(),
+  );
+  if (adHasJoint && book !== "joint" && !holderIsListedMember) {
     const id = issueId("joint", excelRow, symbol);
     issues.push({
       id,
@@ -866,83 +770,6 @@ function planSellRow(
   };
 }
 
-function parseTradeSplitsSheet(sheet: ParsedSheet | undefined) {
-  if (!sheet) {
-    return [];
-  }
-  const dateIndex = headerIndex(sheet.headers, ["date", "occurredon", "buydate", "日期"]);
-  const symbolIndex = headerIndex(sheet.headers, ["symbol", "code", "ticker", "股票代碼", "代碼"]);
-  const sideIndex = headerIndex(sheet.headers, ["side", "kind", "種類"]);
-  const memberIndex = headerIndex(sheet.headers, ["member", "name", "holder", "成員", "姓名"]);
-  const qtyIndex = headerIndex(sheet.headers, ["quantity", "qty", "數量"]);
-  const costIndex = headerIndex(sheet.headers, ["cost", "costusd", "買入總額"]);
-  const proceedsIndex = headerIndex(sheet.headers, ["proceeds", "proceedsusd", "賣出總額"]);
-  if (dateIndex < 0 || symbolIndex < 0 || memberIndex < 0 || qtyIndex < 0) {
-    return [];
-  }
-  const rows: {
-    occurredOn: string;
-    symbol: string;
-    side: string;
-    memberName: string;
-    quantity: string;
-    costUsd: string;
-    proceedsUsd: string;
-  }[] = [];
-  for (const row of sheet.rows) {
-    const occurredOn = parseDate((row[dateIndex] ?? "").trim());
-    const symbol = (row[symbolIndex] ?? "").trim().toUpperCase();
-    const memberName = (row[memberIndex] ?? "").trim();
-    const quantity = parseMoney(row[qtyIndex] ?? "");
-    if (!occurredOn || !symbol || !memberName || !quantity) {
-      continue;
-    }
-    rows.push({
-      occurredOn,
-      symbol,
-      side: (sideIndex >= 0 ? row[sideIndex] : "buy")?.trim().toLowerCase() || "buy",
-      memberName,
-      quantity,
-      costUsd: parseMoney(costIndex >= 0 ? row[costIndex] : "") ?? "0",
-      proceedsUsd: parseMoney(proceedsIndex >= 0 ? row[proceedsIndex] : "") ?? "0",
-    });
-  }
-  return rows;
-}
-
-function attachCustomTradeSplits(trades: PlannedTrade[], sheet: ParsedSheet | undefined): void {
-  const rows = parseTradeSplitsSheet(sheet);
-  if (rows.length === 0) {
-    return;
-  }
-  const groups = new Map<string, typeof rows>();
-  for (const row of rows) {
-    const key = `${row.occurredOn}|${row.symbol}|${row.side}`;
-    const list = groups.get(key) ?? [];
-    list.push(row);
-    groups.set(key, list);
-  }
-  for (const trade of trades) {
-    if (trade.holderError || (trade.side !== "buy" && trade.side !== "sell")) {
-      continue;
-    }
-    const side = trade.side ?? "buy";
-    const occurredOn = side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate;
-    const key = `${occurredOn}|${trade.symbol.toUpperCase()}|${side}`;
-    const legs = groups.get(key);
-    if (!legs || legs.length === 0) {
-      continue;
-    }
-    trade.customLegs = legs.map((leg) => ({
-      memberName: leg.memberName,
-      quantity: leg.quantity,
-      costUsd: leg.costUsd,
-      proceedsUsd: leg.proceedsUsd,
-    }));
-    trade.book = "joint";
-  }
-}
-
 function sellKey(trade: PlannedTrade): string {
   return `${trade.symbol.toUpperCase()}|${trade.own.trim().toLowerCase()}|${trade.book}`;
 }
@@ -1038,6 +865,15 @@ function finish(
     for (const name of membersForBook(row.book, row.memberName)) {
       if (name.trim()) {
         members.add(name);
+      }
+    }
+    if (row.legacyHeySze) {
+      members.add(MEMBER_HEY);
+      members.add(MEMBER_SZE);
+    }
+    for (const leg of row.customLegs ?? []) {
+      if (leg.memberName.trim()) {
+        members.add(leg.memberName.trim());
       }
     }
   }

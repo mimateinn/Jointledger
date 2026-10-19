@@ -24,6 +24,16 @@ export const TRANSINFO_OWN: Record<string, { letter: string; fallback: BookKind;
 
 export const JOINT_HOLDER_TOKENS = ["F", "Joint", "聯名", "聯名倉", "__joint__"] as const;
 
+function compactHolder(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s+/g, "");
+}
+
+/** Explicit v0.1.12 joint label: Hey/Sze 50/50, even if Wah is on the book. */
+export function isLegacyHeySzeHolder(raw: string): boolean {
+  const key = compactHolder(raw);
+  return key === "聯名（hey+sze）" || key === "聯名(hey+sze)";
+}
+
 export type ResolvedHolder = {
   own: string;
   book: BookKind;
@@ -69,6 +79,9 @@ function canonicalMemberName(name: string): string {
 }
 
 function isJointAlias(raw: string): boolean {
+  if (isLegacyHeySzeHolder(raw)) {
+    return true;
+  }
   const trimmed = raw.trim();
   return JOINT_HOLDER_TOKENS.some((token) => token.toLowerCase() === trimmed.toLowerCase());
 }
