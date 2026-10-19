@@ -36,6 +36,14 @@ const TI_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "split_wah", label: "Wah 分帳" },
 ];
 
+function issueOwnName(issue: { own?: string; message: string }): string {
+  const own = issue.own?.trim();
+  if (own) {
+    return own;
+  }
+  return issue.message.match(/「([^」]+)」/)?.[1] ?? issue.message;
+}
+
 const AD_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "ignore", label: "略過" },
   { value: "date", label: "日期" },
@@ -66,12 +74,12 @@ export function ImportWizard({
   const showPreview = Boolean(state.draftId && preview && !state.needsMap && !issuedInvites);
   const blockingErrors = preview ? previewBlockingIssues(preview) : [];
   const writeBlocked = Boolean(preview?.blocking) || blockingErrors.length > 0;
+  const removalIssues = preview
+    ? preview.issues.filter((item) => item.kind === "removed_member")
+    : [];
   const keptWarnings = preview
     ? preview.issues.filter(
-        (item) =>
-          item.kind === "kept_member" ||
-          item.kind === "removed_member" ||
-          item.kind === "schedule_member_missing",
+        (item) => item.kind === "kept_member" || item.kind === "schedule_member_missing",
       )
     : [];
   const noteIssues = preview
@@ -203,12 +211,23 @@ export function ImportWizard({
       {showPreview && preview ? (
         <section className="card stack">
           <h2 className="title">預覽</h2>
-          {blockingErrors.length > 0 ? (
+          {blockingErrors.length > 0 || removalIssues.length > 0 ? (
             <div className="alert" role="alert">
               {blockingErrors.map((issue) => (
                 <p key={issue.id}>{issue.message}</p>
               ))}
-              <p>唔可以確認寫入。</p>
+              {removalIssues.length > 0 ? (
+                <div className="alert-section">
+                  <h3 className="title">取代會刪走呢啲未認領成員</h3>
+                  <ul className="alert-names">
+                    {removalIssues.map((issue) => (
+                      <li key={issue.id}>{issueOwnName(issue)}</li>
+                    ))}
+                  </ul>
+                  <p>追加唔會刪。</p>
+                </div>
+              ) : null}
+              {blockingErrors.length > 0 ? <p>唔可以確認寫入。</p> : null}
             </div>
           ) : null}
           {keptWarnings.length > 0 ? (

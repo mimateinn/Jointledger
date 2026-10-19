@@ -219,15 +219,61 @@ describe("import wizard blocking errors", () => {
     });
     expect(plan.blocking).toBe(false);
     expect(plan.issues.some((item) => item.kind === "kept_member" && item.message.includes("Hey"))).toBe(true);
+    expect(plan.issues.find((item) => item.kind === "kept_member")?.message).toMatch(/已認領或已邀請/);
 
     await renderWizard(plan);
 
     expect(screen.queryByRole("alert")).toBeNull();
     const warning = [...document.querySelectorAll(".alert")].find((node) => node.textContent?.includes("Hey"));
     expect(warning?.textContent).toContain("Hey");
+    expect(warning?.textContent).toMatch(/已認領或已邀請/);
     expect(warning?.textContent).toMatch(/聯名分帳|分帳/);
     expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(false);
     expect(document.querySelector("ul.muted")?.textContent ?? "").not.toContain("Hey");
+  });
+
+  it("calls an invited-only leftover 「已認領或已邀請成員」, not 「已認領成員」", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-03-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["小明"], ["小紅"]],
+      },
+      allocation: {
+        kind: "allocation",
+        name: "Allocation",
+        headers: ["EffectiveOn", "Member", "Percent"],
+        rows: [],
+      },
+    });
+    annotateReplaceWarnings(plan, {
+      members: [{ id: "s", displayName: "Sze", userId: null, hasPendingInvite: true }],
+      schedules: [],
+    });
+    const kept = plan.issues.find((item) => item.kind === "kept_member");
+    expect(kept?.message).toContain("Sze");
+    expect(kept?.message).toMatch(/已認領或已邀請/);
+    expect(kept?.message).not.toMatch(/^已認領成員「/);
+
+    await renderWizard(plan);
+
+    const warning = [...document.querySelectorAll(".alert")].find((node) => node.textContent?.includes("Sze"));
+    expect(warning?.textContent).toMatch(/已認領或已邀請/);
+    expect(warning?.textContent).toContain("Sze");
+    expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("lists members that replace will remove in a prominent warning", async () => {
@@ -271,10 +317,13 @@ describe("import wizard blocking errors", () => {
 
     await renderWizard(plan);
 
-    const warning = [...document.querySelectorAll(".alert")].find((node) => node.textContent?.includes("Sze"));
-    expect(warning?.textContent).toContain("Hey");
-    expect(warning?.textContent).toContain("Sze");
-    expect(warning?.textContent).toMatch(/刪走|刪/);
+    const alert = screen.getByRole("alert");
+    expect(alert.querySelector("h3")?.textContent).toMatch(/刪走|刪/);
+    const names = [...alert.querySelectorAll("li")].map((node) => node.textContent);
+    expect(names).toEqual(expect.arrayContaining(["Hey", "Sze"]));
+    expect(names).toHaveLength(2);
+    expect(alert.textContent).not.toContain("唔可以確認寫入");
     expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(document.querySelector("ul.muted")?.textContent ?? "").not.toMatch(/Hey|Sze/);
   });
 });

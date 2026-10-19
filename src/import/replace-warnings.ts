@@ -44,8 +44,9 @@ export function annotateReplaceWarnings(
         id: issueId("kept-member", 0, member.displayName),
         sheet: "members",
         row: 0,
+        own: member.displayName,
         kind: "kept_member",
-        message: `已認領成員「${member.displayName}」唔喺檔案 Members；取代同追加都會留低，之後聯名分帳會一齊攤。`,
+        message: `已認領或已邀請成員「${member.displayName}」唔喺檔案 Members；取代同追加都會留低，之後聯名分帳會一齊攤。`,
         pending: false,
       });
       continue;
@@ -57,6 +58,7 @@ export function annotateReplaceWarnings(
       id: issueId("removed-member", 0, member.displayName),
       sheet: "members",
       row: 0,
+      own: member.displayName,
       kind: "removed_member",
       message: `取代會刪走未認領成員「${member.displayName}」。追加唔會刪。`,
       pending: false,

@@ -1676,20 +1676,47 @@ describe("export / import round-trip", () => {
     });
     expect(planSame.blocking).toBe(true);
     expect(planSame.issues.some((item) => item.kind === "duplicate_member")).toBe(true);
+  });
+
+  it("treats Members names that differ only by surrounding space as duplicates after upload trim", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "Kit", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "Kit", "1000", "1", "1000", "in"]],
+    };
     const padded = {
       kind: "members" as const,
       name: "Members",
       headers: ["Name"],
       rows: [["Kit "], [" Kit"]],
     };
-    const planPad = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
-      members: padded,
-    });
+    const bytes = await writeBookXlsx(transinfo, account, { members: padded });
+    const parsed = await parseUpload([{ name: "kit-pad.xlsx", bytes }]);
+    const extras = pickOptionalSheets(parsed);
+    const { transinfo: parsedTransinfo, account: parsedAccount } = pickSheets(parsed);
+    expect(extras.members?.rows.map((row) => row[0])).toEqual(["Kit", "Kit"]);
+    const planPad = buildPlan(
+      parsed.filename,
+      parsed.fileHash,
+      parsedTransinfo,
+      parsedAccount,
+      mapUpload(parsedTransinfo, parsedAccount),
+      extras,
+    );
     expect(planPad.blocking).toBe(true);
     expect(planPad.counts.errors).toBeGreaterThan(0);
-    const padIssue = planPad.issues.find((item) => item.kind === "duplicate_member" && item.row === 3);
-    expect(padIssue?.message).toContain("Kit ");
+    const padIssue = planPad.issues.find((item) => item.kind === "duplicate_member");
+    expect(padIssue?.sheet).toBe("members");
     expect(padIssue?.row).toBe(3);
+    expect(padIssue?.message).toMatch(/Kit/i);
+    expect(padIssue?.message).toMatch(/Members/);
   });
 
   it("errors on duplicate Allocation date+member rows with the sheet and row (dup-alloc-x3)", async () => {
@@ -2050,6 +2077,7 @@ describe("export / import round-trip", () => {
     });
     const kept = plan.issues.find((item) => item.kind === "kept_member");
     expect(kept?.message).toContain("Hey");
+    expect(kept?.message).toMatch(/已認領或已邀請/);
     expect(kept?.message).toMatch(/聯名分帳|分帳/);
     expect(kept?.message).toMatch(/追加/);
     const removed = plan.issues.find((item) => item.kind === "removed_member");
@@ -2320,7 +2348,8 @@ describe("export / import round-trip", () => {
       members: await dest.listMembers(destBook.id),
       schedules: await dest.listAllocationSchedules(destBook.id),
     });
-    expect(plan.issues.some((item) => item.kind === "kept_member" && item.message.includes("Sze"))).toBe(true);
+    const keptSze = plan.issues.find((item) => item.kind === "kept_member" && item.message.includes("Sze"));
+    expect(keptSze?.message).toMatch(/已認領或已邀請|已邀請/);
     expect(plan.issues.some((item) => item.kind === "removed_member" && item.message.includes("Sze"))).toBe(false);
 
     await applyImport(dest, plan, {
