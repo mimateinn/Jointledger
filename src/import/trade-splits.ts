@@ -199,8 +199,7 @@ export function attachCustomTradeSplits(
       continue;
     }
 
-    const moneyField =
-      trade.side === "sell" || trade.side === "adjustment" ? "proceedsUsd" : "costUsd";
+    const moneyField = adjustmentAwareMoneyField(trade, legs);
     let amountsOk = true;
     if (hasMoneyColumns && trade.side !== "split" && trade.side !== "adjustment") {
       const wrong =
@@ -313,4 +312,34 @@ export function attachCustomTradeSplits(
       proceedsUsd: leg.proceedsUsd,
     }));
   }
+}
+
+/**
+ * App export writes negative adjustments (fees) in Cost and credits in Proceeds.
+ * Match the column the exporter actually filled, using the signed TransInfo amount.
+ */
+function adjustmentAwareMoneyField(
+  trade: PlannedTrade,
+  legs: TradeSplitRow[],
+): "costUsd" | "proceedsUsd" {
+  if (trade.side === "sell") {
+    return "proceedsUsd";
+  }
+  if (trade.side !== "adjustment") {
+    return "costUsd";
+  }
+  try {
+    const signed = money(trade.buyTotal || "0");
+    if (signed.lt(0)) {
+      return "costUsd";
+    }
+    if (signed.gt(0)) {
+      return "proceedsUsd";
+    }
+  } catch {
+    /* fall through to the filled column */
+  }
+  const costSum = legs.reduce((sum, leg) => sum.plus(money(leg.costUsd)), money("0")).abs();
+  const proceedsSum = legs.reduce((sum, leg) => sum.plus(money(leg.proceedsUsd)), money("0")).abs();
+  return costSum.gt(proceedsSum) ? "costUsd" : "proceedsUsd";
 }

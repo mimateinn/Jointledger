@@ -81,6 +81,7 @@ export type IssueKind =
   | "tradesplit_invalid"
   | "duplicate_member"
   | "kept_member"
+  | "removed_member"
   | "schedule_member_missing"
   | "missing_fx"
   | "missing_date"

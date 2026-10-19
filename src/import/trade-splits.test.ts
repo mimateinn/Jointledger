@@ -397,6 +397,28 @@ describe("TradeSplits sheet", () => {
     ).rejects.toThrow(/TradeSplits 第 2 行賣出金額唔可以寫喺買入欄/);
   });
 
+  it("rejects a zero-quantity TradeSplits leg with the row number (t4e)", async () => {
+    const { transinfo, account } = sheets();
+    transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "100", "t-1"]];
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "10", "100", "0"],
+        ["t-1", "Sze", "0", "0", "0"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find(
+      (item) => item.kind === "tradesplit_invalid" && item.message.includes("數量") && item.row === 3,
+    );
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("3");
+    expect(plan.trades.find((row) => row.exportId === "t-1")?.customLegs).toBeUndefined();
+  });
+
   it("accepts TradeSplits amounts that differ from the trade by 0.01 (s7)", () => {
     const { transinfo, account } = sheets();
     transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "100", "t-1"]];

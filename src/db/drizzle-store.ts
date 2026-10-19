@@ -43,12 +43,14 @@ function asBook(row: typeof books.$inferSelect): Book {
 }
 
 function asMember(row: typeof members.$inferSelect): Member {
+  const expires = row.inviteExpiresAt ? new Date(row.inviteExpiresAt).getTime() : 0;
   return {
     id: row.id,
     bookId: row.bookId,
     userId: row.userId,
     displayName: row.displayName,
     email: row.email,
+    hasPendingInvite: Boolean(row.inviteSecretHash && (!row.inviteExpiresAt || expires > Date.now())),
   };
 }
 
@@ -260,6 +262,10 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
         .where(and(eq(members.id, memberId), eq(members.bookId, bookId), isNull(members.userId)))
         .limit(1);
       if (!member) {
+        return;
+      }
+      const expires = member.inviteExpiresAt ? new Date(member.inviteExpiresAt).getTime() : 0;
+      if (member.inviteSecretHash && (!member.inviteExpiresAt || expires > Date.now())) {
         return;
       }
       const [cash] = await db

@@ -134,7 +134,7 @@ export function createMemoryStore(): LedgerStore & {
     },
     async removeUnclaimedMember(bookId: string, memberId: string) {
       const member = members.find((row) => row.id === memberId && row.bookId === bookId);
-      if (!member || member.userId) {
+      if (!member || member.userId || member.hasPendingInvite) {
         return;
       }
       if (cashFlows.some((row) => row.memberId === memberId)) {

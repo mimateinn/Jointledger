@@ -229,4 +229,52 @@ describe("import wizard blocking errors", () => {
     expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(false);
     expect(document.querySelector("ul.muted")?.textContent ?? "").not.toContain("Hey");
   });
+
+  it("lists members that replace will remove in a prominent warning", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-03-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["小明"], ["小紅"]],
+      },
+      allocation: {
+        kind: "allocation",
+        name: "Allocation",
+        headers: ["EffectiveOn", "Member", "Percent"],
+        rows: [],
+      },
+    });
+    annotateReplaceWarnings(plan, {
+      members: [
+        { id: "h", displayName: "Hey", userId: null },
+        { id: "s", displayName: "Sze", userId: null },
+      ],
+      schedules: [],
+    });
+    expect(plan.issues.filter((item) => item.kind === "removed_member").map((item) => item.message).join(" ")).toMatch(
+      /Hey/,
+    );
+    expect(plan.issues.some((item) => item.kind === "removed_member" && item.message.includes("Sze"))).toBe(true);
+
+    await renderWizard(plan);
+
+    const warning = [...document.querySelectorAll(".alert")].find((node) => node.textContent?.includes("Sze"));
+    expect(warning?.textContent).toContain("Hey");
+    expect(warning?.textContent).toContain("Sze");
+    expect(warning?.textContent).toMatch(/刪走|刪/);
+    expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(false);
+  });
 });

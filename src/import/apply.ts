@@ -134,11 +134,17 @@ function tradeAmountField(trade: PlannedTrade): {
   return { quantity: trade.quantity || "0", total: trade.buyTotal, field: "cost" };
 }
 
+/** Genuine v0.1.12: two sheets only. A Members sheet without Allocation is not legacy. */
+function isLegacyTwoSheetFile(plan: ImportPlan): boolean {
+  return plan.hasMembersSheet !== true && plan.hasAllocationSheet !== true;
+}
+
 function resolvedTradeLegs(
   trade: PlannedTrade,
   lookup: (name: string) => { memberId: string; accountId: string },
   destSchedules: AllocationScheduleView[],
   fileMemberIds: { id: string }[],
+  listedMemberIds: { id: string }[],
 ): CreateTradeLeg[] | undefined {
   if (trade.customLegs?.length) {
     return trade.customLegs.map((leg) => ({
@@ -156,7 +162,21 @@ function resolvedTradeLegs(
     return undefined;
   }
   const occurredOn = trade.side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate;
-  if (scheduleInForce(destSchedules, occurredOn) || fileMemberIds.length === 0) {
+  const dest = scheduleInForce(destSchedules, occurredOn);
+  if (listedMemberIds.length > 0) {
+    const listedIds = new Set(listedMemberIds.map((row) => row.id));
+    const destOnlyListed =
+      !!dest && dest.legs.length > 0 && dest.legs.every((leg) => listedIds.has(leg.memberId));
+    const { quantity, total, field } = tradeAmountField(trade);
+    return jointTradeLegs({
+      scheduleLegs: destOnlyListed ? dest!.legs : null,
+      members: listedMemberIds,
+      quantity,
+      total,
+      field,
+    });
+  }
+  if (dest || fileMemberIds.length === 0) {
     return undefined;
   }
   const { quantity, total, field } = tradeAmountField(trade);
@@ -348,7 +368,7 @@ async function applyImportBody(
     needed.add(MEMBER_SZE);
   }
   if (
-    plan.hasAllocationSheet !== true &&
+    isLegacyTwoSheetFile(plan) &&
     plan.trades.some(
       (trade) =>
         trade.side === "split" &&
@@ -397,8 +417,11 @@ async function applyImportBody(
       if (splitMember) {
         return lookup(splitMember);
       }
-      if (trade.side === "split" && plan.hasAllocationSheet !== true) {
+      if (trade.side === "split" && isLegacyTwoSheetFile(plan)) {
         return lookup(MEMBER_HEY);
+      }
+      if (plan.listedMembers[0]?.trim()) {
+        return lookup(plan.listedMembers[0]);
       }
       return firstMember();
     }
@@ -438,6 +461,19 @@ async function applyImportBody(
       if (!seenFileMembers.has(id)) {
         seenFileMembers.add(id);
         fileMemberIds.push({ id });
+      }
+    } catch {
+      /* not on this book */
+    }
+  }
+  const listedMemberIds: { id: string }[] = [];
+  const seenListed = new Set<string>();
+  for (const name of plan.listedMembers) {
+    try {
+      const id = lookup(name).memberId;
+      if (!seenListed.has(id)) {
+        seenListed.add(id);
+        listedMemberIds.push({ id });
       }
     } catch {
       /* not on this book */
@@ -499,7 +535,13 @@ async function applyImportBody(
     }
     const accountId = trade.book === "joint" ? joint!.id : memberRef.accountId;
     const memberId = memberRef.memberId;
-    const customLegs = resolvedTradeLegs(trade, lookup, destSchedules, fileMemberIds);
+    const customLegs = resolvedTradeLegs(
+      trade,
+      lookup,
+      destSchedules,
+      fileMemberIds,
+      listedMemberIds,
+    );
 
     if (trade.side === "split") {
       await w.createSplit(store, {
@@ -665,7 +707,7 @@ async function pruneUnclaimedLeftoverMembers(
   const scheduleIds = new Set(schedules.flatMap((row) => row.legs.map((leg) => leg.memberId)));
   for (const member of destMembers) {
     const key = member.displayName.trim().toLowerCase();
-    if (keep.has(key) || member.userId) {
+    if (keep.has(key) || member.userId || member.hasPendingInvite) {
       continue;
     }
     if (cashIds.has(member.id) || allocIds.has(member.id) || scheduleIds.has(member.id)) {

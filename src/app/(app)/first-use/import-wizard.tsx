@@ -67,7 +67,12 @@ export function ImportWizard({
   const blockingErrors = preview ? previewBlockingIssues(preview) : [];
   const writeBlocked = Boolean(preview?.blocking) || blockingErrors.length > 0;
   const keptWarnings = preview
-    ? preview.issues.filter((item) => item.kind === "kept_member" || item.kind === "schedule_member_missing")
+    ? preview.issues.filter(
+        (item) =>
+          item.kind === "kept_member" ||
+          item.kind === "removed_member" ||
+          item.kind === "schedule_member_missing",
+      )
     : [];
   const noteIssues = preview
     ? preview.issues.filter(
@@ -75,6 +80,7 @@ export function ImportWizard({
           !item.pending &&
           !isPreviewBlockingKind(item.kind) &&
           item.kind !== "kept_member" &&
+          item.kind !== "removed_member" &&
           item.kind !== "schedule_member_missing",
       )
     : [];
