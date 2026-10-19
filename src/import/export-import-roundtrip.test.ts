@@ -26,6 +26,7 @@ import { legacyV012ExportSheets } from "./fixtures/legacy-v0-1-12";
 import { legacyV012FOnlyExportSheets } from "./fixtures/legacy-v0-1-12-f-only";
 import { legacyV012WahExportSheets } from "./fixtures/legacy-v0-1-12-wah";
 import { buildPlan } from "./plan";
+import { annotateReplaceWarnings } from "./replace-warnings";
 
 vi.mock("server-only", () => ({}));
 
@@ -1090,6 +1091,63 @@ describe("export / import round-trip", () => {
     expect(byName(parsed2)).toEqual(byName(parsed1));
   });
 
+  it("imports a 小明/小紅 book with a 2:1 split into a new book as 5/5 and 4.5/4.5, no Hey", async () => {
+    const store = createMemoryStore();
+    const { book, member: ming } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "小明",
+    });
+    const hong = await addMember(store, { bookId: book.id, displayName: "小紅" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: ming.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+    await createSplit(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: ming.id,
+      symbol: "NVDA",
+      newShares: "2",
+      oldShares: "1",
+      occurredOn: "2024-03-01",
+    });
+    await createAdjustment(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: ming.id,
+      occurredOn: "2024-07-01",
+      note: "股息 MSFT",
+      symbol: "MSFT",
+      amountUsd: "9",
+    });
+    const srcLegs = await store.listTradeAllocations(book.id);
+    const srcNames = new Map((await store.listMembers(book.id)).map((row) => [row.id, row.displayName]));
+    const nvdaBuy = srcLegs.filter((row) => srcNames.get(row.memberId) && row.costUsd !== "0.00000000");
+    expect(nvdaBuy.map((row) => srcNames.get(row.memberId)).sort()).toEqual(["小明", "小紅"]);
+    expect(hong.member.displayName).toBe("小紅");
+
+    const { empty, result, plan } = await importExportedBook(await exportBookXlsx(store, book.id), "小明");
+    expect(plan.members.some((name) => name === "Hey" || name === "Sze")).toBe(false);
+    const written = await empty.listMembers(result.bookId);
+    expect(written.map((row) => row.displayName).sort()).toEqual(["小明", "小紅"]);
+    expect(written.some((row) => row.displayName === "Hey")).toBe(false);
+    const after = await snapshotBook(empty, result.bookId);
+    const nvda = after.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
+    expect(nvda.find((row) => row.memberName === "小明")?.quantity).toBe(moneyKey("5"));
+    expect(nvda.find((row) => row.memberName === "小紅")?.quantity).toBe(moneyKey("5"));
+    const div = after.allocations.filter((row) => row.symbol === "MSFT" && row.side === "adjustment");
+    expect(div.find((row) => row.memberName === "小明")?.proceedsUsd).toBe(moneyKey("4.5"));
+    expect(div.find((row) => row.memberName === "小紅")?.proceedsUsd).toBe(moneyKey("4.5"));
+    expect(after.allocations.find((row) => row.side === "split")?.memberName).toBe("小明");
+  });
+
   it("keeps schedule count unchanged across three replace imports, and export1 equals export2 including Members", async () => {
     const { store, bookId } = await seedFullLedger();
     const beforeCount = (await store.listAllocationSchedules(bookId)).length;
@@ -1748,6 +1806,156 @@ describe("export / import round-trip", () => {
     expect(nvda.find((row) => row.memberName === "小明")?.quantity).toBe(moneyKey("5"));
     expect(nvda.find((row) => row.memberName === "小紅")?.quantity).toBe(moneyKey("5"));
     expect(nvda.some((row) => row.memberName === "Hey" || row.memberName === "Sze")).toBe(false);
+  });
+
+  it("replace of a 小明/小紅 app export onto an unclaimed Hey/Sze book then a 12-share joint trade is 6/6", async () => {
+    const dest = createMemoryStore();
+    const { book: destBook, member: hey } = await createBook(dest, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    await addMember(dest, { bookId: destBook.id, displayName: "Sze" });
+    const destJoint = await createJointAccount(dest, { bookId: destBook.id, name: "聯名" });
+    const storedHey = dest.members.find((row) => row.id === hey.id);
+    if (storedHey) {
+      storedHey.userId = null;
+    }
+
+    const source = createMemoryStore();
+    const { book: srcBook, member: ming } = await createBook(source, {
+      name: "聯倉",
+      createdByUserId: "user-2",
+      creatorDisplayName: "小明",
+    });
+    await addMember(source, { bookId: srcBook.id, displayName: "小紅" });
+    const srcJoint = await createJointAccount(source, { bookId: srcBook.id, name: "聯名" });
+    await createTrade(source, {
+      bookId: srcBook.id,
+      ledgerAccountId: srcJoint.id,
+      memberId: ming.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-03-01",
+    });
+    const bytes = await exportBookXlsx(source, srcBook.id);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    const extras = pickOptionalSheets(parsed);
+    const { transinfo, account } = pickSheets(parsed);
+    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapUpload(transinfo, account), extras);
+    await applyImport(dest, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: destBook.id,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+    const afterMembers = await dest.listMembers(destBook.id);
+    expect(afterMembers.map((row) => row.displayName).sort()).toEqual(["小明", "小紅"]);
+    const later = await createTrade(dest, {
+      bookId: destBook.id,
+      ledgerAccountId: destJoint.id,
+      memberId: afterMembers[0]!.id,
+      symbol: "AAPL",
+      quantity: "12",
+      price: "10",
+      occurredOn: "2024-08-01",
+    });
+    const names = new Map(afterMembers.map((row) => [row.id, row.displayName]));
+    const legs = (await dest.listTradeAllocations(destBook.id)).filter((row) => row.tradeId === later.trade.id);
+    expect(legs.find((row) => names.get(row.memberId) === "小明")?.quantity).toBe("6.00000000");
+    expect(legs.find((row) => names.get(row.memberId) === "小紅")?.quantity).toBe("6.00000000");
+    expect(legs).toHaveLength(2);
+  });
+
+  it("keeps a claimed dest member on replace and warns they will share future joint splits", async () => {
+    const dest = createMemoryStore();
+    const { book: destBook, member: hey } = await createBook(dest, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    await addMember(dest, { bookId: destBook.id, displayName: "Sze" });
+    await createJointAccount(dest, { bookId: destBook.id, name: "聯名" });
+
+    const source = createMemoryStore();
+    const { book: srcBook, member: ming } = await createBook(source, {
+      name: "聯倉",
+      createdByUserId: "user-2",
+      creatorDisplayName: "小明",
+    });
+    await addMember(source, { bookId: srcBook.id, displayName: "小紅" });
+    const srcJoint = await createJointAccount(source, { bookId: srcBook.id, name: "聯名" });
+    await createTrade(source, {
+      bookId: srcBook.id,
+      ledgerAccountId: srcJoint.id,
+      memberId: ming.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-03-01",
+    });
+    const bytes = await exportBookXlsx(source, srcBook.id);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    const extras = pickOptionalSheets(parsed);
+    const { transinfo, account } = pickSheets(parsed);
+    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapUpload(transinfo, account), extras);
+    annotateReplaceWarnings(plan, {
+      members: await dest.listMembers(destBook.id),
+      schedules: await dest.listAllocationSchedules(destBook.id),
+    });
+    const kept = plan.issues.find((item) => item.kind === "kept_member");
+    expect(kept?.message).toContain("Hey");
+    expect(kept?.message).toMatch(/聯名分帳|分帳/);
+    expect(plan.counts.warnings).toBeGreaterThan(0);
+    expect(plan.blocking).toBe(false);
+
+    await applyImport(dest, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: destBook.id,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+    const afterMembers = (await dest.listMembers(destBook.id)).map((row) => row.displayName).sort();
+    expect(afterMembers).toEqual(["Hey", "小明", "小紅"]);
+    expect(afterMembers).not.toContain("Sze");
+    expect(hey.displayName).toBe("Hey");
+  });
+
+  it("warns when a kept schedule names members missing from a Members-only file", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-03-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"]],
+    };
+    const members = {
+      kind: "members" as const,
+      name: "Members",
+      headers: ["Name"],
+      rows: [["小明"], ["小紅"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { members });
+    expect(plan.hasMembersSheet).toBe(true);
+    expect(plan.hasAllocationSheet).toBe(false);
+    annotateReplaceWarnings(plan, {
+      members: [
+        { id: "w", displayName: "Wah", userId: null },
+        { id: "m", displayName: "小明", userId: "u1" },
+      ],
+      schedules: [{ legs: [{ memberId: "w" }, { memberId: "m" }] }],
+    });
+    const issue = plan.issues.find((item) => item.kind === "schedule_member_missing");
+    expect(issue?.message).toContain("Wah");
+    expect(issue?.message).toContain("Members");
+    expect(plan.counts.warnings).toBeGreaterThan(0);
+    expect(plan.blocking).toBe(false);
   });
 
   it("legacy F replace into a 70/30 book is Hey/Sze 50/50 (250/250, adjustment 1/1)", async () => {

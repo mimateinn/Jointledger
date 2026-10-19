@@ -14,6 +14,7 @@ import { applyManualMap, mapUpload } from "@/import/columns";
 import { readInviteSecret } from "@/import/invite-secrets";
 import { parseUpload, pickOptionalSheets, pickSheets } from "@/import/parse";
 import { buildPlan } from "@/import/plan";
+import { annotateReplaceWarnings } from "@/import/replace-warnings";
 import type { ColumnTarget, ImportDecisions, ImportPlan, PendingChoice } from "@/import/types";
 import { getCurrentMembership } from "@/lib/current-book";
 
@@ -92,6 +93,13 @@ export async function parseImportAction(
     const extras = pickOptionalSheets(parsed);
     const mapping = mapUpload(transinfo, account);
     const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapping, extras);
+    if (reimport && existing) {
+      const destStore = createDrizzleStore();
+      annotateReplaceWarnings(plan, {
+        members: await destStore.listMembers(existing.book.id),
+        schedules: await destStore.listAllocationSchedules(existing.book.id),
+      });
+    }
     const db = getDb();
     const payload: DraftPayload = {
       filename: parsed.filename,
@@ -198,6 +206,14 @@ export async function confirmMapAction(
       blocking: ti.issues.length + ad.issues.length > 0,
     };
     const plan = buildPlan(payload.filename, payload.fileHash, transinfo, account, mapping, extras);
+    const membership = await getCurrentMembership(user);
+    if (isReimport(formData) && membership) {
+      const destStore = createDrizzleStore();
+      annotateReplaceWarnings(plan, {
+        members: await destStore.listMembers(membership.book.id),
+        schedules: await destStore.listAllocationSchedules(membership.book.id),
+      });
+    }
     const next: DraftPayload = {
       ...payload,
       plan,

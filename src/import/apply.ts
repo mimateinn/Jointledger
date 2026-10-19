@@ -627,6 +627,10 @@ async function applyImportBody(
     });
   }
 
+  if (input.decisions.reimportMode === "replace" && plan.hasMembersSheet) {
+    await pruneUnclaimedLeftoverMembers(store, bookId, plan.listedMembers);
+  }
+
   const warningCount =
     rowLog.filter((row) => row.status === "warning").length +
     plan.issues.filter((i) => i.pending && input.decisions.pending[i.id] === "import").length;
@@ -639,4 +643,34 @@ async function applyImportBody(
     skippedCount,
     rowLog,
   };
+}
+
+async function pruneUnclaimedLeftoverMembers(
+  store: LedgerStore,
+  bookId: string,
+  listedMembers: readonly string[],
+): Promise<void> {
+  const keep = new Set(listedMembers.map((name) => name.trim().toLowerCase()).filter(Boolean));
+  if (keep.size === 0) {
+    return;
+  }
+  const [destMembers, cash, allocations, schedules] = await Promise.all([
+    store.listMembers(bookId),
+    store.listCashFlows(bookId),
+    store.listTradeAllocations(bookId),
+    store.listAllocationSchedules(bookId),
+  ]);
+  const cashIds = new Set(cash.map((row) => row.memberId));
+  const allocIds = new Set(allocations.map((row) => row.memberId));
+  const scheduleIds = new Set(schedules.flatMap((row) => row.legs.map((leg) => leg.memberId)));
+  for (const member of destMembers) {
+    const key = member.displayName.trim().toLowerCase();
+    if (keep.has(key) || member.userId) {
+      continue;
+    }
+    if (cashIds.has(member.id) || allocIds.has(member.id) || scheduleIds.has(member.id)) {
+      continue;
+    }
+    await store.removeUnclaimedMember(bookId, member.id);
+  }
 }

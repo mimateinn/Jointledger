@@ -200,12 +200,28 @@ export function attachCustomTradeSplits(
     }
 
     const moneyField =
-      trade.side === "sell" ||
-      trade.side === "adjustment" ||
-      legs.some((leg) => money(leg.proceedsUsd).gt(0))
-        ? "proceedsUsd"
-        : "costUsd";
+      trade.side === "sell" || trade.side === "adjustment" ? "proceedsUsd" : "costUsd";
     let amountsOk = true;
+    if (hasMoneyColumns && trade.side !== "split" && trade.side !== "adjustment") {
+      const wrong =
+        trade.side === "sell"
+          ? legs.find((leg) => money(leg.costUsd).gt(0))
+          : legs.find((leg) => money(leg.proceedsUsd).gt(0));
+      if (wrong) {
+        issues.push({
+          id: issueId("ts-col", wrong.excelRow, tradeId),
+          sheet: "tradesplits",
+          row: wrong.excelRow,
+          kind: "tradesplit_invalid",
+          message:
+            trade.side === "sell"
+              ? `TradeSplits 第 ${wrong.excelRow} 行賣出金額唔可以寫喺買入欄。`
+              : `TradeSplits 第 ${wrong.excelRow} 行買入金額唔可以寫喺賣出欄。`,
+          pending: false,
+        });
+        amountsOk = false;
+      }
+    }
     for (const leg of legs) {
       const qty = money(leg.quantity);
       const cost = money(leg.costUsd);

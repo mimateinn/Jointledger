@@ -7,6 +7,7 @@ import type { ImportActionState } from "@/app/actions/import";
 import { mapUpload } from "@/import/columns";
 import { dupAllocX3Sheets } from "@/import/fixtures/dup-alloc-x3";
 import { buildPlan } from "@/import/plan";
+import { annotateReplaceWarnings } from "@/import/replace-warnings";
 
 const actionState: { current: ImportActionState } = { current: {} };
 
@@ -183,5 +184,49 @@ describe("import wizard blocking errors", () => {
     expect(alert.textContent).toContain("2");
     expect(alert.textContent).toContain("空白");
     expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("shows a prominent kept-member warning and still allows 確認寫入", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-03-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["小明"], ["小紅"]],
+      },
+      allocation: {
+        kind: "allocation",
+        name: "Allocation",
+        headers: ["EffectiveOn", "Member", "Percent"],
+        rows: [],
+      },
+    });
+    annotateReplaceWarnings(plan, {
+      members: [{ id: "h", displayName: "Hey", userId: "user-1" }],
+      schedules: [],
+    });
+    expect(plan.blocking).toBe(false);
+    expect(plan.issues.some((item) => item.kind === "kept_member" && item.message.includes("Hey"))).toBe(true);
+
+    await renderWizard(plan);
+
+    expect(screen.queryByRole("alert")).toBeNull();
+    const warning = [...document.querySelectorAll(".alert")].find((node) => node.textContent?.includes("Hey"));
+    expect(warning?.textContent).toContain("Hey");
+    expect(warning?.textContent).toMatch(/聯名分帳|分帳/);
+    expect((screen.getByRole("button", { name: "確認寫入" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(document.querySelector("ul.muted")?.textContent ?? "").not.toContain("Hey");
   });
 });

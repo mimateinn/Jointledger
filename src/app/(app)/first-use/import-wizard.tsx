@@ -66,8 +66,17 @@ export function ImportWizard({
   const showPreview = Boolean(state.draftId && preview && !state.needsMap && !issuedInvites);
   const blockingErrors = preview ? previewBlockingIssues(preview) : [];
   const writeBlocked = Boolean(preview?.blocking) || blockingErrors.length > 0;
+  const keptWarnings = preview
+    ? preview.issues.filter((item) => item.kind === "kept_member" || item.kind === "schedule_member_missing")
+    : [];
   const noteIssues = preview
-    ? preview.issues.filter((item) => !item.pending && !isPreviewBlockingKind(item.kind))
+    ? preview.issues.filter(
+        (item) =>
+          !item.pending &&
+          !isPreviewBlockingKind(item.kind) &&
+          item.kind !== "kept_member" &&
+          item.kind !== "schedule_member_missing",
+      )
     : [];
 
   return (
@@ -194,6 +203,13 @@ export function ImportWizard({
                 <p key={issue.id}>{issue.message}</p>
               ))}
               <p>唔可以確認寫入。</p>
+            </div>
+          ) : null}
+          {keptWarnings.length > 0 ? (
+            <div className="alert">
+              {keptWarnings.map((issue) => (
+                <p key={issue.id}>{issue.message}</p>
+              ))}
             </div>
           ) : null}
           <p className="muted">

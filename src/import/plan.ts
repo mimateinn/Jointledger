@@ -134,6 +134,7 @@ export function buildPlan(
       listedMembers,
       schedules,
       extras.allocation !== undefined,
+      extras.members !== undefined,
     );
   }
 
@@ -247,6 +248,7 @@ export function buildPlan(
     listedMembers,
     schedules,
     extras.allocation !== undefined,
+    extras.members !== undefined,
   );
 }
 
@@ -889,6 +891,7 @@ function finish(
   listedMembers: readonly string[] = [],
   schedules: PlannedAllocationSchedule[] = [],
   hasAllocationSheet = false,
+  hasMembersSheet = false,
 ): ImportPlan {
   const members = new Set<string>();
   for (const name of listedMembers) {
@@ -917,14 +920,12 @@ function finish(
     }
   }
 
-  const skippedKinds = new Set(["missing_fx", "missing_date", "missing_qty", "missing_amount", "unknown_own"]);
-  const mapKinds = new Set(["unmapped_column", "column_collision", "missing_required"]);
   const blocked = blocking || issues.some((item) => isHolderOrAllocationIssue(item.kind));
-
-  return {
+  const plan: ImportPlan = {
     filename,
     fileHash,
     members: [...members],
+    listedMembers: listedMembers.map((name) => name.trim()).filter(Boolean),
     ownMapping: [
       { own: "H", account: ownAccountLabel("H", "hey") },
       { own: "S", account: ownAccountLabel("S", "sze") },
@@ -936,6 +937,7 @@ function finish(
     ],
     schedules,
     hasAllocationSheet,
+    hasMembersSheet,
     cashFlows,
     trades,
     issues,
@@ -944,22 +946,28 @@ function finish(
       members: members.size,
       cashFlows: cashFlows.filter((row) => !row.skip && !row.holderError).length,
       trades: trades.filter((row) => !row.skip && !row.holderError).length,
-      errors: issues.filter((item) => isPreviewBlockingKind(item.kind)).length,
-      warnings: issues.filter(
-        (item) =>
-          !item.pending &&
-          !mapKinds.has(item.kind) &&
-          !skippedKinds.has(item.kind) &&
-          !isPreviewBlockingKind(item.kind),
-      ).length,
-      skipped: issues.filter(
-        (item) =>
-          skippedKinds.has(item.kind) ||
-          item.kind === "unknown_member" ||
-          item.kind === "empty_holder" ||
-          item.kind === "ambiguous_holder",
-      ).length,
-      pending: issues.filter((item) => item.pending).length,
+      errors: 0,
+      warnings: 0,
+      skipped: 0,
+      pending: 0,
     },
   };
+  refreshPlanCounts(plan);
+  return plan;
+}
+
+/** Recalculate error / warning / skipped / pending so blocking issues are not double-counted. */
+export function refreshPlanCounts(plan: ImportPlan): void {
+  const skippedKinds = new Set(["missing_fx", "missing_date", "missing_qty", "missing_amount", "unknown_own"]);
+  const mapKinds = new Set(["unmapped_column", "column_collision", "missing_required"]);
+  plan.counts.errors = plan.issues.filter((item) => isPreviewBlockingKind(item.kind)).length;
+  plan.counts.warnings = plan.issues.filter(
+    (item) =>
+      !item.pending &&
+      !mapKinds.has(item.kind) &&
+      !skippedKinds.has(item.kind) &&
+      !isPreviewBlockingKind(item.kind),
+  ).length;
+  plan.counts.skipped = plan.issues.filter((item) => skippedKinds.has(item.kind)).length;
+  plan.counts.pending = plan.issues.filter((item) => item.pending).length;
 }

@@ -41,6 +41,11 @@ export type LedgerStore = {
   listLedgerAccounts(bookId: string): Promise<LedgerAccount[]>;
   getLedgerAccount(id: string): Promise<LedgerAccount | null>;
   clearBookEntries(bookId: string, options?: ClearBookEntriesOptions): Promise<void>;
+  /**
+   * Drop an unclaimed member and their personal account. No-op if the member
+   * is claimed (userId set) or still has cash, allocations, or schedule legs.
+   */
+  removeUnclaimedMember(bookId: string, memberId: string): Promise<void>;
   deleteAllocations(ids: string[]): Promise<void>;
   deleteTradesIfUnused(bookId: string, tradeIds: string[]): Promise<void>;
   deleteCashFlows(bookId: string, ids: string[]): Promise<void>;

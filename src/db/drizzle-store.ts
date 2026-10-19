@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { LedgerStore } from "@/ledger";
 import type {
   AllocationLeg,
@@ -252,6 +252,46 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
         return;
       }
       await db.delete(cashFlows).where(and(eq(cashFlows.bookId, bookId), inArray(cashFlows.id, ids)));
+    },
+    async removeUnclaimedMember(bookId: string, memberId: string) {
+      const [member] = await db
+        .select()
+        .from(members)
+        .where(and(eq(members.id, memberId), eq(members.bookId, bookId), isNull(members.userId)))
+        .limit(1);
+      if (!member) {
+        return;
+      }
+      const [cash] = await db
+        .select({ id: cashFlows.id })
+        .from(cashFlows)
+        .where(and(eq(cashFlows.bookId, bookId), eq(cashFlows.memberId, memberId)))
+        .limit(1);
+      if (cash) {
+        return;
+      }
+      const [alloc] = await db
+        .select({ id: tradeAllocations.id })
+        .from(tradeAllocations)
+        .where(eq(tradeAllocations.memberId, memberId))
+        .limit(1);
+      if (alloc) {
+        return;
+      }
+      const [leg] = await db
+        .select({ id: allocationLegs.id })
+        .from(allocationLegs)
+        .where(eq(allocationLegs.memberId, memberId))
+        .limit(1);
+      if (leg) {
+        return;
+      }
+      await db
+        .delete(ledgerAccounts)
+        .where(
+          and(eq(ledgerAccounts.bookId, bookId), eq(ledgerAccounts.memberId, memberId), eq(ledgerAccounts.kind, "personal")),
+        );
+      await db.delete(members).where(and(eq(members.id, memberId), eq(members.bookId, bookId), isNull(members.userId)));
     },
   };
 }

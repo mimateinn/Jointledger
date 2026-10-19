@@ -295,6 +295,129 @@ describe("TradeSplits sheet", () => {
     expect(issue?.message).toContain("3");
   });
 
+  it("rejects all-zero TradeSplits legs 7/0 + 3/0 on a 100 buy with the row number", async () => {
+    const { transinfo, account } = sheets();
+    transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "100", "t-1"]];
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "7", "0", "0"],
+        ["t-1", "Sze", "3", "0", "0"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find(
+      (item) => item.kind === "tradesplit_invalid" && item.message.includes("金額") && item.row === 2,
+    );
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("2");
+    expect(plan.trades.find((row) => row.exportId === "t-1")?.customLegs).toBeUndefined();
+    await expect(
+      applyImport(createMemoryStore(), plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow(/TradeSplits 第 2 行/);
+  });
+
+  it("rejects buy money written in the proceeds column with the row number", async () => {
+    const { transinfo, account } = sheets();
+    transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "100", "t-1"]];
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "5", "0", "50"],
+        ["t-1", "Sze", "5", "0", "50"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find(
+      (item) => item.kind === "tradesplit_invalid" && item.message.includes("賣出欄"),
+    );
+    expect(issue?.row).toBe(2);
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("2");
+    expect(issue?.message).toMatch(/買入/);
+    await expect(
+      applyImport(createMemoryStore(), plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow(/TradeSplits 第 2 行買入金額唔可以寫喺賣出欄/);
+  });
+
+  it("rejects sell money written in the cost column with the row number", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total", "Sell Date", "Sell Price", "Sell Total", "Kind", "TradeId"],
+      rows: [["NVDA", "10", "F", "", "", "2024-03-01", "10", "100", "sell", "t-1"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [
+        ["2024-01-01", "入金", "H", "1000", "1", "1000", "in"],
+        ["2024-03-01", "NVDA", "F", "", "", "", ""],
+      ],
+    };
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "5", "50", "50"],
+        ["t-1", "Sze", "5", "50", "50"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find(
+      (item) => item.kind === "tradesplit_invalid" && item.message.includes("買入欄"),
+    );
+    expect(issue?.row).toBe(2);
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("2");
+    expect(issue?.message).toMatch(/賣出/);
+    await expect(
+      applyImport(createMemoryStore(), plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow(/TradeSplits 第 2 行賣出金額唔可以寫喺買入欄/);
+  });
+
+  it("accepts TradeSplits amounts that differ from the trade by 0.01 (s7)", () => {
+    const { transinfo, account } = sheets();
+    transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "100", "t-1"]];
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "5", "50.01", "0"],
+        ["t-1", "Sze", "5", "50.00", "0"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(false);
+    expect(plan.issues.some((item) => item.kind === "tradesplit_invalid")).toBe(false);
+    expect(plan.trades.find((row) => row.exportId === "t-1")?.customLegs).toEqual([
+      { memberName: "Hey", quantity: "5", costUsd: "50.01", proceedsUsd: "0" },
+      { memberName: "Sze", quantity: "5", costUsd: "50", proceedsUsd: "0" },
+    ]);
+  });
+
   it("does not crash on a blank TradeSplits money cell and names the row", async () => {
     const { transinfo, account } = sheets();
     const tradeSplits = {

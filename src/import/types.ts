@@ -80,6 +80,8 @@ export type IssueKind =
   | "allocation_invalid"
   | "tradesplit_invalid"
   | "duplicate_member"
+  | "kept_member"
+  | "schedule_member_missing"
   | "missing_fx"
   | "missing_date"
   | "missing_qty"
@@ -165,10 +167,14 @@ export type ImportPlan = {
   filename: string;
   fileHash: string;
   members: string[];
+  /** Names from the Members sheet only. Empty when the file has no Members sheet. */
+  listedMembers: string[];
   ownMapping: OwnAccountMap[];
   schedules: PlannedAllocationSchedule[];
   /** True when the upload included an Allocation sheet (even if empty). Missing sheet ≠ empty sheet. */
   hasAllocationSheet: boolean;
+  /** True when the upload included a Members sheet (even if empty). */
+  hasMembersSheet: boolean;
   cashFlows: PlannedCashFlow[];
   trades: PlannedTrade[];
   issues: ImportIssue[];

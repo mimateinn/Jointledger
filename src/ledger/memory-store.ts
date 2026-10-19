@@ -132,6 +132,30 @@ export function createMemoryStore(): LedgerStore & {
     async listLedgerAccounts(bookId: string) {
       return accounts.filter((row) => row.bookId === bookId);
     },
+    async removeUnclaimedMember(bookId: string, memberId: string) {
+      const member = members.find((row) => row.id === memberId && row.bookId === bookId);
+      if (!member || member.userId) {
+        return;
+      }
+      if (cashFlows.some((row) => row.memberId === memberId)) {
+        return;
+      }
+      if (allocations.some((row) => row.memberId === memberId)) {
+        return;
+      }
+      if (scheduleLegs.some((row) => row.memberId === memberId)) {
+        return;
+      }
+      for (let i = accounts.length - 1; i >= 0; i -= 1) {
+        if (accounts[i].bookId === bookId && accounts[i].memberId === memberId && accounts[i].kind === "personal") {
+          accounts.splice(i, 1);
+        }
+      }
+      const index = members.findIndex((row) => row.id === memberId);
+      if (index >= 0) {
+        members.splice(index, 1);
+      }
+    },
     async clearBookEntries(bookId: string, options) {
       const tradeIds = new Set(trades.filter((row) => row.bookId === bookId).map((row) => row.id));
       const scheduleIds = new Set(schedules.filter((row) => row.bookId === bookId).map((row) => row.id));

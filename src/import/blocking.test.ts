@@ -134,4 +134,60 @@ describe("import confirm blocking", () => {
     expect(commitBlockingResponse(plan)?.needsMap).toBe(false);
     expect(commitBlockingResponse(plan)?.error).toContain("T1");
   });
+
+  it("counts holder errors separately from skipped rows and open-lot warnings", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "Ghost", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [
+        ["2024-01-01", "入金", "H", "1000", "1", "1000", "in"],
+        ["2024-02-01", "入金", "S", "200", "", "200", "in"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    const errorCount = plan.issues.filter(
+      (item) =>
+        item.kind === "unknown_member" ||
+        item.kind === "empty_holder" ||
+        item.kind === "ambiguous_holder" ||
+        item.kind === "allocation_invalid" ||
+        item.kind === "tradesplit_invalid" ||
+        item.kind === "duplicate_member",
+    ).length;
+    const skippedCount = plan.issues.filter((item) =>
+      ["missing_fx", "missing_date", "missing_qty", "missing_amount", "unknown_own"].includes(item.kind),
+    ).length;
+    const warningCount = plan.issues.filter(
+      (item) =>
+        !item.pending &&
+        item.kind !== "unmapped_column" &&
+        item.kind !== "column_collision" &&
+        item.kind !== "missing_required" &&
+        !["missing_fx", "missing_date", "missing_qty", "missing_amount", "unknown_own"].includes(item.kind) &&
+        item.kind !== "unknown_member" &&
+        item.kind !== "empty_holder" &&
+        item.kind !== "ambiguous_holder" &&
+        item.kind !== "allocation_invalid" &&
+        item.kind !== "tradesplit_invalid" &&
+        item.kind !== "duplicate_member",
+    ).length;
+    expect(errorCount).toBeGreaterThan(0);
+    expect(skippedCount).toBeGreaterThan(0);
+    expect(plan.counts.errors).toBe(errorCount);
+    expect(plan.counts.skipped).toBe(skippedCount);
+    expect(plan.counts.warnings).toBe(warningCount);
+    expect(plan.issues.some((item) => item.kind === "unknown_member")).toBe(true);
+    expect(plan.issues.some((item) => item.kind === "missing_fx")).toBe(true);
+    expect(
+      plan.issues.filter((item) => item.kind === "unknown_member").length +
+        plan.issues.filter((item) => item.kind === "missing_fx").length,
+    ).toBe(plan.counts.errors + plan.counts.skipped);
+  });
 });
