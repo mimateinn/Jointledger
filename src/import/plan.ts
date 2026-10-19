@@ -123,7 +123,17 @@ export function buildPlan(
   const trades: PlannedTrade[] = [];
 
   if (mapping.blocking) {
-    return finish(filename, fileHash, cashFlows, trades, issues, true, listedMembers, schedules);
+    return finish(
+      filename,
+      fileHash,
+      cashFlows,
+      trades,
+      issues,
+      true,
+      listedMembers,
+      schedules,
+      extras.allocation !== undefined,
+    );
   }
 
   const adSymbols = new Map<string, { row: number; own: string; date: string | null }[]>();
@@ -205,7 +215,17 @@ export function buildPlan(
   }
   attachCustomTradeSplits(trades, extras.tradeSplits, issues, splitMembers);
   const blocking = issues.some((item) => isHolderOrAllocationIssue(item.kind));
-  return finish(filename, fileHash, cashFlows, trades, issues, blocking, listedMembers, schedules);
+  return finish(
+    filename,
+    fileHash,
+    cashFlows,
+    trades,
+    issues,
+    blocking,
+    listedMembers,
+    schedules,
+    extras.allocation !== undefined,
+  );
 }
 
 function ownRawForLegacy(row: string[], map: ColumnMap): string {
@@ -846,6 +866,7 @@ function finish(
   blocking: boolean,
   listedMembers: readonly string[] = [],
   schedules: PlannedAllocationSchedule[] = [],
+  hasAllocationSheet = false,
 ): ImportPlan {
   const members = new Set<string>();
   for (const name of listedMembers) {
@@ -896,6 +917,7 @@ function finish(
       { own: "A", account: ownAccountLabel("A", "sze") },
     ],
     schedules,
+    hasAllocationSheet,
     cashFlows,
     trades,
     issues,

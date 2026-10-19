@@ -199,7 +199,7 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
         legs: legRows.filter((leg) => leg.scheduleId === schedule.id).map(asScheduleLeg),
       }));
     },
-    async clearBookEntries(bookId: string) {
+    async clearBookEntries(bookId: string, options) {
       const bookTrades = await db.select({ id: trades.id }).from(trades).where(eq(trades.bookId, bookId));
       const tradeIds = bookTrades.map((row) => row.id);
       if (tradeIds.length > 0) {
@@ -207,6 +207,9 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
       }
       await db.delete(trades).where(eq(trades.bookId, bookId));
       await db.delete(cashFlows).where(eq(cashFlows.bookId, bookId));
+      if (options?.preserveSchedules) {
+        return;
+      }
       const bookSchedules = await db
         .select({ id: allocationSchedules.id })
         .from(allocationSchedules)

@@ -38,6 +38,8 @@ export function parseAllocationSheet(
 
   const listed = new Set(listedMembers.map((name) => name.trim().toLowerCase()));
   const groups = new Map<string, { name: string; raw: string; row: number }[]>();
+  const seenOnDate = new Map<string, Map<string, number>>();
+  const invalidDates = new Set<string>();
   for (const [index, row] of sheet.rows.entries()) {
     const excelRow = index + 2;
     const dateRaw = (row[dateIndex] ?? "").trim();
@@ -78,6 +80,20 @@ export function parseAllocationSheet(
       );
       continue;
     }
+    const byMember = seenOnDate.get(date) ?? new Map<string, number>();
+    const priorRow = byMember.get(name.toLowerCase());
+    if (priorRow) {
+      allocIssue(
+        issues,
+        issueId("alloc-dup", excelRow, name),
+        excelRow,
+        `Allocation 第 ${excelRow} 行成員「${name}」同第 ${priorRow} 行重複（同一生效日 ${date}）。`,
+      );
+      invalidDates.add(date);
+      continue;
+    }
+    byMember.set(name.toLowerCase(), excelRow);
+    seenOnDate.set(date, byMember);
     const list = groups.get(date) ?? [];
     list.push({ name, raw: percent, row: excelRow });
     groups.set(date, list);
@@ -85,6 +101,9 @@ export function parseAllocationSheet(
 
   const schedules: PlannedAllocationSchedule[] = [];
   for (const [effectiveOn, legs] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    if (invalidDates.has(effectiveOn)) {
+      continue;
+    }
     try {
       schedules.push({
         effectiveOn,

@@ -132,7 +132,7 @@ export function createMemoryStore(): LedgerStore & {
     async listLedgerAccounts(bookId: string) {
       return accounts.filter((row) => row.bookId === bookId);
     },
-    async clearBookEntries(bookId: string) {
+    async clearBookEntries(bookId: string, options) {
       const tradeIds = new Set(trades.filter((row) => row.bookId === bookId).map((row) => row.id));
       const scheduleIds = new Set(schedules.filter((row) => row.bookId === bookId).map((row) => row.id));
       for (let i = allocations.length - 1; i >= 0; i -= 1) {
@@ -149,6 +149,9 @@ export function createMemoryStore(): LedgerStore & {
         if (cashFlows[i].bookId === bookId) {
           cashFlows.splice(i, 1);
         }
+      }
+      if (options?.preserveSchedules) {
+        return;
       }
       for (let i = scheduleLegs.length - 1; i >= 0; i -= 1) {
         if (scheduleIds.has(scheduleLegs[i].scheduleId)) {

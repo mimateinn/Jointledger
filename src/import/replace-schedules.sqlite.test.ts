@@ -112,4 +112,64 @@ describe("replace clears schedules on sqlite", () => {
     const allocations = (await store.listTradeAllocations(book.id)).filter((row) => nvdaIds.has(row.tradeId));
     expect(allocations).toHaveLength(2);
   });
+
+  it("keeps schedules on sqlite replace when the file has no Allocation sheet", async () => {
+    const store = createDrizzleStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-demo",
+      creatorDisplayName: "Hey",
+      creatorEmail: "demo@example.com",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.6" },
+        { memberId: sze.member.id, percent: "0.4" },
+      ],
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      symbol: "TSLA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-03-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "2000", "1", "2000", "in"]],
+    };
+    const plan = buildPlan("no-alloc.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.hasAllocationSheet).toBe(false);
+
+    await applyImport(store, plan, {
+      createdByUserId: "user-demo",
+      creatorDisplayName: "Hey",
+      existingBookId: book.id,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+
+    const schedules = await store.listAllocationSchedules(book.id);
+    expect(schedules).toHaveLength(1);
+    expect(schedules[0]?.legs).toHaveLength(2);
+    const trades = await store.listTrades(book.id);
+    expect(trades.some((row) => row.symbol === "TSLA")).toBe(false);
+    const nvdaIds = new Set(trades.filter((row) => row.symbol === "NVDA").map((row) => row.id));
+    const allocations = (await store.listTradeAllocations(book.id)).filter((row) => nvdaIds.has(row.tradeId));
+    expect(allocations).toHaveLength(2);
+  });
 });

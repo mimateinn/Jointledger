@@ -19,6 +19,11 @@ import type {
 
 export type AllocationScheduleView = AllocationSchedule & { legs: AllocationLeg[] };
 
+export type ClearBookEntriesOptions = {
+  /** Keep allocation schedules/legs while clearing trades and cash. */
+  preserveSchedules?: boolean;
+};
+
 export type LedgerStore = {
   insertBook(input: NewBook): Promise<Book>;
   insertMember(input: NewMember): Promise<Member>;
@@ -35,7 +40,7 @@ export type LedgerStore = {
   listMembers(bookId: string): Promise<Member[]>;
   listLedgerAccounts(bookId: string): Promise<LedgerAccount[]>;
   getLedgerAccount(id: string): Promise<LedgerAccount | null>;
-  clearBookEntries(bookId: string): Promise<void>;
+  clearBookEntries(bookId: string, options?: ClearBookEntriesOptions): Promise<void>;
   deleteAllocations(ids: string[]): Promise<void>;
   deleteTradesIfUnused(bookId: string, tradeIds: string[]): Promise<void>;
   deleteCashFlows(bookId: string, ids: string[]): Promise<void>;

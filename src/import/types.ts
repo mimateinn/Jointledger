@@ -167,6 +167,8 @@ export type ImportPlan = {
   members: string[];
   ownMapping: OwnAccountMap[];
   schedules: PlannedAllocationSchedule[];
+  /** True when the upload included an Allocation sheet (even if empty). Missing sheet ≠ empty sheet. */
+  hasAllocationSheet: boolean;
   cashFlows: PlannedCashFlow[];
   trades: PlannedTrade[];
   issues: ImportIssue[];

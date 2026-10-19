@@ -369,7 +369,9 @@ async function applyImportBody(
     : null;
 
   if (input.decisions.reimportMode === "replace") {
-    await store.clearBookEntries(bookId);
+    await store.clearBookEntries(bookId, {
+      preserveSchedules: plan.hasAllocationSheet !== true,
+    });
   }
 
   await writeImportedSchedules(
