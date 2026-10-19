@@ -20,8 +20,29 @@ export function mappingBlockingIssues(plan: Pick<ImportPlan, "issues">): ImportI
   return plan.issues.filter((issue) => MAP_KINDS.has(issue.kind));
 }
 
+export function isPreviewBlockingKind(kind: string): boolean {
+  return (
+    HOLDER_KINDS.has(kind) ||
+    kind === "allocation_invalid" ||
+    kind === "tradesplit_invalid" ||
+    kind === "duplicate_member"
+  );
+}
+
+export function previewBlockingIssues(plan: Pick<ImportPlan, "issues">): ImportIssue[] {
+  return [...holderBlockingIssues(plan), ...allocationBlockingIssues(plan)];
+}
+
 export function holderBlockingMessage(plan: Pick<ImportPlan, "issues">): string | null {
   const issues = holderBlockingIssues(plan);
+  if (issues.length === 0) {
+    return null;
+  }
+  return issues.map((issue) => issue.message).join("\n");
+}
+
+export function previewBlockingMessage(plan: Pick<ImportPlan, "issues">): string | null {
+  const issues = previewBlockingIssues(plan);
   if (issues.length === 0) {
     return null;
   }

@@ -3,7 +3,6 @@ import { dividendNote } from "@/ledger/dividend";
 import { parseAllocationSheet } from "./allocation-sheet";
 import { cell, normalizeHeader } from "./columns";
 import { issueId } from "./issue-id";
-import { MEMBER_HEY, MEMBER_SZE } from "./canon";
 import { isLegacyHeySzeHolder, membersForBook, ownAccountLabel, resolveHolder, type ResolvedHolder } from "./own";
 import type {
   ColumnMap,
@@ -18,6 +17,7 @@ import type {
   PlannedTrade,
 } from "./types";
 import { isDividendKindRaw, parseRowKind } from "./row-kind";
+import { isPreviewBlockingKind } from "./blocking";
 import { attachCustomTradeSplits } from "./trade-splits";
 import { absMoney, extractTickers, parseDate, parseInOut, parseMoney } from "./values";
 
@@ -888,10 +888,6 @@ function finish(
         members.add(name);
       }
     }
-    if (row.legacyHeySze) {
-      members.add(MEMBER_HEY);
-      members.add(MEMBER_SZE);
-    }
     for (const leg of row.customLegs ?? []) {
       if (leg.memberName.trim()) {
         members.add(leg.memberName.trim());
@@ -926,8 +922,14 @@ function finish(
       members: members.size,
       cashFlows: cashFlows.filter((row) => !row.skip && !row.holderError).length,
       trades: trades.filter((row) => !row.skip && !row.holderError).length,
-      warnings: issues.filter((item) => !item.pending && !mapKinds.has(item.kind) && !skippedKinds.has(item.kind))
-        .length,
+      errors: issues.filter((item) => isPreviewBlockingKind(item.kind)).length,
+      warnings: issues.filter(
+        (item) =>
+          !item.pending &&
+          !mapKinds.has(item.kind) &&
+          !skippedKinds.has(item.kind) &&
+          !isPreviewBlockingKind(item.kind),
+      ).length,
       skipped: issues.filter(
         (item) =>
           skippedKinds.has(item.kind) ||

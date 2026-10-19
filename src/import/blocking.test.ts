@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { commitBlockingResponse, holderBlockingIssues, holderBlockingMessage } from "./blocking";
+import {
+  allocationBlockingIssues,
+  commitBlockingResponse,
+  holderBlockingIssues,
+  holderBlockingMessage,
+  previewBlockingIssues,
+  previewBlockingMessage,
+} from "./blocking";
 import { mapUpload } from "./columns";
 import { buildPlan } from "./plan";
 import type { ImportIssue, ImportPlan } from "./types";
@@ -54,17 +61,47 @@ describe("import confirm blocking", () => {
 
   it("wizard shows a holder error banner and disables 確認寫入", () => {
     const wizard = readFileSync("src/app/(app)/first-use/import-wizard.tsx", "utf8");
-    expect(wizard).toContain("holderBlockingIssues");
+    expect(wizard).toContain("previewBlockingIssues");
     expect(wizard).toContain("確認寫入");
     expect(wizard).toMatch(/disabled=\{writeBlocked/);
     expect(wizard).toContain('role="alert"');
     expect(wizard).not.toMatch(/needsMap:\s*true/);
   });
 
-  it("commitImportAction uses the holder message instead of the mapping form", () => {
+  it("commitImportAction uses the preview blocking message instead of the mapping form", () => {
     const action = readFileSync("src/app/actions/import.ts", "utf8");
     expect(action).toContain("commitBlockingResponse");
-    expect(action).toContain("holderBlockingMessage");
+    expect(action).toContain("previewBlockingMessage");
     expect(holderBlockingMessage({ issues: [] })).toBeNull();
+    expect(previewBlockingMessage({ issues: [] })).toBeNull();
+  });
+
+  it("treats duplicate Allocation / member-name issues as preview-blocking errors", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "H", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Kit"], ["KIT"]],
+      },
+    });
+    expect(plan.blocking).toBe(true);
+    expect(plan.counts.errors).toBeGreaterThan(0);
+    expect(allocationBlockingIssues(plan).some((item) => item.kind === "duplicate_member")).toBe(true);
+    const preview = previewBlockingIssues(plan);
+    expect(preview.some((item) => item.message.includes("Members") && item.message.includes("3"))).toBe(true);
+    expect(commitBlockingResponse(plan)?.needsMap).toBe(false);
   });
 });

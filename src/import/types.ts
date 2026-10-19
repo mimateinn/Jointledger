@@ -177,6 +177,7 @@ export type ImportPlan = {
     members: number;
     cashFlows: number;
     trades: number;
+    errors: number;
     warnings: number;
     skipped: number;
     pending: number;

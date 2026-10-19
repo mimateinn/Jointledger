@@ -9,7 +9,7 @@ import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
 import { importBatches } from "@/db/tables";
 import { applyImport } from "@/import/apply";
-import { commitBlockingResponse, holderBlockingMessage } from "@/import/blocking";
+import { commitBlockingResponse, previewBlockingMessage } from "@/import/blocking";
 import { applyManualMap, mapUpload } from "@/import/columns";
 import { readInviteSecret } from "@/import/invite-secrets";
 import { parseUpload, pickOptionalSheets, pickSheets } from "@/import/parse";
@@ -141,7 +141,7 @@ export async function parseImportAction(
       accountHeaders: account.headers,
       transinfoTargets: mapping.transinfo.targets,
       accountTargets: mapping.account.targets,
-      error: mapping.blocking ? undefined : holderBlockingMessage(plan) ?? undefined,
+      error: mapping.blocking ? undefined : previewBlockingMessage(plan) ?? undefined,
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "匯入失敗" };
@@ -217,7 +217,7 @@ export async function confirmMapAction(
       accountHeaders: account.headers,
       transinfoTargets: mapping.transinfo.targets,
       accountTargets: mapping.account.targets,
-      error: mapping.blocking ? undefined : holderBlockingMessage(plan) ?? undefined,
+      error: mapping.blocking ? undefined : previewBlockingMessage(plan) ?? undefined,
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "欄位對唔上" };

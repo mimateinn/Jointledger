@@ -319,9 +319,32 @@ async function applyImportBody(
 
   const importedSchedules = plan.schedules ?? [];
   const needed = new Set<string>(plan.members);
-  if (plan.trades.some((trade) => trade.legacyHeySze && !trade.skip && !trade.holderError)) {
+  const destSchedulesForMembers = input.existingBookId
+    ? await store.listAllocationSchedules(bookId)
+    : [];
+  if (
+    plan.trades.some(
+      (trade) =>
+        Boolean(trade.legacyHeySze) &&
+        !trade.skip &&
+        !trade.holderError &&
+        trade.book === "joint" &&
+        !trade.customLegs?.length &&
+        !scheduleInForce(
+          destSchedulesForMembers,
+          trade.side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate,
+        ),
+    )
+  ) {
     needed.add(MEMBER_HEY);
     needed.add(MEMBER_SZE);
+  }
+  if (
+    plan.trades.some(
+      (trade) => trade.side === "split" && !trade.skip && !trade.holderError && !trade.memberName.trim(),
+    )
+  ) {
+    needed.add(MEMBER_HEY);
   }
   for (const name of needed) {
     if (!name?.trim()) {
@@ -353,7 +376,13 @@ async function applyImportBody(
 
   const postingMember = (trade: PlannedTrade) => {
     if (trade.book === "joint") {
-      return trade.memberName.trim() ? lookup(trade.memberName) : firstMember();
+      if (trade.memberName.trim()) {
+        return lookup(trade.memberName);
+      }
+      if (trade.side === "split") {
+        return lookup(MEMBER_HEY);
+      }
+      return firstMember();
     }
     const names = membersForBook(trade.book, trade.memberName);
     return lookup(names[0] ?? trade.memberName);

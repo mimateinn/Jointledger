@@ -8,7 +8,7 @@ import {
   type ImportActionState,
 } from "@/app/actions/import";
 import { SubmitButton } from "@/components/submit-button";
-import { holderBlockingIssues } from "@/import/blocking";
+import { isPreviewBlockingKind, previewBlockingIssues } from "@/import/blocking";
 import { inviteSecretFieldName } from "@/import/invite-secrets";
 import type { ColumnTarget } from "@/import/types";
 
@@ -64,8 +64,11 @@ export function ImportWizard({
   const issuedInvites = committed.issuedInvites;
   const showMap = Boolean(state.needsMap && state.draftId && !issuedInvites);
   const showPreview = Boolean(state.draftId && preview && !state.needsMap && !issuedInvites);
-  const holderErrors = preview ? holderBlockingIssues(preview) : [];
-  const writeBlocked = Boolean(preview?.blocking) || holderErrors.length > 0;
+  const blockingErrors = preview ? previewBlockingIssues(preview) : [];
+  const writeBlocked = Boolean(preview?.blocking) || blockingErrors.length > 0;
+  const noteIssues = preview
+    ? preview.issues.filter((item) => !item.pending && !isPreviewBlockingKind(item.kind))
+    : [];
 
   return (
     <div className="stack">
@@ -185,17 +188,18 @@ export function ImportWizard({
       {showPreview && preview ? (
         <section className="card stack">
           <h2 className="title">預覽</h2>
-          {holderErrors.length > 0 ? (
+          {blockingErrors.length > 0 ? (
             <div className="alert" role="alert">
-              {holderErrors.map((issue) => (
+              {blockingErrors.map((issue) => (
                 <p key={issue.id}>{issue.message}</p>
               ))}
-              <p>唔可以確認寫入，直至 holder 對應到成員。</p>
+              <p>唔可以確認寫入。</p>
             </div>
           ) : null}
           <p className="muted">
             成員 {preview.counts.members} · 出入金 {preview.counts.cashFlows} · 記帳 {preview.counts.trades} ·
-            警告 {preview.counts.warnings} · 略過 {preview.counts.skipped} · 待確認 {preview.counts.pending}
+            錯誤 {preview.counts.errors} · 警告 {preview.counts.warnings} · 略過 {preview.counts.skipped} · 待確認{" "}
+            {preview.counts.pending}
           </p>
           <div>
             <div className="meta muted">Own → 帳</div>
@@ -298,14 +302,11 @@ export function ImportWizard({
                 <input type="hidden" name="pendingBulk" value={bulk} />
               </>
             ) : null}
-            {preview.issues.filter((item) => !item.pending).length > 0 ? (
+            {noteIssues.length > 0 ? (
               <ul className="muted">
-                {preview.issues
-                  .filter((item) => !item.pending)
-                  .slice(0, 12)
-                  .map((issue) => (
-                    <li key={issue.id}>{issue.message}</li>
-                  ))}
+                {noteIssues.slice(0, 12).map((issue) => (
+                  <li key={issue.id}>{issue.message}</li>
+                ))}
               </ul>
             ) : null}
             {!reimport && state.needsReimport ? (
@@ -318,7 +319,7 @@ export function ImportWizard({
                 </select>
               </div>
             ) : null}
-            {state.error && holderErrors.length === 0 ? <p className="alert">{state.error}</p> : null}
+            {state.error && blockingErrors.length === 0 ? <p className="alert">{state.error}</p> : null}
             <div className="submit-row">
               <SubmitButton pendingLabel="儲存中" disabled={writeBlocked}>
                 確認寫入
