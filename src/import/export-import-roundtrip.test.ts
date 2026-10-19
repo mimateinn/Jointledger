@@ -10,8 +10,9 @@ import { createTrade } from "@/ledger/create-trade";
 import { money } from "@/ledger/money";
 import { setAllocationSchedule } from "@/ledger/set-allocation-schedule";
 import type { LedgerStore } from "@/ledger/store";
+import { filterByMember, openLotsFromTrades, summarizeLedger } from "@/ledger/summary";
 import { applyImport } from "./apply";
-import { EXPORT_FILENAME, exportBookXlsx } from "./book-export";
+import { EXPORT_FILENAME, exportBookXlsx, writeBookXlsx } from "./book-export";
 import { mapUpload } from "./columns";
 import { legacyV012ExportSheets } from "./fixtures/legacy-v0-1-12";
 import { buildPlan } from "./plan";
@@ -948,5 +949,181 @@ describe("export / import round-trip", () => {
     expect(issue?.message).toContain("KIT");
     expect(issue?.message).toContain("2");
   });
+
+  it("round-trips members A/H/明 on a no-schedule joint book with Member A NAV 1080", async () => {
+    const store = createMemoryStore();
+    const { book, member: memberA, account: cashA } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "A",
+    });
+    const memberH = await addMember(store, { bookId: book.id, displayName: "H" });
+    const memberMing = await addMember(store, { bookId: book.id, displayName: "明" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    for (const row of [
+      { member: memberA, account: cashA },
+      { member: memberH.member, account: memberH.account },
+      { member: memberMing.member, account: memberMing.account },
+    ]) {
+      await createCashFlow(store, {
+        bookId: book.id,
+        memberId: row.member.id,
+        ledgerAccountId: row.account.id,
+        amountHkd: "1500",
+        fxRate: "1",
+        occurredOn: "2024-01-01",
+      });
+    }
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: memberA.id,
+      symbol: "NVDA",
+      quantity: "6",
+      price: "210",
+      occurredOn: "2024-02-01",
+    });
+    expect(await store.listAllocationSchedules(book.id)).toEqual([]);
+
+    async function memberNav(target: LedgerStore, bookId: string, memberId: string) {
+      const cashFlows = filterByMember(await target.listCashFlows(bookId), memberId);
+      const allocations = filterByMember(await target.listTradeAllocations(bookId), memberId);
+      const trades = await target.listTrades(bookId);
+      const lots = filterByMember(openLotsFromTrades(trades, await target.listTradeAllocations(bookId)), memberId);
+      return summarizeLedger(cashFlows, allocations, lots);
+    }
+
+    const beforeNav = await memberNav(store, book.id, memberA.id);
+    expect(beforeNav.cashUsd.toFixed(2)).toBe("1080.00");
+    expect(beforeNav.navUsd.toFixed(2)).toBe("1080.00");
+
+    const bytes = await exportBookXlsx(store, book.id);
+    const { empty, result, extras } = await importExportedBook(bytes, "A");
+    expect(extras.members?.rows.flat()).toEqual(expect.arrayContaining(["A", "H", "明"]));
+    expect(extras.members?.rows.flat().some((name) => name === "Hey" || name === "Sze")).toBe(false);
+    const afterMembers = await empty.listMembers(result.bookId);
+    expect(afterMembers.map((row) => row.displayName).sort()).toEqual(["A", "H", "明"]);
+    const afterA = afterMembers.find((row) => row.displayName === "A")!;
+    const afterNav = await memberNav(empty, result.bookId, afterA.id);
+    expect(afterNav.cashUsd.toFixed(2)).toBe("1080.00");
+    expect(afterNav.navUsd.toFixed(2)).toBe("1080.00");
+  });
+
+  it("keeps schedule count unchanged across three replace imports, and export1 equals export2 including Members", async () => {
+    const { store, bookId } = await seedFullLedger();
+    const beforeCount = (await store.listAllocationSchedules(bookId)).length;
+    const bytes1 = await exportBookXlsx(store, bookId);
+    const parsed1 = await parseUpload([{ name: EXPORT_FILENAME, bytes: bytes1 }]);
+    expect(parsed1.sheets.some((sheet) => sheet.kind === "members")).toBe(true);
+    const { transinfo, account } = pickSheets(parsed1);
+    const extras = pickOptionalSheets(parsed1);
+    const plan = buildPlan(parsed1.filename, parsed1.fileHash, transinfo, account, mapUpload(transinfo, account), extras);
+
+    for (let i = 0; i < 3; i += 1) {
+      await applyImport(store, plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        existingBookId: bookId,
+        decisions: { ...importAll(plan), reimportMode: "replace" },
+      });
+    }
+    expect((await store.listAllocationSchedules(bookId)).length).toBe(beforeCount);
+
+    const bytes2 = await exportBookXlsx(store, bookId);
+    const parsed2 = await parseUpload([{ name: EXPORT_FILENAME, bytes: bytes2 }]);
+    expect(parsed2.sheets.some((sheet) => sheet.kind === "members")).toBe(true);
+    const byName = (parsed: typeof parsed1) =>
+      Object.fromEntries(parsed.sheets.map((sheet) => [sheet.name, { headers: sheet.headers, rows: sheet.rows }]));
+    expect(byName(parsed2)).toEqual(byName(parsed1));
+  });
+
+  it("moving the 60/40 date to 2024-08-01 re-splits the 2024-07-15 TSLA buy 50/50", async () => {
+    const { store, bookId } = await seedFullLedger();
+    const bytes = await exportBookXlsx(store, bookId);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    const { transinfo, account } = pickSheets(parsed);
+    const extras = pickOptionalSheets(parsed);
+    expect(extras.allocation).toBeTruthy();
+    const moved = {
+      ...extras.allocation!,
+      rows: extras.allocation!.rows.map((row) =>
+        row[0] === "2024-06-01" ? ["2024-08-01", row[1], row[2]] : row,
+      ),
+    };
+    const rewritten = await writeBookXlsx(transinfo, account, {
+      members: extras.members,
+      allocation: moved,
+    });
+    const { empty, result } = await importExportedBook(rewritten);
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after.schedules.map((row) => row.effectiveOn)).toEqual(["2024-01-01", "2024-08-01"]);
+    const tsla = after.allocations.filter((row) => row.symbol === "TSLA" && row.side === "buy");
+    expect(tsla.find((row) => row.memberName === "Hey")?.quantity).toBe(moneyKey("5"));
+    expect(tsla.find((row) => row.memberName === "Sze")?.quantity).toBe(moneyKey("5"));
+  });
+
+  it("does not warn 賣出日空白 on a partly sold buy", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total", "Sell Date", "Sell Price", "Sell Total", "Kind"],
+      rows: [
+        ["NVDA", "10", "H", "2024-01-02", "500", "", "", "", "buy"],
+        ["NVDA", "4", "H", "", "", "2024-03-01", "60", "240", "sell"],
+      ],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.issues.some((issue) => issue.kind === "open_lot")).toBe(false);
+    expect(plan.issues.some((issue) => issue.message.includes("賣出日空白"))).toBe(false);
+    expect(plan.trades.some((row) => row.side === "buy" && row.symbol === "NVDA")).toBe(true);
+    expect(plan.trades.some((row) => row.side === "sell" && row.symbol === "NVDA")).toBe(true);
+  });
+
+  it("round-trips a per-trade custom joint split that differs from the schedule", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.5" },
+        { memberId: sze.member.id, percent: "0.5" },
+      ],
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-02-01",
+      legs: [
+        { memberId: hey.id, quantity: "7", costUsd: "70", proceedsUsd: "0" },
+        { memberId: sze.member.id, quantity: "3", costUsd: "30", proceedsUsd: "0" },
+      ],
+    });
+    const bytes = await exportBookXlsx(store, book.id);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    expect(parsed.sheets.some((sheet) => sheet.kind === "tradesplits")).toBe(true);
+    const { empty, result } = await importExportedBook(bytes);
+    const after = await snapshotBook(empty, result.bookId);
+    const nvda = after.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
+    expect(nvda.find((row) => row.memberName === "Hey")?.quantity).toBe(moneyKey("7"));
+    expect(nvda.find((row) => row.memberName === "Sze")?.quantity).toBe(moneyKey("3"));
+  });
 });
+
 

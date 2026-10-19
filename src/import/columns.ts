@@ -296,6 +296,9 @@ export function detectSheetKind(name: string, headers: string[]): SheetKind | Ex
   if (n === "allocation" || n === "allocations" || n === "schedule" || n === "schedules") {
     return "allocation";
   }
+  if (n === "tradesplits" || n === "tradesplit" || n === "customsplits") {
+    return "tradesplits";
+  }
   if (n.includes("transinfo") || n.includes("交易")) {
     return "transinfo";
   }

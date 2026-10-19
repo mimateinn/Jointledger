@@ -178,10 +178,14 @@ export function pickSheets(parsed: ParsedUpload): { transinfo: ParsedSheet; acco
 export function pickOptionalSheets(parsed: ParsedUpload): {
   members?: ParsedSheet;
   allocation?: ParsedSheet;
+  tradeSplits?: ParsedSheet;
 } {
   const members = parsed.sheets.find((sheet) => sheet.kind === "members" || sheet.name === "Members");
   const allocation = parsed.sheets.find(
     (sheet) => sheet.kind === "allocation" || sheet.name === "Allocation",
   );
-  return { members, allocation };
+  const tradeSplits = parsed.sheets.find(
+    (sheet) => sheet.kind === "tradesplits" || sheet.name === "TradeSplits",
+  );
+  return { members, allocation, tradeSplits };
 }

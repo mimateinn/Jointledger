@@ -366,6 +366,14 @@ async function applyImportBody(
     }
     const accountId = trade.book === "joint" ? joint!.id : memberRef.accountId;
     const memberId = memberRef.memberId;
+    const customLegs = trade.customLegs?.length
+      ? trade.customLegs.map((leg) => ({
+          memberId: lookup(leg.memberName).memberId,
+          quantity: leg.quantity,
+          costUsd: leg.costUsd,
+          proceedsUsd: leg.proceedsUsd,
+        }))
+      : undefined;
 
     if (trade.side === "split") {
       await w.createSplit(store, {
@@ -424,6 +432,7 @@ async function applyImportBody(
         side: "sell",
         proceedsUsd: proceeds,
         feeUsd: trade.sellFee ?? undefined,
+        legs: customLegs,
         note: trade.note?.trim() ? trade.note.trim() : null,
       });
       tradeCount += 1;
@@ -446,6 +455,7 @@ async function applyImportBody(
       side: "buy",
       costUsd: trade.buyTotal,
       feeUsd: trade.buyFee ?? undefined,
+      legs: customLegs,
       note: trade.note?.trim() ? trade.note.trim() : null,
     });
     tradeCount += 1;

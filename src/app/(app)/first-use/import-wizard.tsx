@@ -8,6 +8,7 @@ import {
   type ImportActionState,
 } from "@/app/actions/import";
 import { SubmitButton } from "@/components/submit-button";
+import { holderBlockingIssues } from "@/import/blocking";
 import { inviteSecretFieldName } from "@/import/invite-secrets";
 import type { ColumnTarget } from "@/import/types";
 
@@ -21,6 +22,7 @@ const TI_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "buy_date", label: "買入日期" },
   { value: "buy_price", label: "買入價" },
   { value: "buy_total", label: "買入總額" },
+  { value: "buy_fee", label: "買入手續費" },
   { value: "sell_date", label: "賣出日期" },
   { value: "sell_price", label: "賣出價" },
   { value: "sell_fee", label: "賣出手續費" },
@@ -61,6 +63,8 @@ export function ImportWizard({
   const issuedInvites = committed.issuedInvites;
   const showMap = Boolean(state.needsMap && state.draftId && !issuedInvites);
   const showPreview = Boolean(state.draftId && preview && !state.needsMap && !issuedInvites);
+  const holderErrors = preview ? holderBlockingIssues(preview) : [];
+  const writeBlocked = Boolean(preview?.blocking) || holderErrors.length > 0;
 
   return (
     <div className="stack">
@@ -180,6 +184,14 @@ export function ImportWizard({
       {showPreview && preview ? (
         <section className="card stack">
           <h2 className="title">預覽</h2>
+          {holderErrors.length > 0 ? (
+            <div className="alert" role="alert">
+              {holderErrors.map((issue) => (
+                <p key={issue.id}>{issue.message}</p>
+              ))}
+              <p>唔可以確認寫入，直至 holder 對應到成員。</p>
+            </div>
+          ) : null}
           <p className="muted">
             成員 {preview.counts.members} · 出入金 {preview.counts.cashFlows} · 記帳 {preview.counts.trades} ·
             警告 {preview.counts.warnings} · 略過 {preview.counts.skipped} · 待確認 {preview.counts.pending}
@@ -305,9 +317,11 @@ export function ImportWizard({
                 </select>
               </div>
             ) : null}
-            {state.error ? <p className="alert">{state.error}</p> : null}
+            {state.error && holderErrors.length === 0 ? <p className="alert">{state.error}</p> : null}
             <div className="submit-row">
-              <SubmitButton pendingLabel="儲存中">確認寫入</SubmitButton>
+              <SubmitButton pendingLabel="儲存中" disabled={writeBlocked}>
+                確認寫入
+              </SubmitButton>
               {onBack ? (
                 <button className="btn btn-ghost" type="button" onClick={onBack}>
                   取消

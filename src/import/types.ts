@@ -1,5 +1,5 @@
 export type SheetKind = "transinfo" | "account";
-export type ExtraSheetKind = "members" | "allocation";
+export type ExtraSheetKind = "members" | "allocation" | "tradesplits";
 
 export type TransInfoTarget =
   | "symbol"
@@ -34,6 +34,7 @@ export type ParsedSheet = {
 export type ImportExtras = {
   members?: ParsedSheet;
   allocation?: ParsedSheet;
+  tradeSplits?: ParsedSheet;
 };
 
 export type ParsedUpload = {
@@ -145,6 +146,7 @@ export type PlannedTrade = {
   pending: boolean;
   warningIds: string[];
   holderError?: "empty" | "unknown" | "ambiguous";
+  customLegs?: { memberName: string; quantity: string; costUsd: string; proceedsUsd: string }[];
 };
 
 export type OwnAccountMap = {

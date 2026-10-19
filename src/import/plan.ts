@@ -307,6 +307,8 @@ export function buildPlan(
   }
 
   flagSameDayJointMismatch(trades, issues);
+  suppressOpenLotWhenSold(trades, issues);
+  attachCustomTradeSplits(trades, extras.tradeSplits);
   const blocking = issues.some((item) => isHolderOrAllocationIssue(item.kind));
   return finish(filename, fileHash, cashFlows, trades, issues, blocking, listedMembers, schedules);
 }
@@ -862,6 +864,114 @@ function planSellRow(
     pending: false,
     warningIds: [],
   };
+}
+
+function parseTradeSplitsSheet(sheet: ParsedSheet | undefined) {
+  if (!sheet) {
+    return [];
+  }
+  const dateIndex = headerIndex(sheet.headers, ["date", "occurredon", "buydate", "日期"]);
+  const symbolIndex = headerIndex(sheet.headers, ["symbol", "code", "ticker", "股票代碼", "代碼"]);
+  const sideIndex = headerIndex(sheet.headers, ["side", "kind", "種類"]);
+  const memberIndex = headerIndex(sheet.headers, ["member", "name", "holder", "成員", "姓名"]);
+  const qtyIndex = headerIndex(sheet.headers, ["quantity", "qty", "數量"]);
+  const costIndex = headerIndex(sheet.headers, ["cost", "costusd", "買入總額"]);
+  const proceedsIndex = headerIndex(sheet.headers, ["proceeds", "proceedsusd", "賣出總額"]);
+  if (dateIndex < 0 || symbolIndex < 0 || memberIndex < 0 || qtyIndex < 0) {
+    return [];
+  }
+  const rows: {
+    occurredOn: string;
+    symbol: string;
+    side: string;
+    memberName: string;
+    quantity: string;
+    costUsd: string;
+    proceedsUsd: string;
+  }[] = [];
+  for (const row of sheet.rows) {
+    const occurredOn = parseDate((row[dateIndex] ?? "").trim());
+    const symbol = (row[symbolIndex] ?? "").trim().toUpperCase();
+    const memberName = (row[memberIndex] ?? "").trim();
+    const quantity = parseMoney(row[qtyIndex] ?? "");
+    if (!occurredOn || !symbol || !memberName || !quantity) {
+      continue;
+    }
+    rows.push({
+      occurredOn,
+      symbol,
+      side: (sideIndex >= 0 ? row[sideIndex] : "buy")?.trim().toLowerCase() || "buy",
+      memberName,
+      quantity,
+      costUsd: parseMoney(costIndex >= 0 ? row[costIndex] : "") ?? "0",
+      proceedsUsd: parseMoney(proceedsIndex >= 0 ? row[proceedsIndex] : "") ?? "0",
+    });
+  }
+  return rows;
+}
+
+function attachCustomTradeSplits(trades: PlannedTrade[], sheet: ParsedSheet | undefined): void {
+  const rows = parseTradeSplitsSheet(sheet);
+  if (rows.length === 0) {
+    return;
+  }
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = `${row.occurredOn}|${row.symbol}|${row.side}`;
+    const list = groups.get(key) ?? [];
+    list.push(row);
+    groups.set(key, list);
+  }
+  for (const trade of trades) {
+    if (trade.holderError || (trade.side !== "buy" && trade.side !== "sell")) {
+      continue;
+    }
+    const side = trade.side ?? "buy";
+    const occurredOn = side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate;
+    const key = `${occurredOn}|${trade.symbol.toUpperCase()}|${side}`;
+    const legs = groups.get(key);
+    if (!legs || legs.length === 0) {
+      continue;
+    }
+    trade.customLegs = legs.map((leg) => ({
+      memberName: leg.memberName,
+      quantity: leg.quantity,
+      costUsd: leg.costUsd,
+      proceedsUsd: leg.proceedsUsd,
+    }));
+    trade.book = "joint";
+  }
+}
+
+function sellKey(trade: PlannedTrade): string {
+  return `${trade.symbol.toUpperCase()}|${trade.own.trim().toLowerCase()}|${trade.book}`;
+}
+
+/** A buy that already has a matching sell row is not an open-lot warning. */
+function suppressOpenLotWhenSold(trades: PlannedTrade[], issues: ImportIssue[]): void {
+  const sold = new Set(
+    trades.filter((trade) => trade.side === "sell" && !trade.holderError).map((trade) => sellKey(trade)),
+  );
+  if (sold.size === 0) {
+    return;
+  }
+  const dropIds = new Set<string>();
+  for (const trade of trades) {
+    if (trade.side !== "buy" || trade.holderError || !sold.has(sellKey(trade))) {
+      continue;
+    }
+    for (const id of trade.warningIds) {
+      if (id.startsWith("open-")) {
+        dropIds.add(id);
+      }
+    }
+    trade.warningIds = trade.warningIds.filter((id) => !id.startsWith("open-"));
+  }
+  for (let i = issues.length - 1; i >= 0; i -= 1) {
+    if (issues[i].kind === "open_lot" && dropIds.has(issues[i].id)) {
+      issues.splice(i, 1);
+    }
+  }
 }
 
 function flagSameDayJointMismatch(trades: PlannedTrade[], issues: ImportIssue[]): void {

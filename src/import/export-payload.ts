@@ -1,4 +1,6 @@
+import { jointTradeLegs } from "@/ledger/joint-legs";
 import { money, moneyString } from "@/ledger/money";
+import { scheduleInForce } from "@/ledger/set-allocation-schedule";
 import type { AllocationScheduleView } from "@/ledger/store";
 import { tradeCashAmountUsd } from "@/ledger/trade-amount";
 import type { CashFlow, LedgerAccount, Member, Trade, TradeAllocation } from "@/ledger/types";
@@ -42,11 +44,22 @@ export type AllocationExportRow = {
   percent: string;
 };
 
+export type TradeSplitExportRow = {
+  occurredOn: string;
+  symbol: string;
+  side: string;
+  memberName: string;
+  quantity: string;
+  costUsd: string;
+  proceedsUsd: string;
+};
+
 export type BookExportPayload = {
   transinfo: TransInfoExportRow[];
   account: AccountExportRow[];
   members: MemberExportRow[];
   allocations: AllocationExportRow[];
+  tradeSplits: TradeSplitExportRow[];
 };
 
 function num(value: string): string {
@@ -262,7 +275,12 @@ export function buildExportPayload(input: {
     .sort((a, b) => a.effectiveOn.localeCompare(b.effectiveOn));
   if (schedules.length > 0) {
     for (const schedule of schedules) {
-      for (const leg of schedule.legs) {
+      const legs = schedule.legs.slice().sort((a, b) => {
+        const nameA = membersById.get(a.memberId)?.displayName ?? a.memberId;
+        const nameB = membersById.get(b.memberId)?.displayName ?? b.memberId;
+        return nameA.localeCompare(nameB);
+      });
+      for (const leg of legs) {
         const memberName = membersById.get(leg.memberId)?.displayName;
         if (!memberName) {
           continue;
@@ -280,8 +298,11 @@ export function buildExportPayload(input: {
       ...input.trades.map((row) => row.occurredOn),
     ].sort((a, b) => a.localeCompare(b));
     const effectiveOn = eventDates[0] ?? "1970-01-01";
-    const percents = equalMemberPercents(input.members.length);
-    input.members.forEach((member, index) => {
+    const named = input.members
+      .slice()
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+    const percents = equalMemberPercents(named.length);
+    named.forEach((member, index) => {
       allocations.push({
         effectiveOn,
         memberName: member.displayName,
@@ -290,7 +311,57 @@ export function buildExportPayload(input: {
     });
   }
 
-  return { transinfo, account, members, allocations };
+  const tradeSplits: TradeSplitExportRow[] = [];
+  for (const trade of tradeRows) {
+    const account = accountsById.get(trade.ledgerAccountId);
+    if (account?.kind !== "joint" || (trade.side !== "buy" && trade.side !== "sell")) {
+      continue;
+    }
+    const actual = input.allocations.filter((row) => row.tradeId === trade.id);
+    if (actual.length < 2) {
+      continue;
+    }
+    const field = trade.side === "sell" ? "proceeds" : "cost";
+    const total = actual.reduce((sum, row) => sum.plus(money(row[field === "cost" ? "costUsd" : "proceedsUsd"])), money("0"));
+    const schedule = scheduleInForce(input.schedules ?? [], trade.occurredOn);
+    const expected = jointTradeLegs({
+      scheduleLegs: schedule?.legs ?? null,
+      members: input.members,
+      quantity: trade.quantity,
+      total: total.toString(),
+      field,
+    });
+    const expectedQty = new Map(expected.map((leg) => [leg.memberId, money(leg.quantity)]));
+    const custom = actual.length !== expected.length || actual.some((row) => {
+      const want = expectedQty.get(row.memberId);
+      return !want || !money(row.quantity).eq(want);
+    });
+    if (!custom) {
+      continue;
+    }
+    const sorted = actual.slice().sort((a, b) => {
+      const nameA = membersById.get(a.memberId)?.displayName ?? a.memberId;
+      const nameB = membersById.get(b.memberId)?.displayName ?? b.memberId;
+      return nameA.localeCompare(nameB);
+    });
+    for (const leg of sorted) {
+      const memberName = membersById.get(leg.memberId)?.displayName;
+      if (!memberName) {
+        continue;
+      }
+      tradeSplits.push({
+        occurredOn: trade.occurredOn,
+        symbol: trade.symbol,
+        side: trade.side,
+        memberName,
+        quantity: num(leg.quantity),
+        costUsd: num(leg.costUsd),
+        proceedsUsd: num(leg.proceedsUsd),
+      });
+    }
+  }
+
+  return { transinfo, account, members, allocations, tradeSplits };
 }
 
 export function transinfoCells(row: TransInfoExportRow): string[] {
@@ -322,4 +393,8 @@ export function memberCells(row: MemberExportRow): string[] {
 
 export function allocationCells(row: AllocationExportRow): string[] {
   return [row.effectiveOn, row.memberName, row.percent];
+}
+
+export function tradeSplitCells(row: TradeSplitExportRow): string[] {
+  return [row.occurredOn, row.symbol, row.side, row.memberName, row.quantity, row.costUsd, row.proceedsUsd];
 }

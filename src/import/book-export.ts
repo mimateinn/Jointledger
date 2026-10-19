@@ -6,6 +6,7 @@ import {
   allocationCells,
   buildExportPayload,
   memberCells,
+  tradeSplitCells,
   transinfoCells,
 } from "./export-payload";
 import type { ParsedSheet } from "./types";
@@ -64,6 +65,17 @@ export const MEMBERS_EXPORT_HEADERS = ["Name"] as const;
 
 export const ALLOCATION_EXPORT_HEADERS = ["Effective Date", "Member", "Percent"] as const;
 
+export const TRADE_SPLITS_SHEET_NAME = "TradeSplits";
+export const TRADE_SPLITS_EXPORT_HEADERS = [
+  "Date",
+  "Symbol",
+  "Side",
+  "Member",
+  "Quantity",
+  "Cost",
+  "Proceeds",
+] as const;
+
 export function buildBookSheets(input: {
   members: Member[];
   accounts: LedgerAccount[];
@@ -76,6 +88,7 @@ export function buildBookSheets(input: {
   account: ParsedSheet;
   members: ParsedSheet;
   allocation: ParsedSheet;
+  tradeSplits: ParsedSheet;
 } {
   const payload = buildExportPayload(input);
   return {
@@ -103,13 +116,19 @@ export function buildBookSheets(input: {
       headers: [...ALLOCATION_EXPORT_HEADERS],
       rows: payload.allocations.map(allocationCells),
     },
+    tradeSplits: {
+      kind: "tradesplits",
+      name: TRADE_SPLITS_SHEET_NAME,
+      headers: [...TRADE_SPLITS_EXPORT_HEADERS],
+      rows: payload.tradeSplits.map(tradeSplitCells),
+    },
   };
 }
 
 export async function writeBookXlsx(
   transinfo: ParsedSheet,
   account: ParsedSheet,
-  extras?: { members?: ParsedSheet; allocation?: ParsedSheet },
+  extras?: { members?: ParsedSheet; allocation?: ParsedSheet; tradeSplits?: ParsedSheet },
 ): Promise<Uint8Array> {
   const sheets = [
     { name: TRANSINFO_SHEET_NAME, headers: transinfo.headers, rows: transinfo.rows },
@@ -123,6 +142,13 @@ export async function writeBookXlsx(
       name: extras.allocation.name,
       headers: extras.allocation.headers,
       rows: extras.allocation.rows,
+    });
+  }
+  if (extras?.tradeSplits && extras.tradeSplits.rows.length > 0) {
+    sheets.push({
+      name: extras.tradeSplits.name,
+      headers: extras.tradeSplits.headers,
+      rows: extras.tradeSplits.rows,
     });
   }
   return writeLocalXlsx(sheets);
@@ -141,5 +167,6 @@ export async function exportBookXlsx(store: LedgerStore, bookId: string): Promis
   return writeBookXlsx(sheets.transinfo, sheets.account, {
     members: sheets.members,
     allocation: sheets.allocation,
+    tradeSplits: sheets.tradeSplits,
   });
 }
