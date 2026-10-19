@@ -309,11 +309,35 @@ function collectCustomTradeSplits(input: {
   const tradeSplits: TradeSplitExportRow[] = [];
   for (const trade of input.tradeRows) {
     const account = input.accountsById.get(trade.ledgerAccountId);
-    if (account?.kind !== "joint" || trade.side === "split") {
+    if (account?.kind !== "joint") {
       continue;
     }
     const actual = input.allocations.filter((row) => row.tradeId === trade.id);
     if (actual.length === 0) {
+      continue;
+    }
+    if (trade.side === "split") {
+      const sorted = actual.slice().sort((a, b) => {
+        const nameA = input.membersById.get(a.memberId)?.displayName ?? a.memberId;
+        const nameB = input.membersById.get(b.memberId)?.displayName ?? b.memberId;
+        return nameA.localeCompare(nameB);
+      });
+      for (const leg of sorted) {
+        const memberName = input.membersById.get(leg.memberId)?.displayName;
+        if (!memberName) {
+          continue;
+        }
+        tradeSplits.push({
+          tradeId: input.exportIds.get(trade.id) ?? trade.id,
+          occurredOn: trade.occurredOn,
+          symbol: trade.symbol,
+          side: trade.side,
+          memberName,
+          quantity: num(leg.quantity),
+          costUsd: num(leg.costUsd),
+          proceedsUsd: num(leg.proceedsUsd),
+        });
+      }
       continue;
     }
     const field =

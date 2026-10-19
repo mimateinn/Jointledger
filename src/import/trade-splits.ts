@@ -65,6 +65,14 @@ export function parseTradeSplitsSheet(
       });
       continue;
     }
+    const cost = readMoneyCell(row, costIndex, excelRow, issues);
+    if (cost === "invalid") {
+      continue;
+    }
+    const proceeds = readMoneyCell(row, proceedsIndex, excelRow, issues);
+    if (proceeds === "invalid") {
+      continue;
+    }
     rows.push({
       excelRow,
       tradeId,
@@ -73,11 +81,47 @@ export function parseTradeSplitsSheet(
       side: (sideIndex >= 0 ? row[sideIndex] : "buy")?.trim().toLowerCase() || "buy",
       memberName,
       quantity,
-      costUsd: parseMoney(costIndex >= 0 ? row[costIndex] : "") ?? "0",
-      proceedsUsd: parseMoney(proceedsIndex >= 0 ? row[proceedsIndex] : "") ?? "0",
+      costUsd: cost,
+      proceedsUsd: proceeds,
     });
   }
   return rows;
+}
+
+function readMoneyCell(
+  row: string[],
+  index: number,
+  excelRow: number,
+  issues: ImportIssue[],
+): string | "invalid" {
+  if (index < 0) {
+    return "0";
+  }
+  const raw = row[index];
+  if (raw == null || !String(raw).trim()) {
+    issues.push({
+      id: issueId("ts-blank", excelRow),
+      sheet: "tradesplits",
+      row: excelRow,
+      kind: "tradesplit_invalid",
+      message: `TradeSplits 第 ${excelRow} 行金額空白。`,
+      pending: false,
+    });
+    return "invalid";
+  }
+  const parsed = parseMoney(String(raw));
+  if (parsed == null) {
+    issues.push({
+      id: issueId("ts-amt-parse", excelRow),
+      sheet: "tradesplits",
+      row: excelRow,
+      kind: "tradesplit_invalid",
+      message: `TradeSplits 第 ${excelRow} 行金額無效。`,
+      pending: false,
+    });
+    return "invalid";
+  }
+  return parsed;
 }
 
 export function attachCustomTradeSplits(
@@ -87,6 +131,10 @@ export function attachCustomTradeSplits(
   knownMembers: readonly string[],
 ): void {
   const rows = parseTradeSplitsSheet(sheet, issues);
+  const hasMoneyColumns =
+    !!sheet &&
+    (headerIndex(sheet.headers, ["cost", "costusd", "買入總額"]) >= 0 ||
+      headerIndex(sheet.headers, ["proceeds", "proceedsusd", "賣出總額"]) >= 0);
   if (rows.length === 0) {
     return;
   }
@@ -151,6 +199,46 @@ export function attachCustomTradeSplits(
       continue;
     }
 
+    const moneyField =
+      trade.side === "sell" ||
+      trade.side === "adjustment" ||
+      legs.some((leg) => money(leg.proceedsUsd).gt(0))
+        ? "proceedsUsd"
+        : "costUsd";
+    let amountsOk = true;
+    for (const leg of legs) {
+      const qty = money(leg.quantity);
+      const cost = money(leg.costUsd);
+      const proceeds = money(leg.proceedsUsd);
+      const fieldAmt = moneyField === "proceedsUsd" ? proceeds : cost;
+      if (qty.lt(0) || (trade.side !== "adjustment" && qty.eq(0))) {
+        issues.push({
+          id: issueId("ts-sign-qty", leg.excelRow, tradeId),
+          sheet: "tradesplits",
+          row: leg.excelRow,
+          kind: "tradesplit_invalid",
+          message: `TradeSplits 第 ${leg.excelRow} 行數量不能係零或負數。`,
+          pending: false,
+        });
+        amountsOk = false;
+      }
+      if (
+        cost.lt(0) ||
+        proceeds.lt(0) ||
+        (hasMoneyColumns && trade.side !== "split" && trade.side !== "adjustment" && fieldAmt.lte(0))
+      ) {
+        issues.push({
+          id: issueId("ts-sign-amt", leg.excelRow, tradeId),
+          sheet: "tradesplits",
+          row: leg.excelRow,
+          kind: "tradesplit_invalid",
+          message: `TradeSplits 第 ${leg.excelRow} 行金額不能係零或負數。`,
+          pending: false,
+        });
+        amountsOk = false;
+      }
+    }
+
     const qtySum = legs.reduce((sum, leg) => sum.plus(money(leg.quantity)), money("0"));
     if (!qtySum.eq(money(trade.quantity || "0"))) {
       issues.push({
@@ -164,13 +252,6 @@ export function attachCustomTradeSplits(
       continue;
     }
 
-    const hasMoney = legs.some((leg) => money(leg.costUsd).gt(0) || money(leg.proceedsUsd).gt(0));
-    const moneyField =
-      trade.side === "sell" ||
-      trade.side === "adjustment" ||
-      legs.some((leg) => money(leg.proceedsUsd).gt(0))
-        ? "proceedsUsd"
-        : "costUsd";
     const amountSum = legs.reduce((sum, leg) => sum.plus(money(leg[moneyField])), money("0"));
     let expectedAmount = trade.buyTotal || "0";
     if (trade.side === "sell") {
@@ -191,7 +272,7 @@ export function attachCustomTradeSplits(
     }
     const amountOk = amountSum.minus(money(expectedAmount || "0")).abs().lte("0.01");
     const amountPlusFeeOk = amountSum.minus(money(expectedAmount || "0").plus(money(expectedFee))).abs().lte("0.01");
-    if (hasMoney && !amountOk && !amountPlusFeeOk) {
+    if (hasMoneyColumns && trade.side !== "split" && !amountOk && !amountPlusFeeOk) {
       issues.push({
         id: issueId("ts-amt", first.excelRow, tradeId),
         sheet: "tradesplits",
@@ -203,8 +284,11 @@ export function attachCustomTradeSplits(
       continue;
     }
 
-    if (!membersOk) {
+    if (!membersOk || !amountsOk) {
       continue;
+    }
+    if (trade.side === "split" && resolvedNames[0]) {
+      trade.memberName = resolvedNames[0];
     }
     trade.customLegs = legs.map((leg, index) => ({
       memberName: resolvedNames[index] ?? leg.memberName,

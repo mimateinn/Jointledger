@@ -226,4 +226,98 @@ describe("TradeSplits sheet", () => {
       }),
     ).rejects.toThrow(/TransInfo 第 3 行 TradeId「T1」同第 2 行重複/);
   });
+
+  it("errors when TradeSplits money is 0/0 on a 500 trade, naming the row", async () => {
+    const { transinfo, account } = sheets();
+    transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "500", "t-1"]];
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "5", "0", "0"],
+        ["t-1", "Sze", "5", "0", "0"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find(
+      (item) => item.kind === "tradesplit_invalid" && item.message.includes("金額") && item.row === 2,
+    );
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("2");
+    await expect(
+      applyImport(createMemoryStore(), plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow(/TradeSplits 第 2 行/);
+  });
+
+  it("rejects negative TradeSplits quantity 12/-2 with the row number", async () => {
+    const { transinfo, account } = sheets();
+    transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "500", "t-1"]];
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "12", "250", "0"],
+        ["t-1", "Sze", "-2", "250", "0"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find((item) => item.kind === "tradesplit_invalid" && item.message.includes("數量"));
+    expect(issue?.row).toBe(3);
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("3");
+  });
+
+  it("rejects negative TradeSplits cost 550/-50 with the row number", async () => {
+    const { transinfo, account } = sheets();
+    transinfo.rows = [["NVDA", "10", "F", "2024-02-01", "500", "t-1"]];
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [
+        ["t-1", "Hey", "5", "550", "0"],
+        ["t-1", "Sze", "5", "-50", "0"],
+      ],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find((item) => item.kind === "tradesplit_invalid" && item.message.includes("金額"));
+    expect(issue?.row).toBe(3);
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("3");
+  });
+
+  it("does not crash on a blank TradeSplits money cell and names the row", async () => {
+    const { transinfo, account } = sheets();
+    const tradeSplits = {
+      kind: "tradesplits" as const,
+      name: "TradeSplits",
+      headers: ["TradeId", "Member", "Quantity", "Cost", "Proceeds"],
+      rows: [["t-1", "Hey", "5"]],
+    };
+    let plan: ReturnType<typeof buildPlan>;
+    expect(() => {
+      plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { tradeSplits });
+    }).not.toThrow();
+    expect(plan!.blocking).toBe(true);
+    const issue = plan!.issues.find((item) => item.kind === "tradesplit_invalid" && item.message.includes("空白"));
+    expect(issue?.row).toBe(2);
+    expect(issue?.message).toContain("TradeSplits");
+    expect(issue?.message).toContain("2");
+    await expect(
+      applyImport(createMemoryStore(), plan!, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan!),
+      }),
+    ).rejects.toThrow(/TradeSplits 第 2 行金額空白/);
+  });
 });

@@ -1019,6 +1019,77 @@ describe("export / import round-trip", () => {
     expect(await empty.listAllocationSchedules(result.bookId)).toEqual([]);
   });
 
+  it("round-trips a joint stock split onto Member A with no Hey and export1 equals export2", async () => {
+    const store = createMemoryStore();
+    const { book, member: memberA, account: cashA } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "A",
+    });
+    await addMember(store, { bookId: book.id, displayName: "H" });
+    await addMember(store, { bookId: book.id, displayName: "明" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: memberA.id,
+      ledgerAccountId: cashA.id,
+      amountHkd: "1500",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: memberA.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+    await createSplit(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: memberA.id,
+      symbol: "NVDA",
+      newShares: "2",
+      oldShares: "1",
+      occurredOn: "2024-03-01",
+    });
+    const before = await snapshotBook(store, book.id);
+    expect(before.members.map((row) => row.displayName)).toEqual(["A", "H", "明"]);
+    expect(before.trades.some((row) => row.side === "split" && row.accountKind === "joint")).toBe(true);
+    expect(
+      before.allocations.some((row) => row.side === "split" && row.memberName === "A" && row.accountKind === "joint"),
+    ).toBe(true);
+
+    const bytes1 = await exportBookXlsx(store, book.id);
+    const parsed1 = await parseUpload([{ name: EXPORT_FILENAME, bytes: bytes1 }]);
+    expect(parsed1.sheets.some((sheet) => sheet.kind === "members")).toBe(true);
+    const { empty, result, plan, extras } = await importExportedBook(bytes1, "A");
+    expect(extras.members?.rows.flat()).toEqual(expect.arrayContaining(["A", "H", "明"]));
+    expect(extras.members?.rows.flat().some((name) => name === "Hey" || name === "Sze")).toBe(false);
+    const written = await empty.listMembers(result.bookId);
+    expect(written.map((row) => row.displayName).sort()).toEqual(["A", "H", "明"]);
+    expect(written).toHaveLength(plan.counts.members);
+    expect(written.some((row) => row.displayName === "Hey")).toBe(false);
+    expect((await empty.listLedgerAccounts(result.bookId)).some((row) => row.name === "Hey")).toBe(false);
+
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after).toEqual(before);
+    const split = after.trades.find((row) => row.side === "split" && row.symbol === "NVDA");
+    expect(split?.accountKind).toBe("joint");
+    expect(
+      after.allocations.find((row) => row.side === "split" && row.symbol === "NVDA")?.memberName,
+    ).toBe("A");
+
+    const bytes2 = await exportBookXlsx(empty, result.bookId);
+    const parsed2 = await parseUpload([{ name: EXPORT_FILENAME, bytes: bytes2 }]);
+    expect(parsed2.sheets.some((sheet) => sheet.kind === "members")).toBe(true);
+    const byName = (parsed: typeof parsed1) =>
+      Object.fromEntries(parsed.sheets.map((sheet) => [sheet.name, { headers: sheet.headers, rows: sheet.rows }]));
+    expect(byName(parsed2)).toEqual(byName(parsed1));
+  });
+
   it("keeps schedule count unchanged across three replace imports, and export1 equals export2 including Members", async () => {
     const { store, bookId } = await seedFullLedger();
     const beforeCount = (await store.listAllocationSchedules(bookId)).length;
@@ -1414,7 +1485,9 @@ describe("export / import round-trip", () => {
     });
     expect(planPad.blocking).toBe(true);
     expect(planPad.counts.errors).toBeGreaterThan(0);
-    expect(planPad.issues.some((item) => item.kind === "duplicate_member" && item.row === 3)).toBe(true);
+    const padIssue = planPad.issues.find((item) => item.kind === "duplicate_member" && item.row === 3);
+    expect(padIssue?.message).toContain("Kit ");
+    expect(padIssue?.row).toBe(3);
   });
 
   it("errors on duplicate Allocation date+member rows with the sheet and row (dup-alloc-x3)", async () => {

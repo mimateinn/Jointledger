@@ -348,8 +348,14 @@ async function applyImportBody(
     needed.add(MEMBER_SZE);
   }
   if (
+    plan.hasAllocationSheet !== true &&
     plan.trades.some(
-      (trade) => trade.side === "split" && !trade.skip && !trade.holderError && !trade.memberName.trim(),
+      (trade) =>
+        trade.side === "split" &&
+        !trade.skip &&
+        !trade.holderError &&
+        !trade.memberName.trim() &&
+        !trade.customLegs?.length,
     )
   ) {
     needed.add(MEMBER_HEY);
@@ -387,7 +393,11 @@ async function applyImportBody(
       if (trade.memberName.trim()) {
         return lookup(trade.memberName);
       }
-      if (trade.side === "split") {
+      const splitMember = trade.customLegs?.[0]?.memberName.trim();
+      if (splitMember) {
+        return lookup(splitMember);
+      }
+      if (trade.side === "split" && plan.hasAllocationSheet !== true) {
         return lookup(MEMBER_HEY);
       }
       return firstMember();

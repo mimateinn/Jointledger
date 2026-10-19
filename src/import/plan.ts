@@ -71,10 +71,11 @@ function parseMembersSheet(sheet: ParsedSheet | undefined, issues: ImportIssue[]
   const index = nameIndex >= 0 ? nameIndex : 0;
   const names: string[] = [];
   const seenExact = new Set<string>();
-  const seenLower = new Map<string, { name: string; row: number }>();
+  const seenLower = new Map<string, { name: string; raw: string; row: number }>();
   for (const [rowIndex, row] of sheet.rows.entries()) {
     const excelRow = rowIndex + 2;
-    const name = (row[index] ?? "").trim();
+    const rawName = row[index] ?? "";
+    const name = rawName.trim();
     if (!name) {
       continue;
     }
@@ -86,13 +87,13 @@ function parseMembersSheet(sheet: ParsedSheet | undefined, issues: ImportIssue[]
         sheet: "members",
         row: excelRow,
         kind: "duplicate_member",
-        message: `Members 第 ${excelRow} 行「${name}」同「${prior?.name ?? name}」重複（只差大小寫亦唔得），唔會合併。`,
+        message: `Members 第 ${excelRow} 行「${rawName}」同「${prior?.raw ?? prior?.name ?? name}」重複（只差大小寫亦唔得），唔會合併。`,
         pending: false,
       });
       continue;
     }
     seenExact.add(name);
-    seenLower.set(lower, { name, row: excelRow });
+    seenLower.set(lower, { name, raw: rawName, row: excelRow });
     names.push(name);
   }
   return names;
