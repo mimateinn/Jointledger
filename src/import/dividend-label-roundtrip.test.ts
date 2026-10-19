@@ -82,9 +82,10 @@ describe("dividend label export / import", () => {
     expect(mapping.blocking).toBe(false);
     const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, accountSheet, mapping);
     const dividendPlan = plan.trades.find((row) => row.symbol === "MSFT" && row.side === "adjustment");
-    const roundingPlan = plan.trades.find((row) => row.note?.includes("匯入調整"));
+    const roundingPlan = plan.trades.find((row) => row.side === "adjustment" && row.symbol !== "MSFT");
     expect(isDividendNote(dividendPlan?.note)).toBe(true);
     expect(isDividendNote(roundingPlan?.note)).toBe(false);
+    expect(roundingPlan?.note).toBe("rounding");
 
     const empty = createMemoryStore();
     const result = await applyImport(empty, plan, {

@@ -41,6 +41,21 @@ export function createMemoryStore(): LedgerStore & {
   const schedules: AllocationSchedule[] = [];
   const scheduleLegs: AllocationLeg[] = [];
 
+  type MemorySnapshot = {
+    books: Book[];
+    members: Member[];
+    accounts: LedgerAccount[];
+    cashFlows: CashFlow[];
+    trades: Trade[];
+    allocations: TradeAllocation[];
+    schedules: AllocationSchedule[];
+    scheduleLegs: AllocationLeg[];
+  };
+
+  function replaceAll<T>(target: T[], next: readonly T[]): void {
+    target.splice(0, target.length, ...next.map((row) => ({ ...row })));
+  }
+
   return {
     books,
     members,
@@ -117,8 +132,33 @@ export function createMemoryStore(): LedgerStore & {
     async listLedgerAccounts(bookId: string) {
       return accounts.filter((row) => row.bookId === bookId);
     },
-    async clearBookEntries(bookId: string) {
+    async removeUnclaimedMember(bookId: string, memberId: string) {
+      const member = members.find((row) => row.id === memberId && row.bookId === bookId);
+      if (!member || member.userId || member.hasPendingInvite) {
+        return;
+      }
+      if (cashFlows.some((row) => row.memberId === memberId)) {
+        return;
+      }
+      if (allocations.some((row) => row.memberId === memberId)) {
+        return;
+      }
+      if (scheduleLegs.some((row) => row.memberId === memberId)) {
+        return;
+      }
+      for (let i = accounts.length - 1; i >= 0; i -= 1) {
+        if (accounts[i].bookId === bookId && accounts[i].memberId === memberId && accounts[i].kind === "personal") {
+          accounts.splice(i, 1);
+        }
+      }
+      const index = members.findIndex((row) => row.id === memberId);
+      if (index >= 0) {
+        members.splice(index, 1);
+      }
+    },
+    async clearBookEntries(bookId: string, options) {
       const tradeIds = new Set(trades.filter((row) => row.bookId === bookId).map((row) => row.id));
+      const scheduleIds = new Set(schedules.filter((row) => row.bookId === bookId).map((row) => row.id));
       for (let i = allocations.length - 1; i >= 0; i -= 1) {
         if (tradeIds.has(allocations[i].tradeId)) {
           allocations.splice(i, 1);
@@ -134,6 +174,42 @@ export function createMemoryStore(): LedgerStore & {
           cashFlows.splice(i, 1);
         }
       }
+      if (options?.preserveSchedules) {
+        return;
+      }
+      for (let i = scheduleLegs.length - 1; i >= 0; i -= 1) {
+        if (scheduleIds.has(scheduleLegs[i].scheduleId)) {
+          scheduleLegs.splice(i, 1);
+        }
+      }
+      for (let i = schedules.length - 1; i >= 0; i -= 1) {
+        if (schedules[i].bookId === bookId) {
+          schedules.splice(i, 1);
+        }
+      }
+    },
+    checkpoint() {
+      return structuredClone({
+        books,
+        members,
+        accounts,
+        cashFlows,
+        trades,
+        allocations,
+        schedules,
+        scheduleLegs,
+      }) satisfies MemorySnapshot;
+    },
+    restore(snapshot: unknown) {
+      const next = snapshot as MemorySnapshot;
+      replaceAll(books, next.books);
+      replaceAll(members, next.members);
+      replaceAll(accounts, next.accounts);
+      replaceAll(cashFlows, next.cashFlows);
+      replaceAll(trades, next.trades);
+      replaceAll(allocations, next.allocations);
+      replaceAll(schedules, next.schedules);
+      replaceAll(scheduleLegs, next.scheduleLegs);
     },
     async deleteAllocations(ids: string[]) {
       const remove = new Set(ids);

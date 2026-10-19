@@ -8,6 +8,7 @@ import {
   type ImportActionState,
 } from "@/app/actions/import";
 import { SubmitButton } from "@/components/submit-button";
+import { isPreviewBlockingKind, previewBlockingIssues } from "@/import/blocking";
 import { inviteSecretFieldName } from "@/import/invite-secrets";
 import type { ColumnTarget } from "@/import/types";
 
@@ -21,16 +22,27 @@ const TI_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "buy_date", label: "買入日期" },
   { value: "buy_price", label: "買入價" },
   { value: "buy_total", label: "買入總額" },
+  { value: "buy_fee", label: "買入手續費" },
   { value: "sell_date", label: "賣出日期" },
   { value: "sell_price", label: "賣出價" },
   { value: "sell_fee", label: "賣出手續費" },
   { value: "sell_total", label: "賣出總額" },
   { value: "pnl", label: "盈虧" },
   { value: "row_kind", label: "種類" },
+  { value: "note", label: "備註" },
+  { value: "trade_id", label: "TradeId" },
   { value: "split_hey", label: "Hey 分帳" },
   { value: "split_sze", label: "Sze 分帳" },
   { value: "split_wah", label: "Wah 分帳" },
 ];
+
+function issueOwnName(issue: { own?: string; message: string }): string {
+  const own = issue.own?.trim();
+  if (own) {
+    return own;
+  }
+  return issue.message.match(/「([^」]+)」/)?.[1] ?? issue.message;
+}
 
 const AD_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "ignore", label: "略過" },
@@ -60,6 +72,26 @@ export function ImportWizard({
   const issuedInvites = committed.issuedInvites;
   const showMap = Boolean(state.needsMap && state.draftId && !issuedInvites);
   const showPreview = Boolean(state.draftId && preview && !state.needsMap && !issuedInvites);
+  const blockingErrors = preview ? previewBlockingIssues(preview) : [];
+  const writeBlocked = Boolean(preview?.blocking) || blockingErrors.length > 0;
+  const removalIssues = preview
+    ? preview.issues.filter((item) => item.kind === "removed_member")
+    : [];
+  const keptWarnings = preview
+    ? preview.issues.filter(
+        (item) => item.kind === "kept_member" || item.kind === "schedule_member_missing",
+      )
+    : [];
+  const noteIssues = preview
+    ? preview.issues.filter(
+        (item) =>
+          !item.pending &&
+          !isPreviewBlockingKind(item.kind) &&
+          item.kind !== "kept_member" &&
+          item.kind !== "removed_member" &&
+          item.kind !== "schedule_member_missing",
+      )
+    : [];
 
   return (
     <div className="stack">
@@ -179,9 +211,36 @@ export function ImportWizard({
       {showPreview && preview ? (
         <section className="card stack">
           <h2 className="title">預覽</h2>
+          {blockingErrors.length > 0 || removalIssues.length > 0 ? (
+            <div className="alert" role="alert">
+              {blockingErrors.map((issue) => (
+                <p key={issue.id}>{issue.message}</p>
+              ))}
+              {removalIssues.length > 0 ? (
+                <div className="alert-section">
+                  <h3 className="title">取代會刪走呢啲未認領成員</h3>
+                  <ul className="alert-names">
+                    {removalIssues.map((issue) => (
+                      <li key={issue.id}>{issueOwnName(issue)}</li>
+                    ))}
+                  </ul>
+                  <p>追加唔會刪。</p>
+                </div>
+              ) : null}
+              {blockingErrors.length > 0 ? <p>唔可以確認寫入。</p> : null}
+            </div>
+          ) : null}
+          {keptWarnings.length > 0 ? (
+            <div className="alert">
+              {keptWarnings.map((issue) => (
+                <p key={issue.id}>{issue.message}</p>
+              ))}
+            </div>
+          ) : null}
           <p className="muted">
             成員 {preview.counts.members} · 出入金 {preview.counts.cashFlows} · 記帳 {preview.counts.trades} ·
-            警告 {preview.counts.warnings} · 略過 {preview.counts.skipped} · 待確認 {preview.counts.pending}
+            錯誤 {preview.counts.errors} · 警告 {preview.counts.warnings} · 略過 {preview.counts.skipped} · 待確認{" "}
+            {preview.counts.pending}
           </p>
           <div>
             <div className="meta muted">Own → 帳</div>
@@ -284,14 +343,11 @@ export function ImportWizard({
                 <input type="hidden" name="pendingBulk" value={bulk} />
               </>
             ) : null}
-            {preview.issues.filter((item) => !item.pending).length > 0 ? (
+            {noteIssues.length > 0 ? (
               <ul className="muted">
-                {preview.issues
-                  .filter((item) => !item.pending)
-                  .slice(0, 12)
-                  .map((issue) => (
-                    <li key={issue.id}>{issue.message}</li>
-                  ))}
+                {noteIssues.slice(0, 12).map((issue) => (
+                  <li key={issue.id}>{issue.message}</li>
+                ))}
               </ul>
             ) : null}
             {!reimport && state.needsReimport ? (
@@ -304,9 +360,11 @@ export function ImportWizard({
                 </select>
               </div>
             ) : null}
-            {state.error ? <p className="alert">{state.error}</p> : null}
+            {state.error && blockingErrors.length === 0 ? <p className="alert">{state.error}</p> : null}
             <div className="submit-row">
-              <SubmitButton pendingLabel="儲存中">確認寫入</SubmitButton>
+              <SubmitButton pendingLabel="儲存中" disabled={writeBlocked}>
+                確認寫入
+              </SubmitButton>
               {onBack ? (
                 <button className="btn btn-ghost" type="button" onClick={onBack}>
                   取消

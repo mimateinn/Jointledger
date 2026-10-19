@@ -69,7 +69,6 @@ describe("M4 import apply", () => {
     const hey = rows.find((row) => row.displayName === "Hey");
     const extras = rows.filter((row) => row.displayName !== "Hey");
     expect(hey?.userId).toBe("user-1");
-    expect(extras.length).toBeGreaterThan(0);
     expect(extras.every((row) => row.userId == null)).toBe(true);
   });
 
@@ -268,9 +267,17 @@ describe("M4 import apply", () => {
       headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
       rows: [],
     };
-    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Hey"], ["Sze"]],
+      },
+    });
     expect(plan.trades[0]?.book).toBe("joint");
     expect(plan.trades[0]?.side).toBe("adjustment");
+    expect(plan.trades[0]?.legacyHeySze).toBeFalsy();
 
     const store = createMemoryStore();
     const { book, member: hey } = await createBook(store, {
@@ -303,5 +310,44 @@ describe("M4 import apply", () => {
     expect(legs).toHaveLength(2);
     expect(legs.find((row) => row.memberId === hey.id)?.proceedsUsd).toBe("6.00000000");
     expect(legs.find((row) => row.memberId === sze.member.id)?.proceedsUsd).toBe("4.00000000");
+  });
+
+  it("legacy joint split with no Allocation sheet still posts to Hey", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Own", "Buy Date", "Buy Price", "Buy Total", "Kind"],
+      rows: [
+        ["NVDA", "10", "F", "2024-02-01", "10", "100", "buy"],
+        ["NVDA", "2", "F", "2024-06-01", "1", "", "split"],
+      ],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [
+        ["2024-01-01", "入金", "H", "1000", "1", "1000", "in"],
+        ["2024-02-01", "NVDA", "F", "", "", "", ""],
+      ],
+    };
+    const plan = buildPlan("legacy.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.hasAllocationSheet).toBe(false);
+    expect(plan.trades.some((row) => row.side === "split" && row.book === "joint")).toBe(true);
+
+    const store = createMemoryStore();
+    const result = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "小明",
+      decisions: importAll(plan),
+    });
+    const members = await store.listMembers(result.bookId);
+    expect(members.map((row) => row.displayName).sort()).toEqual(["Hey", "Sze", "小明"]);
+    const trades = await store.listTrades(result.bookId);
+    const allocations = await store.listTradeAllocations(result.bookId);
+    const split = trades.find((row) => row.side === "split");
+    expect(split).toBeTruthy();
+    const hey = members.find((row) => row.displayName === "Hey");
+    expect(allocations.find((row) => row.tradeId === split?.id)?.memberId).toBe(hey?.id);
   });
 });

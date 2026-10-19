@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { LedgerStore } from "@/ledger";
 import type {
   AllocationLeg,
@@ -43,12 +43,14 @@ function asBook(row: typeof books.$inferSelect): Book {
 }
 
 function asMember(row: typeof members.$inferSelect): Member {
+  const expires = row.inviteExpiresAt ? new Date(row.inviteExpiresAt).getTime() : 0;
   return {
     id: row.id,
     bookId: row.bookId,
     userId: row.userId,
     displayName: row.displayName,
     email: row.email,
+    hasPendingInvite: Boolean(row.inviteSecretHash && (!row.inviteExpiresAt || expires > Date.now())), // no expiry = claimed
   };
 }
 
@@ -199,7 +201,7 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
         legs: legRows.filter((leg) => leg.scheduleId === schedule.id).map(asScheduleLeg),
       }));
     },
-    async clearBookEntries(bookId: string) {
+    async clearBookEntries(bookId: string, options) {
       const bookTrades = await db.select({ id: trades.id }).from(trades).where(eq(trades.bookId, bookId));
       const tradeIds = bookTrades.map((row) => row.id);
       if (tradeIds.length > 0) {
@@ -207,6 +209,24 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
       }
       await db.delete(trades).where(eq(trades.bookId, bookId));
       await db.delete(cashFlows).where(eq(cashFlows.bookId, bookId));
+      if (options?.preserveSchedules) {
+        return;
+      }
+      const bookSchedules = await db
+        .select({ id: allocationSchedules.id })
+        .from(allocationSchedules)
+        .where(eq(allocationSchedules.bookId, bookId));
+      const scheduleIds = bookSchedules.map((row) => row.id);
+      if (scheduleIds.length > 0) {
+        await db.delete(allocationLegs).where(inArray(allocationLegs.scheduleId, scheduleIds));
+      }
+      await db.delete(allocationSchedules).where(eq(allocationSchedules.bookId, bookId));
+    },
+    checkpoint() {
+      return null;
+    },
+    restore(_snapshot: unknown) {
+      void _snapshot;
     },
     async deleteAllocations(ids: string[]) {
       if (ids.length === 0) {
@@ -234,6 +254,50 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
         return;
       }
       await db.delete(cashFlows).where(and(eq(cashFlows.bookId, bookId), inArray(cashFlows.id, ids)));
+    },
+    async removeUnclaimedMember(bookId: string, memberId: string) {
+      const [member] = await db
+        .select()
+        .from(members)
+        .where(and(eq(members.id, memberId), eq(members.bookId, bookId), isNull(members.userId)))
+        .limit(1);
+      if (!member) {
+        return;
+      }
+      const expires = member.inviteExpiresAt ? new Date(member.inviteExpiresAt).getTime() : 0;
+      if (member.inviteSecretHash && (!member.inviteExpiresAt || expires > Date.now())) {
+        return;
+      }
+      const [cash] = await db
+        .select({ id: cashFlows.id })
+        .from(cashFlows)
+        .where(and(eq(cashFlows.bookId, bookId), eq(cashFlows.memberId, memberId)))
+        .limit(1);
+      if (cash) {
+        return;
+      }
+      const [alloc] = await db
+        .select({ id: tradeAllocations.id })
+        .from(tradeAllocations)
+        .where(eq(tradeAllocations.memberId, memberId))
+        .limit(1);
+      if (alloc) {
+        return;
+      }
+      const [leg] = await db
+        .select({ id: allocationLegs.id })
+        .from(allocationLegs)
+        .where(eq(allocationLegs.memberId, memberId))
+        .limit(1);
+      if (leg) {
+        return;
+      }
+      await db
+        .delete(ledgerAccounts)
+        .where(
+          and(eq(ledgerAccounts.bookId, bookId), eq(ledgerAccounts.memberId, memberId), eq(ledgerAccounts.kind, "personal")),
+        );
+      await db.delete(members).where(and(eq(members.id, memberId), eq(members.bookId, bookId), isNull(members.userId)));
     },
   };
 }

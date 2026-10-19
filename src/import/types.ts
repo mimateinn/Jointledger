@@ -1,4 +1,5 @@
 export type SheetKind = "transinfo" | "account";
+export type ExtraSheetKind = "members" | "allocation" | "tradesplits";
 
 export type TransInfoTarget =
   | "symbol"
@@ -7,12 +8,15 @@ export type TransInfoTarget =
   | "buy_date"
   | "buy_price"
   | "buy_total"
+  | "buy_fee"
   | "sell_date"
   | "sell_price"
   | "sell_fee"
   | "sell_total"
   | "pnl"
   | "row_kind"
+  | "note"
+  | "trade_id"
   | "split_hey"
   | "split_sze"
   | "split_wah";
@@ -22,10 +26,16 @@ export type AccountTarget = "date" | "detail" | "own" | "hkd" | "fx" | "usd" | "
 export type ColumnTarget = TransInfoTarget | AccountTarget | "ignore";
 
 export type ParsedSheet = {
-  kind: SheetKind | "unknown";
+  kind: SheetKind | ExtraSheetKind | "unknown";
   name: string;
   headers: string[];
   rows: string[][];
+};
+
+export type ImportExtras = {
+  members?: ParsedSheet;
+  allocation?: ParsedSheet;
+  tradeSplits?: ParsedSheet;
 };
 
 export type ParsedUpload = {
@@ -65,6 +75,14 @@ export type IssueKind =
   | "joint_mismatch"
   | "unknown_own"
   | "unknown_member"
+  | "empty_holder"
+  | "ambiguous_holder"
+  | "allocation_invalid"
+  | "tradesplit_invalid"
+  | "duplicate_member"
+  | "kept_member"
+  | "removed_member"
+  | "schedule_member_missing"
   | "missing_fx"
   | "missing_date"
   | "missing_qty"
@@ -73,7 +91,7 @@ export type IssueKind =
 
 export type ImportIssue = {
   id: string;
-  sheet: SheetKind | "all";
+  sheet: SheetKind | ExtraSheetKind | "all";
   row: number;
   symbol?: string;
   own?: string;
@@ -82,7 +100,17 @@ export type ImportIssue = {
   pending: boolean;
 };
 
-export type BookKind = "hey" | "sze" | "wah" | "joint";
+export type BookKind = "hey" | "sze" | "wah" | "joint" | "personal";
+
+export type PlannedAllocationLeg = {
+  memberName: string;
+  percent: string;
+};
+
+export type PlannedAllocationSchedule = {
+  effectiveOn: string;
+  legs: PlannedAllocationLeg[];
+};
 
 export type PlannedCashFlow = {
   id: string;
@@ -97,6 +125,7 @@ export type PlannedCashFlow = {
   detail: string;
   skip: boolean;
   warningIds: string[];
+  holderError?: "empty" | "unknown" | "ambiguous";
 };
 
 export type PlannedTrade = {
@@ -109,17 +138,25 @@ export type PlannedTrade = {
   buyDate: string;
   buyPrice: string;
   buyTotal: string;
+  buyFee?: string | null;
   sellDate: string | null;
   sellPrice: string | null;
   sellFee: string | null;
   sellTotal: string | null;
   /** Old-sheet Net P/L. Comparison only — never written to CashFlow/Trade. */
   sheetPnl: string | null;
-  side?: "buy" | "split" | "adjustment";
+  memberName: string;
+  side?: "buy" | "sell" | "split" | "adjustment";
   note?: string | null;
   skip: boolean;
   pending: boolean;
   warningIds: string[];
+  holderError?: "empty" | "unknown" | "ambiguous";
+  /** Stable id from the export TradeId column; used to attach TradeSplits. */
+  exportId?: string;
+  /** v0.1.12 F / 聯名（Hey + Sze） → Hey/Sze 50/50 even if Wah is a member. */
+  legacyHeySze?: boolean;
+  customLegs?: { memberName: string; quantity: string; costUsd: string; proceedsUsd: string }[];
 };
 
 export type OwnAccountMap = {
@@ -131,7 +168,14 @@ export type ImportPlan = {
   filename: string;
   fileHash: string;
   members: string[];
+  /** Names from the Members sheet only. Empty when the file has no Members sheet. */
+  listedMembers: string[];
   ownMapping: OwnAccountMap[];
+  schedules: PlannedAllocationSchedule[];
+  /** True when the upload included an Allocation sheet (even if empty). Missing sheet ≠ empty sheet. */
+  hasAllocationSheet: boolean;
+  /** True when the upload included a Members sheet (even if empty). */
+  hasMembersSheet: boolean;
   cashFlows: PlannedCashFlow[];
   trades: PlannedTrade[];
   issues: ImportIssue[];
@@ -140,6 +184,7 @@ export type ImportPlan = {
     members: number;
     cashFlows: number;
     trades: number;
+    errors: number;
     warnings: number;
     skipped: number;
     pending: number;

@@ -19,6 +19,11 @@ import type {
 
 export type AllocationScheduleView = AllocationSchedule & { legs: AllocationLeg[] };
 
+export type ClearBookEntriesOptions = {
+  /** Keep allocation schedules/legs while clearing trades and cash. */
+  preserveSchedules?: boolean;
+};
+
 export type LedgerStore = {
   insertBook(input: NewBook): Promise<Book>;
   insertMember(input: NewMember): Promise<Member>;
@@ -35,8 +40,17 @@ export type LedgerStore = {
   listMembers(bookId: string): Promise<Member[]>;
   listLedgerAccounts(bookId: string): Promise<LedgerAccount[]>;
   getLedgerAccount(id: string): Promise<LedgerAccount | null>;
-  clearBookEntries(bookId: string): Promise<void>;
+  clearBookEntries(bookId: string, options?: ClearBookEntriesOptions): Promise<void>;
+  /**
+   * Drop an unclaimed member and their personal account. No-op if the member
+   * is claimed (userId or pending invite) or still has cash, allocations, or
+   * schedule legs.
+   */
+  removeUnclaimedMember(bookId: string, memberId: string): Promise<void>;
   deleteAllocations(ids: string[]): Promise<void>;
   deleteTradesIfUnused(bookId: string, tradeIds: string[]): Promise<void>;
   deleteCashFlows(bookId: string, ids: string[]): Promise<void>;
+  /** Snapshot for in-memory atomic import. Drizzle is a no-op; wrap those writes in a transaction. */
+  checkpoint(): unknown;
+  restore(snapshot: unknown): void;
 };

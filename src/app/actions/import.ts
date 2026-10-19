@@ -9,10 +9,12 @@ import { createDrizzleStore } from "@/db/drizzle-store";
 import { withLedgerTransaction } from "@/db/ledger-tx";
 import { importBatches } from "@/db/tables";
 import { applyImport } from "@/import/apply";
+import { commitBlockingResponse, previewBlockingMessage } from "@/import/blocking";
 import { applyManualMap, mapUpload } from "@/import/columns";
 import { readInviteSecret } from "@/import/invite-secrets";
-import { parseUpload, pickSheets } from "@/import/parse";
+import { parseUpload, pickOptionalSheets, pickSheets } from "@/import/parse";
 import { buildPlan } from "@/import/plan";
+import { annotateReplaceWarnings } from "@/import/replace-warnings";
 import type { ColumnTarget, ImportDecisions, ImportPlan, PendingChoice } from "@/import/types";
 import { getCurrentMembership } from "@/lib/current-book";
 
@@ -39,6 +41,9 @@ type DraftPayload = {
   fileHash: string;
   transinfo: { name: string; headers: string[]; rows: string[][] };
   account: { name: string; headers: string[]; rows: string[][] };
+  membersSheet?: { name: string; headers: string[]; rows: string[][] };
+  allocationSheet?: { name: string; headers: string[]; rows: string[][] };
+  tradeSplitsSheet?: { name: string; headers: string[]; rows: string[][] };
   plan: ImportPlan;
   transinfoTargets: Array<ColumnTarget | null>;
   accountTargets: Array<ColumnTarget | null>;
@@ -85,14 +90,39 @@ export async function parseImportAction(
     const files = await readFiles(formData);
     const parsed = await parseUpload(files);
     const { transinfo, account } = pickSheets(parsed);
+    const extras = pickOptionalSheets(parsed);
     const mapping = mapUpload(transinfo, account);
-    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapping);
+    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapping, extras);
+    if (reimport && existing) {
+      const destStore = createDrizzleStore();
+      annotateReplaceWarnings(plan, {
+        members: await destStore.listMembers(existing.book.id),
+        schedules: await destStore.listAllocationSchedules(existing.book.id),
+      });
+    }
     const db = getDb();
     const payload: DraftPayload = {
       filename: parsed.filename,
       fileHash: parsed.fileHash,
       transinfo: { name: transinfo.name, headers: transinfo.headers, rows: transinfo.rows },
       account: { name: account.name, headers: account.headers, rows: account.rows },
+      membersSheet: extras.members
+        ? { name: extras.members.name, headers: extras.members.headers, rows: extras.members.rows }
+        : undefined,
+      allocationSheet: extras.allocation
+        ? {
+            name: extras.allocation.name,
+            headers: extras.allocation.headers,
+            rows: extras.allocation.rows,
+          }
+        : undefined,
+      tradeSplitsSheet: extras.tradeSplits
+        ? {
+            name: extras.tradeSplits.name,
+            headers: extras.tradeSplits.headers,
+            rows: extras.tradeSplits.rows,
+          }
+        : undefined,
       plan,
       transinfoTargets: mapping.transinfo.targets,
       accountTargets: mapping.account.targets,
@@ -112,13 +142,14 @@ export async function parseImportAction(
       draftId: draft.id,
       filename: parsed.filename,
       fileHash: parsed.fileHash,
-      blocking: mapping.blocking,
+      blocking: plan.blocking,
       needsMap: mapping.blocking,
       preview: asPreview(plan),
       transinfoHeaders: transinfo.headers,
       accountHeaders: account.headers,
       transinfoTargets: mapping.transinfo.targets,
       accountTargets: mapping.account.targets,
+      error: mapping.blocking ? undefined : previewBlockingMessage(plan) ?? undefined,
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "匯入失敗" };
@@ -155,6 +186,17 @@ export async function confirmMapAction(
 
     const transinfo = { ...payload.transinfo, kind: "transinfo" as const };
     const account = { ...payload.account, kind: "account" as const };
+    const extras = {
+      members: payload.membersSheet
+        ? { ...payload.membersSheet, kind: "members" as const }
+        : undefined,
+      allocation: payload.allocationSheet
+        ? { ...payload.allocationSheet, kind: "allocation" as const }
+        : undefined,
+      tradeSplits: payload.tradeSplitsSheet
+        ? { ...payload.tradeSplitsSheet, kind: "tradesplits" as const }
+        : undefined,
+    };
     const ti = applyManualMap("transinfo", transinfo.headers, transinfoTargets);
     const ad = applyManualMap("account", account.headers, accountTargets);
     const mapping = {
@@ -163,7 +205,15 @@ export async function confirmMapAction(
       issues: [...ti.issues, ...ad.issues],
       blocking: ti.issues.length + ad.issues.length > 0,
     };
-    const plan = buildPlan(payload.filename, payload.fileHash, transinfo, account, mapping);
+    const plan = buildPlan(payload.filename, payload.fileHash, transinfo, account, mapping, extras);
+    const membership = await getCurrentMembership(user);
+    if (isReimport(formData) && membership) {
+      const destStore = createDrizzleStore();
+      annotateReplaceWarnings(plan, {
+        members: await destStore.listMembers(membership.book.id),
+        schedules: await destStore.listAllocationSchedules(membership.book.id),
+      });
+    }
     const next: DraftPayload = {
       ...payload,
       plan,
@@ -176,13 +226,14 @@ export async function confirmMapAction(
       draftId,
       filename: payload.filename,
       fileHash: payload.fileHash,
-      blocking: mapping.blocking,
+      blocking: plan.blocking,
       needsMap: mapping.blocking,
       preview: asPreview(plan),
       transinfoHeaders: transinfo.headers,
       accountHeaders: account.headers,
       transinfoTargets: mapping.transinfo.targets,
       accountTargets: mapping.account.targets,
+      error: mapping.blocking ? undefined : previewBlockingMessage(plan) ?? undefined,
     };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "欄位對唔上" };
@@ -218,12 +269,13 @@ export async function commitImportAction(
       return { error: "草稿已失效" };
     }
     const payload = draft.plan as DraftPayload;
-    if (payload.plan.blocking) {
+    const blocked = commitBlockingResponse(payload.plan);
+    if (blocked) {
       return {
-        error: "欄位未確認，零寫入。",
+        error: blocked.error,
         draftId,
         blocking: true,
-        needsMap: true,
+        needsMap: blocked.needsMap,
         preview: payload.plan,
         transinfoHeaders: payload.transinfo.headers,
         accountHeaders: payload.account.headers,

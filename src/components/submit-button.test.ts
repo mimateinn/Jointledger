@@ -5,7 +5,7 @@ describe("immediate click feedback", () => {
   it("submit buttons disable on form pending", () => {
     const button = readFileSync("src/components/submit-button.tsx", "utf8");
     expect(button).toMatch(/useFormStatus/);
-    expect(button).toMatch(/disabled=\{pending\}/);
+    expect(button).toMatch(/disabled=\{pending \|\| disabled\}/);
     expect(button).toContain('pendingLabel = "儲存中"');
   });
 

@@ -43,7 +43,10 @@ function ymd(year: number, month: number, day: number): string | null {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-export function parseMoney(raw: string): string | null {
+export function parseMoney(raw: string | null | undefined): string | null {
+  if (raw == null) {
+    return null;
+  }
   const value = raw.trim().replace(/[,$\s]/g, "").replace(/港元|美元|hkd|usd/gi, "");
   if (!value) {
     return null;

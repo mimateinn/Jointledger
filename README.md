@@ -12,7 +12,7 @@
 
 頂欄有行情跑馬燈。持倉現價可選 Twelve Data。沒有 key 也能開，只是延遲或部份市值。從跑馬燈或持倉打開標的頁，看日線 K 線。
 
-舊表可上傳兩頁 xlsx（或 csv），預覽後再寫入。不連 Google 試算表。
+舊表可上傳兩頁 xlsx（或 csv），預覽後再寫入。不連 Google 試算表。本 app 匯出一定有 Allocation 表；沒有分配就只寫表頭。再匯入要明示 **追加** 或 **取代**：取代會清走這本表現有的出入金同買賣（聯名戶口保留）。檔案有 Members 表時，檔案沒列到、亦無剩餘記帳、而且未認領（未綁登入、亦無未用邀請）嘅成員會刪走，令取代後嘅成員同來源一致。無到期日嘅邀請都當已認領，唔會刪。預覽會列出將會刪走嘅成員。已認領或已發邀請但檔案沒列到嘅成員會留低，預覽會講取代同追加都會留低、之後聯名分帳會一齊攤。檔案有 Allocation 表（即使空白）就一併清走分配表再寫入檔案內容。真正舊版 v0.1.12 係兩頁、無 Members 亦無 Allocation：F／聯名（Hey + Sze）列一律當 Hey/Sze 50/50，並會建立 Hey 同 Sze。有 Members 但無 Allocation 嘅檔唔會加 Hey，匯入列只喺檔案列出嘅成員之間分；保留嘅分配若點名檔案沒列到嘅成員，之後聯名買賣仍按呢份分配攤。追加是加在後面，唔會刪成員。同一生效日若檔案的分配同已存的不同，追加會報錯而不覆蓋；完全一樣就跳過。
 
 收益率看期間淨值金額，以及 Modified Dietz 百分比（不滿一年不年化）。持倉頁有關注名單。新聞有 Finnhub key 用官方來源，沒有就用公開 RSS。
 
@@ -46,7 +46,7 @@ You can deposit cash, add a position, and delete a position or a user. Stock spl
 
 A ticker runs along the top. Position prices can use Twelve Data. The app still opens with no key; quotes may be delayed, or NAV may be marked partial. Open a symbol from the ticker or from positions to see a daily candlestick chart.
 
-You can upload a two-sheet xlsx (or csv), preview it, then write it in. Google Sheets is not connected.
+You can upload a two-sheet xlsx (or csv), preview it, then write it in. Google Sheets is not connected. App export always includes an Allocation sheet; when the book has no schedule the sheet is header-only. Re-import must choose **append** or **replace**. Replace clears this book's cash flows and trades (the joint account stays). When the file has a Members sheet, destination members who are not listed there, have no remaining entries, and are unclaimed (not linked to a login and with no outstanding invite) are removed so the book matches the source. An invite with no expiry still counts as claimed. The preview names members that replace will delete. Claimed members and members with a pending invite who are missing from the file are kept; the preview says they stay on both replace and append and will share future joint splits. If the file includes an Allocation sheet (even an empty one), existing allocation schedules are cleared and rewritten from the file. Genuine v0.1.12 files are two-sheet only (no Members and no Allocation): `F` / `聯名（Hey + Sze）` rows always become Hey/Sze 50/50 and always create Hey and Sze. A file with a Members sheet but no Allocation never injects Hey; imported joint rows split only among the listed members. A kept schedule that names unlisted members still applies to later live trades. Append adds rows and never deletes members. A same-date allocation that differs from the one already stored is an error in append; an identical schedule is skipped.
 
 Returns show period NAV in dollars and a Modified Dietz percent (not annualized under one year). Positions have a watchlist. News uses Finnhub when a key is set, or public RSS when it is not.
 

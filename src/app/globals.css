@@ -552,6 +552,20 @@ button {
   font-weight: 500;
 }
 
+.alert-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alert-names {
+  margin: 0;
+  padding-left: 1.25em;
+  font-size: var(--title-size);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 .ok {
   color: var(--st-ok);
   font-size: var(--meta-size);
