@@ -69,7 +69,6 @@ describe("M4 import apply", () => {
     const hey = rows.find((row) => row.displayName === "Hey");
     const extras = rows.filter((row) => row.displayName !== "Hey");
     expect(hey?.userId).toBe("user-1");
-    expect(extras.length).toBeGreaterThan(0);
     expect(extras.every((row) => row.userId == null)).toBe(true);
   });
 

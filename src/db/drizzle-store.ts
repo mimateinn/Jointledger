@@ -207,6 +207,21 @@ export function createDrizzleStore(db: Executor = getDb()): LedgerStore {
       }
       await db.delete(trades).where(eq(trades.bookId, bookId));
       await db.delete(cashFlows).where(eq(cashFlows.bookId, bookId));
+      const bookSchedules = await db
+        .select({ id: allocationSchedules.id })
+        .from(allocationSchedules)
+        .where(eq(allocationSchedules.bookId, bookId));
+      const scheduleIds = bookSchedules.map((row) => row.id);
+      if (scheduleIds.length > 0) {
+        await db.delete(allocationLegs).where(inArray(allocationLegs.scheduleId, scheduleIds));
+      }
+      await db.delete(allocationSchedules).where(eq(allocationSchedules.bookId, bookId));
+    },
+    checkpoint() {
+      return null;
+    },
+    restore(_snapshot: unknown) {
+      void _snapshot;
     },
     async deleteAllocations(ids: string[]) {
       if (ids.length === 0) {

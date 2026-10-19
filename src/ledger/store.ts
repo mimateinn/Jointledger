@@ -39,4 +39,7 @@ export type LedgerStore = {
   deleteAllocations(ids: string[]): Promise<void>;
   deleteTradesIfUnused(bookId: string, tradeIds: string[]): Promise<void>;
   deleteCashFlows(bookId: string, ids: string[]): Promise<void>;
+  /** Snapshot for in-memory atomic import. Drizzle is a no-op; wrap those writes in a transaction. */
+  checkpoint(): unknown;
+  restore(snapshot: unknown): void;
 };

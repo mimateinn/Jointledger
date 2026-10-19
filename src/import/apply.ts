@@ -9,11 +9,9 @@ import {
   setAllocationSchedule,
 } from "@/ledger";
 import { money, moneyString } from "@/ledger/money";
-import { scheduleInForce } from "@/ledger/set-allocation-schedule";
-import type { LedgerStore } from "@/ledger/store";
-import { MEMBER_HEY, MEMBER_SZE, splitByPercents } from "./canon";
+import type { AllocationScheduleView, LedgerStore } from "@/ledger/store";
 import { membersForBook } from "./own";
-import type { ImportDecisions, ImportPlan, PendingChoice, PlannedTrade } from "./types";
+import type { ImportDecisions, ImportPlan, PendingChoice, PlannedAllocationSchedule, PlannedTrade } from "./types";
 
 export type ImportWriters = {
   createBook: typeof createBook;
@@ -75,6 +73,86 @@ function choiceFor(plan: ImportPlan, trade: PlannedTrade, decisions: ImportDecis
   return "write";
 }
 
+function holderIssueMessage(
+  plan: ImportPlan,
+  sheet: "transinfo" | "account",
+  row: number,
+  fallback: string,
+): string {
+  const issue = plan.issues.find(
+    (item) =>
+      item.sheet === sheet &&
+      item.row === row &&
+      (item.kind === "unknown_member" || item.kind === "empty_holder" || item.kind === "ambiguous_holder"),
+  );
+  return issue?.message ?? fallback;
+}
+
+function scheduleSignature(
+  legs: { memberName: string; percent: string }[],
+): string {
+  return legs
+    .map((leg) => `${leg.memberName.trim().toLowerCase()}:${money(leg.percent).toFixed(8)}`)
+    .sort()
+    .join("|");
+}
+
+function storedScheduleSignature(
+  schedule: AllocationScheduleView,
+  namesById: Map<string, string>,
+): string {
+  return scheduleSignature(
+    schedule.legs.map((leg) => ({
+      memberName: namesById.get(leg.memberId) ?? leg.memberId,
+      percent: leg.percent,
+    })),
+  );
+}
+
+async function writeImportedSchedules(
+  store: LedgerStore,
+  w: ImportWriters,
+  bookId: string,
+  imported: PlannedAllocationSchedule[],
+  lookup: (name: string) => { memberId: string; accountId: string },
+  mode: ImportDecisions["reimportMode"],
+): Promise<void> {
+  if (imported.length === 0) {
+    return;
+  }
+  const existing = await store.listAllocationSchedules(bookId);
+  const members = await store.listMembers(bookId);
+  const namesById = new Map(members.map((row) => [row.id, row.displayName]));
+  const existingByDate = new Map<string, AllocationScheduleView[]>();
+  for (const schedule of existing) {
+    const list = existingByDate.get(schedule.effectiveOn) ?? [];
+    list.push(schedule);
+    existingByDate.set(schedule.effectiveOn, list);
+  }
+
+  for (const schedule of imported) {
+    const sameDate = existingByDate.get(schedule.effectiveOn) ?? [];
+    if (mode === "append" && sameDate.length > 0) {
+      const incoming = scheduleSignature(schedule.legs);
+      const identical = sameDate.some((row) => storedScheduleSignature(row, namesById) === incoming);
+      if (identical) {
+        continue;
+      }
+      throw new Error(
+        `Allocation 生效日 ${schedule.effectiveOn} 已有唔同分配，追加模式唔會覆蓋。要取代請揀 replace。`,
+      );
+    }
+    await w.setAllocationSchedule(store, {
+      bookId,
+      effectiveOn: schedule.effectiveOn,
+      legs: schedule.legs.map((leg) => ({
+        memberId: lookup(leg.memberName).memberId,
+        percent: leg.percent,
+      })),
+    });
+  }
+}
+
 export async function applyImport(
   store: LedgerStore,
   plan: ImportPlan,
@@ -89,14 +167,43 @@ export async function applyImport(
   },
   writers: Partial<ImportWriters> = {},
 ): Promise<ApplyResult> {
-  if (plan.blocking) {
-    const unknown = plan.issues.find((issue) => issue.kind === "unknown_member");
-    if (unknown) {
-      throw new Error(unknown.message);
+  const mappingBlock = plan.issues.some(
+    (issue) =>
+      issue.kind === "unmapped_column" ||
+      issue.kind === "column_collision" ||
+      issue.kind === "missing_required" ||
+      issue.kind === "allocation_invalid",
+  );
+  if (mappingBlock) {
+    const allocation = plan.issues.find((issue) => issue.kind === "allocation_invalid");
+    if (allocation) {
+      throw new Error(allocation.message);
     }
     throw new Error("欄位未確認，零寫入。");
   }
 
+  const snapshot = store.checkpoint();
+  try {
+    return await applyImportBody(store, plan, input, writers);
+  } catch (error) {
+    store.restore(snapshot);
+    throw error;
+  }
+}
+
+async function applyImportBody(
+  store: LedgerStore,
+  plan: ImportPlan,
+  input: {
+    createdByUserId: string;
+    creatorDisplayName: string;
+    creatorEmail?: string | null;
+    bookName?: string;
+    decisions: ImportDecisions;
+    existingBookId?: string;
+  },
+  writers: Partial<ImportWriters>,
+): Promise<ApplyResult> {
   const w = { ...defaultWriters, ...writers };
   const rowLog: ApplyResult["rowLog"] = [];
   const pendingUnresolved = plan.issues.filter(
@@ -146,16 +253,6 @@ export async function applyImport(
 
   const importedSchedules = plan.schedules ?? [];
   const needed = new Set<string>(plan.members);
-  const hasJoint = plan.trades.some((trade) => !trade.skip && trade.book === "joint");
-  if (hasJoint && importedSchedules.length === 0) {
-    needed.add(MEMBER_HEY);
-    needed.add(MEMBER_SZE);
-  }
-  for (const schedule of importedSchedules) {
-    for (const leg of schedule.legs) {
-      needed.add(leg.memberName);
-    }
-  }
   for (const name of needed) {
     if (!name?.trim()) {
       continue;
@@ -176,7 +273,24 @@ export async function applyImport(
     return row;
   };
 
+  const firstMember = () => {
+    const row = members.values().next().value as { memberId: string; accountId: string } | undefined;
+    if (!row) {
+      throw new Error("未有成員");
+    }
+    return row;
+  };
+
+  const postingMember = (trade: PlannedTrade) => {
+    if (trade.book === "joint") {
+      return trade.memberName.trim() ? lookup(trade.memberName) : firstMember();
+    }
+    const names = membersForBook(trade.book, trade.memberName);
+    return lookup(names[0] ?? trade.memberName);
+  };
+
   const existingAccounts = await store.listLedgerAccounts(bookId);
+  const hasJoint = plan.trades.some((trade) => !trade.skip && !trade.holderError && trade.book === "joint");
   const needsJoint =
     hasJoint || importedSchedules.length > 0 || existingAccounts.some((row) => row.kind === "joint");
   const joint = needsJoint
@@ -188,24 +302,25 @@ export async function applyImport(
     await store.clearBookEntries(bookId);
   }
 
-  for (const schedule of importedSchedules) {
-    await w.setAllocationSchedule(store, {
-      bookId,
-      effectiveOn: schedule.effectiveOn,
-      legs: schedule.legs.map((leg) => ({
-        memberId: lookup(leg.memberName).memberId,
-        percent: leg.percent,
-      })),
-    });
-  }
-
-  const schedules = await store.listAllocationSchedules(bookId);
+  await writeImportedSchedules(
+    store,
+    w,
+    bookId,
+    importedSchedules,
+    lookup,
+    input.decisions.reimportMode,
+  );
 
   let cashFlowCount = 0;
   let tradeCount = 0;
   let skippedCount = 0;
 
   for (const flow of plan.cashFlows) {
+    if (flow.holderError) {
+      throw new Error(
+        holderIssueMessage(plan, "account", flow.row, `Account Detail 第 ${flow.row} 行 holder 無效。`),
+      );
+    }
     if (flow.skip) {
       skippedCount += 1;
       rowLog.push({ id: flow.id, status: "skipped", message: `出入金第 ${flow.row} 行略過` });
@@ -233,6 +348,11 @@ export async function applyImport(
   }
 
   for (const trade of plan.trades) {
+    if (trade.holderError) {
+      throw new Error(
+        holderIssueMessage(plan, "transinfo", trade.row, `TransInfo 第 ${trade.row} 行 holder 無效。`),
+      );
+    }
     const decision = choiceFor(plan, trade, input.decisions);
     if (decision === "skip") {
       skippedCount += 1;
@@ -240,15 +360,12 @@ export async function applyImport(
       continue;
     }
 
-    const memberNames = membersForBook(trade.book, trade.memberName);
-    const memberRef = lookup(memberNames[0] ?? trade.memberName);
+    const memberRef = postingMember(trade);
     if (trade.book === "joint" && !joint) {
       throw new Error("聯名倉未開，無寫入幽靈戶口。");
     }
     const accountId = trade.book === "joint" ? joint!.id : memberRef.accountId;
     const memberId = memberRef.memberId;
-    const schedule = scheduleInForce(schedules, trade.buyDate);
-    const useImportedSchedule = importedSchedules.length > 0;
 
     if (trade.side === "split") {
       await w.createSplit(store, {
@@ -272,17 +389,6 @@ export async function applyImport(
 
     if (trade.side === "adjustment") {
       const amountUsd = trade.buyTotal && trade.buyTotal !== "0" ? trade.buyTotal : null;
-      const signed = amountUsd ? money(amountUsd) : null;
-      const legs =
-        trade.book === "joint" && signed && !signed.eq(0) && !useImportedSchedule
-          ? jointLegs(
-              schedule,
-              "0",
-              moneyString(signed.abs()),
-              lookup,
-              signed.gt(0) ? "proceeds" : "cost",
-            )
-          : undefined;
       await w.createAdjustment(store, {
         bookId,
         ledgerAccountId: accountId,
@@ -291,7 +397,6 @@ export async function applyImport(
         note: trade.note?.trim() || "匯入調整",
         symbol: trade.symbol,
         amountUsd,
-        legs,
       });
       tradeCount += 1;
       rowLog.push({
@@ -308,10 +413,6 @@ export async function applyImport(
         trade.sellPrice ??
         trade.buyPrice ??
         moneyString(money(proceeds).div(money(trade.quantity)));
-      const sellLegs =
-        trade.book === "joint" && !useImportedSchedule
-          ? jointLegs(schedule, trade.quantity, proceeds, lookup, "proceeds")
-          : undefined;
       await w.createTrade(store, {
         bookId,
         ledgerAccountId: accountId,
@@ -323,7 +424,6 @@ export async function applyImport(
         side: "sell",
         proceedsUsd: proceeds,
         feeUsd: trade.sellFee ?? undefined,
-        legs: sellLegs,
         note: trade.note?.trim() ? trade.note.trim() : null,
       });
       tradeCount += 1;
@@ -335,11 +435,6 @@ export async function applyImport(
       continue;
     }
 
-    const legs =
-      trade.book === "joint" && !useImportedSchedule
-        ? jointLegs(schedule, trade.quantity, trade.buyTotal, lookup)
-        : undefined;
-
     await w.createTrade(store, {
       bookId,
       ledgerAccountId: accountId,
@@ -350,7 +445,7 @@ export async function applyImport(
       occurredOn: trade.buyDate,
       side: "buy",
       costUsd: trade.buyTotal,
-      legs,
+      feeUsd: trade.buyFee ?? undefined,
       note: trade.note?.trim() ? trade.note.trim() : null,
     });
     tradeCount += 1;
@@ -366,10 +461,6 @@ export async function applyImport(
           message: `買賣第 ${trade.row} 行有賣出日但缺賣出價／總額，只寫入買入。`,
         });
       } else {
-        const sellLegs =
-          trade.book === "joint" && !useImportedSchedule
-            ? jointLegs(schedule, sellQty, proceeds, lookup, "proceeds")
-            : undefined;
         await w.createTrade(store, {
           bookId,
           ledgerAccountId: accountId,
@@ -383,7 +474,6 @@ export async function applyImport(
           side: "sell",
           proceedsUsd: proceeds,
           feeUsd: trade.sellFee ?? undefined,
-          legs: sellLegs,
           note: null,
         });
         tradeCount += 1;
@@ -400,7 +490,9 @@ export async function applyImport(
     });
   }
 
-  const warningCount = rowLog.filter((row) => row.status === "warning").length + plan.issues.filter((i) => i.pending && input.decisions.pending[i.id] === "import").length;
+  const warningCount =
+    rowLog.filter((row) => row.status === "warning").length +
+    plan.issues.filter((i) => i.pending && input.decisions.pending[i.id] === "import").length;
 
   return {
     bookId,
@@ -410,37 +502,4 @@ export async function applyImport(
     skippedCount,
     rowLog,
   };
-}
-
-function jointLegs(
-  schedule: { legs: { memberId: string; percent: string }[] } | null,
-  quantity: string,
-  total: string,
-  lookup: (name: string) => { memberId: string; accountId: string },
-  field: "cost" | "proceeds" = "cost",
-) {
-  const hey = lookup(MEMBER_HEY).memberId;
-  const sze = lookup(MEMBER_SZE).memberId;
-  const percents = schedule
-    ? [hey, sze].map((id) => {
-        const leg = schedule.legs.find((item) => item.memberId === id);
-        return leg?.percent ?? "0";
-      })
-    : ["0.5", "0.5"];
-  const qtys = splitByPercents(quantity, percents);
-  const amounts = splitByPercents(total, percents);
-  return [
-    {
-      memberId: hey,
-      quantity: qtys[0],
-      costUsd: field === "cost" ? amounts[0] : "0",
-      proceedsUsd: field === "proceeds" ? amounts[0] : "0",
-    },
-    {
-      memberId: sze,
-      quantity: qtys[1],
-      costUsd: field === "cost" ? amounts[1] : "0",
-      proceedsUsd: field === "proceeds" ? amounts[1] : "0",
-    },
-  ];
 }

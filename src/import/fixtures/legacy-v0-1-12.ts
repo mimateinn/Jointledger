@@ -9,6 +9,7 @@ import type { ParsedSheet } from "../types";
 /**
  * Book export shape from v0.1.12 and earlier: two sheets, letter holders,
  * no note column, no Members sheet, no Allocation sheet, sells inlined on buys.
+ * Includes split / dividend / adjustment / withdrawal rows from that era.
  */
 export function legacyV012ExportSheets(): { transinfo: ParsedSheet; account: ParsedSheet } {
   return {
@@ -20,6 +21,9 @@ export function legacyV012ExportSheets(): { transinfo: ParsedSheet; account: Par
         ["NVDA", "10", "B", "2024-01-02", "50", "500", "", "", "", "", "", "buy"],
         ["AAPL", "5", "F", "2024-02-01", "20", "100", "2024-03-01", "25", "1", "125", "24", "buy"],
         ["MSFT", "2", "A", "2024-04-01", "10", "20", "", "", "", "", "", "buy"],
+        ["NVDA", "2", "B", "2024-06-01", "1", "", "", "", "", "", "", "split"],
+        ["MSFT", "", "A", "2024-07-01", "", "3", "", "", "", "", "", "股息"],
+        ["", "", "H", "2024-08-01", "", "1", "", "", "", "", "", "adjustment"],
       ],
     },
     account: {
@@ -32,6 +36,7 @@ export function legacyV012ExportSheets(): { transinfo: ParsedSheet; account: Par
         ["2024-01-02", "NVDA", "B", "", "", "", ""],
         ["2024-02-01", "AAPL", "F", "", "", "", ""],
         ["2024-04-01", "MSFT", "A", "", "", "", ""],
+        ["2024-09-01", "出金", "H", "100", "1", "100", "出"],
       ],
     },
   };

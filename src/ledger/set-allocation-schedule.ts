@@ -1,4 +1,4 @@
-import { isPositive, money, moneyString } from "./money";
+import { isPositive, money } from "./money";
 import type { LedgerStore } from "./store";
 import type { AllocationLeg, AllocationSchedule, SetAllocationScheduleInput } from "./types";
 
@@ -27,7 +27,7 @@ export async function setAllocationSchedule(
       await store.insertAllocationLeg({
         scheduleId: schedule.id,
         memberId: leg.memberId,
-        percent: moneyString(money(leg.percent)),
+        percent: money(leg.percent).toString(),
       }),
     );
   }

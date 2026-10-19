@@ -327,7 +327,11 @@ describe("export / import round-trip", () => {
     expect(plan.schedules).toEqual([]);
     expect(plan.trades.some((row) => row.symbol === "NVDA" && (row.side ?? "buy") === "buy")).toBe(true);
     expect(plan.trades.find((row) => row.symbol === "AAPL")?.sellDate).toBe("2024-03-01");
-    expect(plan.trades.find((row) => row.symbol === "MSFT")?.memberName).toBe("Sze");
+    expect(plan.trades.find((row) => row.symbol === "MSFT" && (row.side ?? "buy") === "buy")?.memberName).toBe("Sze");
+    expect(plan.trades.some((row) => row.side === "split" && row.symbol === "NVDA")).toBe(true);
+    expect(plan.trades.some((row) => row.side === "adjustment" && row.note?.includes("股息"))).toBe(true);
+    expect(plan.trades.some((row) => row.side === "adjustment" && (row.symbol === "—" || !row.symbol))).toBe(true);
+    expect(plan.cashFlows.some((row) => row.kind === "withdrawal")).toBe(true);
 
     const store = createMemoryStore();
     const result = await applyImport(store, plan, {
@@ -338,10 +342,14 @@ describe("export / import round-trip", () => {
     const trades = await store.listTrades(result.bookId);
     const cash = await store.listCashFlows(result.bookId);
     const members = await store.listMembers(result.bookId);
-    expect(cash).toHaveLength(2);
+    expect(cash.filter((row) => row.kind === "deposit")).toHaveLength(2);
+    expect(cash.some((row) => row.kind === "withdrawal")).toBe(true);
     expect(trades.some((row) => row.symbol === "NVDA" && row.side === "buy")).toBe(true);
     expect(trades.some((row) => row.symbol === "AAPL" && row.side === "sell")).toBe(true);
     expect(trades.some((row) => row.symbol === "MSFT" && row.side === "buy")).toBe(true);
+    expect(trades.some((row) => row.side === "split")).toBe(true);
+    expect(trades.some((row) => row.side === "adjustment" && row.note?.includes("股息"))).toBe(true);
+    expect(trades.some((row) => row.side === "adjustment" && row.symbol === "—")).toBe(true);
     expect(members.map((row) => row.displayName).sort()).toEqual(["Hey", "Sze"]);
   });
 
@@ -367,7 +375,7 @@ describe("export / import round-trip", () => {
     expect(issue?.row).toBe(2);
     expect(issue?.message).toContain("Ghost");
     expect(issue?.message).toContain("2");
-    expect(plan.trades).toHaveLength(0);
+    expect(plan.trades.some((row) => row.holderError === "unknown")).toBe(true);
 
     const store = createMemoryStore();
     await expect(
@@ -377,6 +385,568 @@ describe("export / import round-trip", () => {
         decisions: importAll(plan),
       }),
     ).rejects.toThrow(/第 2 行 holder「Ghost」/);
+    expect(store.books).toHaveLength(0);
+    expect(store.members).toHaveLength(0);
+    expect(store.accounts).toHaveLength(0);
+    expect(store.cashFlows).toHaveLength(0);
     expect(store.trades).toHaveLength(0);
+    expect(store.allocations).toHaveLength(0);
+    expect(store.schedules).toHaveLength(0);
+    expect(store.scheduleLegs).toHaveLength(0);
+  });
+
+  it("exports the equal split a 3-member app-created book actually uses, with no Hey/Sze invented", async () => {
+    const store = createMemoryStore();
+    const { book, member: ming, account: mingCash } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "小明",
+    });
+    const hong = await addMember(store, { bookId: book.id, displayName: "小紅" });
+    const wah = await addMember(store, { bookId: book.id, displayName: "小華" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: ming.id,
+      ledgerAccountId: mingCash.id,
+      amountHkd: "900",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: ming.id,
+      symbol: "NVDA",
+      quantity: "6",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+    expect(await store.listAllocationSchedules(book.id)).toEqual([]);
+    const beforeLegs = await store.listTradeAllocations(book.id);
+    const names = new Map((await store.listMembers(book.id)).map((row) => [row.id, row.displayName]));
+    expect(beforeLegs.map((row) => names.get(row.memberId)).sort()).toEqual(["小明", "小紅", "小華"]);
+    expect(beforeLegs.every((row) => row.quantity === "2.00000000")).toBe(true);
+    expect([ming.displayName, hong.member.displayName, wah.member.displayName]).toEqual([
+      "小明",
+      "小紅",
+      "小華",
+    ]);
+
+    const bytes = await exportBookXlsx(store, book.id);
+    const { empty, result, extras } = await importExportedBook(bytes, "小明");
+    expect(extras.allocation?.rows.length).toBeGreaterThan(0);
+    expect(extras.members?.rows.flat()).toEqual(expect.arrayContaining(["小明", "小紅", "小華"]));
+    expect(extras.members?.rows.flat().some((name) => name === "Hey" || name === "Sze")).toBe(false);
+
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after.members.map((row) => row.displayName).sort()).toEqual(["小明", "小紅", "小華"]);
+    expect(after.members.some((row) => row.displayName === "Hey" || row.displayName === "Sze")).toBe(false);
+    expect(after.schedules).toHaveLength(1);
+    expect(after.schedules[0]?.legs).toHaveLength(3);
+    const percents = after.schedules[0]!.legs.map((leg) => Number(leg.percent));
+    expect(percents.reduce((sum, value) => sum + value, 0)).toBeCloseTo(1, 7);
+    expect(percents.every((value) => Math.abs(value - 1 / 3) < 0.0001)).toBe(true);
+    const nvda = after.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
+    expect(nvda).toHaveLength(3);
+    expect(nvda.map((row) => row.memberName).sort()).toEqual(["小明", "小紅", "小華"]);
+    expect(nvda.every((row) => row.quantity === moneyKey("2"))).toBe(true);
+  });
+
+  it("replace clears allocation schedules so legs are not duplicated", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.6" },
+        { memberId: sze.member.id, percent: "0.4" },
+      ],
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: hey.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-02-01",
+    });
+    const bytes = await exportBookXlsx(store, book.id);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    const { transinfo, account } = pickSheets(parsed);
+    const extras = pickOptionalSheets(parsed);
+    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapUpload(transinfo, account), extras);
+
+    const first = await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: book.id,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+    const afterFirst = await snapshotBook(store, first.bookId);
+    expect(afterFirst.schedules).toHaveLength(1);
+    expect(afterFirst.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy")).toHaveLength(2);
+
+    await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: book.id,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+    const afterSecond = await snapshotBook(store, book.id);
+    expect(afterSecond.schedules).toHaveLength(1);
+    const nvda = afterSecond.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
+    expect(nvda).toHaveLength(2);
+    expect(nvda.find((row) => row.memberName === "Hey")?.quantity).toBe(moneyKey("6"));
+    expect(nvda.find((row) => row.memberName === "Sze")?.quantity).toBe(moneyKey("4"));
+  });
+
+  it("append rejects a same-date allocation that differs from the one already stored", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.6" },
+        { memberId: sze.member.id, percent: "0.4" },
+      ],
+    });
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-02-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "Hey", "1000", "1", "1000", "in"]],
+    };
+    const extras = {
+      members: {
+        kind: "members" as const,
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Hey"], ["Sze"]],
+      },
+      allocation: {
+        kind: "allocation" as const,
+        name: "Allocation",
+        headers: ["Effective Date", "Member", "Percent"],
+        rows: [
+          ["2024-01-01", "Hey", "0.5"],
+          ["2024-01-01", "Sze", "0.5"],
+        ],
+      },
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), extras);
+    expect(plan.blocking).toBe(false);
+    const before = await snapshotBook(store, book.id);
+    await expect(
+      applyImport(store, plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        existingBookId: book.id,
+        decisions: { ...importAll(plan), reimportMode: "append" },
+      }),
+    ).rejects.toThrow(/2024-01-01/);
+    expect(await snapshotBook(store, book.id)).toEqual(before);
+  });
+
+  it("append skips an identical same-date allocation", async () => {
+    const store = createMemoryStore();
+    const { book, member: hey } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    await createJointAccount(store, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(store, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.5" },
+        { memberId: sze.member.id, percent: "0.5" },
+      ],
+    });
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-02-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "Hey", "1000", "1", "1000", "in"]],
+    };
+    const extras = {
+      members: {
+        kind: "members" as const,
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Hey"], ["Sze"]],
+      },
+      allocation: {
+        kind: "allocation" as const,
+        name: "Allocation",
+        headers: ["Effective Date", "Member", "Percent"],
+        rows: [
+          ["2024-01-01", "Hey", "0.5"],
+          ["2024-01-01", "Sze", "0.5"],
+        ],
+      },
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), extras);
+    await applyImport(store, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: book.id,
+      decisions: { ...importAll(plan), reimportMode: "append" },
+    });
+    const schedules = await store.listAllocationSchedules(book.id);
+    expect(schedules).toHaveLength(1);
+  });
+
+  it("round-trips members named B, F, K, 明, Joint and 聯名", async () => {
+    const names = ["B", "F", "K", "明", "Joint", "聯名"];
+    const store = createMemoryStore();
+    const { book, member: first, account } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: names[0],
+    });
+    const added = [first];
+    for (const name of names.slice(1)) {
+      const row = await addMember(store, { bookId: book.id, displayName: name });
+      added.push(row.member);
+    }
+    const joint = await createJointAccount(store, { bookId: book.id, name: "聯名倉" });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: first.id,
+      ledgerAccountId: account.id,
+      amountHkd: "1000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    for (const [index, member] of added.entries()) {
+      const personal = (await store.listLedgerAccounts(book.id)).find(
+        (row) => row.memberId === member.id && row.kind === "personal",
+      );
+      await createTrade(store, {
+        bookId: book.id,
+        ledgerAccountId: personal!.id,
+        memberId: member.id,
+        symbol: "AAA",
+        quantity: "1",
+        price: "10",
+        occurredOn: `2024-02-0${index + 1}`,
+        note: member.displayName,
+      });
+    }
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: joint.id,
+      memberId: first.id,
+      symbol: "NVDA",
+      quantity: "6",
+      price: "10",
+      occurredOn: "2024-03-01",
+    });
+
+    const bytes = await exportBookXlsx(store, book.id);
+    const { empty, result, extras } = await importExportedBook(bytes, names[0]);
+    expect(extras.members?.rows.flat()).toEqual(expect.arrayContaining(names));
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after.members.map((row) => row.displayName).sort()).toEqual([...names].sort());
+    for (const name of names) {
+      expect(after.trades.some((row) => row.note === name && row.accountKind === "personal")).toBe(true);
+    }
+    expect(after.trades.some((row) => row.symbol === "NVDA" && row.accountKind === "joint")).toBe(true);
+  });
+
+  it("errors on an empty holder and never writes Hey", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find((item) => item.kind === "empty_holder");
+    expect(issue?.row).toBe(2);
+    expect(issue?.message).toMatch(/空白/);
+    expect(plan.trades.every((row) => row.memberName !== "Hey")).toBe(true);
+
+    const store = createMemoryStore();
+    await expect(
+      applyImport(store, plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow(/空白/);
+    expect(store.trades).toHaveLength(0);
+    expect(store.members.map((row) => row.displayName)).not.toContain("Hey");
+  });
+
+  it("rolls back every table when an unknown holder appears after earlier rows", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [
+        ["NVDA", "10", "H", "2024-01-02", "500"],
+        ["AAPL", "5", "Ghost", "2024-01-03", "100"],
+      ],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account));
+    expect(plan.issues.some((item) => item.kind === "unknown_member" && item.message.includes("Ghost"))).toBe(
+      true,
+    );
+    expect(plan.trades.some((row) => row.holderError === "unknown")).toBe(true);
+
+    const store = createMemoryStore();
+    await expect(
+      applyImport(store, plan, {
+        createdByUserId: "user-1",
+        creatorDisplayName: "Hey",
+        decisions: importAll(plan),
+      }),
+    ).rejects.toThrow(/Ghost/);
+    expect(store.books).toHaveLength(0);
+    expect(store.members).toHaveLength(0);
+    expect(store.accounts).toHaveLength(0);
+    expect(store.cashFlows).toHaveLength(0);
+    expect(store.trades).toHaveLength(0);
+    expect(store.allocations).toHaveLength(0);
+    expect(store.schedules).toHaveLength(0);
+    expect(store.scheduleLegs).toHaveLength(0);
+  });
+
+  it("exports buy fees and round-trips sell fees", async () => {
+    const store = createMemoryStore();
+    const { book, member, account } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    await createCashFlow(store, {
+      bookId: book.id,
+      memberId: member.id,
+      ledgerAccountId: account.id,
+      amountHkd: "1000",
+      fxRate: "1",
+      occurredOn: "2024-01-01",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "NVDA",
+      quantity: "10",
+      price: "50",
+      occurredOn: "2024-01-02",
+      feeUsd: "1.25",
+    });
+    await createTrade(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      symbol: "NVDA",
+      quantity: "4",
+      price: "60",
+      occurredOn: "2024-03-01",
+      side: "sell",
+      feeUsd: "0.8",
+    });
+    const bytes = await exportBookXlsx(store, book.id);
+    const parsed = await parseUpload([{ name: EXPORT_FILENAME, bytes }]);
+    const { transinfo } = pickSheets(parsed);
+    expect(transinfo.headers).toContain("買入手續費");
+    const feeIndex = transinfo.headers.indexOf("買入手續費");
+    const sellFeeIndex = transinfo.headers.indexOf("手續費");
+    const kindIndex = transinfo.headers.indexOf("種類");
+    const buyRow = transinfo.rows.find((row) => row[kindIndex] === "buy");
+    const sellRow = transinfo.rows.find((row) => row[kindIndex] === "sell");
+    expect(buyRow?.[feeIndex]).toBe("1.25");
+    expect(sellRow?.[sellFeeIndex]).toBe("0.8");
+    expect(sellRow?.[transinfo.headers.indexOf("買入日期")]).toBe("");
+    expect(sellRow?.[transinfo.headers.indexOf("賣出日期")]).toBe("2024-03-01");
+
+    const { empty, result } = await importExportedBook(bytes);
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after.trades.find((row) => row.side === "buy")?.feeUsd).toBe(moneyKey("1.25"));
+    expect(after.trades.find((row) => row.side === "sell")?.feeUsd).toBe(moneyKey("0.8"));
+  });
+
+  it("errors on bad Allocation headers or percents with the sheet and row", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "H", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const members = {
+      kind: "members" as const,
+      name: "Members",
+      headers: ["Name"],
+      rows: [["Hey"]],
+    };
+    const badHeaders = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members,
+      allocation: {
+        kind: "allocation",
+        name: "Allocation",
+        headers: ["Foo", "Bar"],
+        rows: [["2024-01-01", "Hey"]],
+      },
+    });
+    expect(badHeaders.blocking).toBe(true);
+    expect(badHeaders.issues.some((item) => item.message.includes("Allocation") && item.message.includes("表頭"))).toBe(
+      true,
+    );
+
+    const badPercent = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members,
+      allocation: {
+        kind: "allocation",
+        name: "Allocation",
+        headers: ["Effective Date", "Member", "Percent"],
+        rows: [["2024-01-01", "Hey", "nope"]],
+      },
+    });
+    expect(badPercent.blocking).toBe(true);
+    const pct = badPercent.issues.find((item) => item.kind === "allocation_invalid" && item.row === 2);
+    expect(pct?.message).toContain("Allocation");
+    expect(pct?.message).toContain("2");
+    expect(pct?.message).toContain("nope");
+  });
+
+  it("does not auto-create members that only appear on the Allocation sheet", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "H", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Hey"]],
+      },
+      allocation: {
+        kind: "allocation",
+        name: "Allocation",
+        headers: ["Effective Date", "Member", "Percent"],
+        rows: [
+          ["2024-01-01", "Hey", "0.5"],
+          ["2024-01-01", "Ghost", "0.5"],
+        ],
+      },
+    });
+    expect(plan.members).not.toContain("Ghost");
+    expect(plan.blocking).toBe(true);
+    expect(plan.issues.some((item) => item.message.includes("Ghost") && item.message.includes("Allocation"))).toBe(
+      true,
+    );
+  });
+
+  it("round-trips an adjustment with no symbol", async () => {
+    const store = createMemoryStore();
+    const { book, member, account } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    await createAdjustment(store, {
+      bookId: book.id,
+      ledgerAccountId: account.id,
+      memberId: member.id,
+      occurredOn: "2024-08-01",
+      note: "rounding",
+      amountUsd: "2.5",
+    });
+    const bytes = await exportBookXlsx(store, book.id);
+    const { empty, result } = await importExportedBook(bytes);
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after.trades.some((row) => row.side === "adjustment" && row.symbol === "—" && row.note === "rounding")).toBe(
+      true,
+    );
+  });
+
+  it("errors when a holder is ambiguous, naming the row", () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "KIT", "2024-01-02", "500"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "H", "1000", "1", "1000", "in"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), {
+      members: {
+        kind: "members",
+        name: "Members",
+        headers: ["Name"],
+        rows: [["Kit"], ["kit"]],
+      },
+    });
+    expect(plan.blocking).toBe(true);
+    const issue = plan.issues.find((item) => item.kind === "ambiguous_holder");
+    expect(issue?.row).toBe(2);
+    expect(issue?.message).toContain("KIT");
+    expect(issue?.message).toContain("2");
   });
 });
+

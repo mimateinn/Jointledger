@@ -1,19 +1,20 @@
 import { money, moneyString } from "@/ledger/money";
-import { MEMBER_HEY, MEMBER_SZE, MEMBER_WAH, normalizeScheduleLegs } from "./canon";
+import { dividendNote } from "@/ledger/dividend";
+import { normalizeScheduleLegs } from "./canon";
 import { cell, normalizeHeader } from "./columns";
-import { membersForBook, normalizeOwn, ownAccountLabel, resolveHolder } from "./own";
+import { membersForBook, ownAccountLabel, resolveHolder, type ResolvedHolder } from "./own";
 import type {
   ColumnMap,
   ColumnMapResult,
   ImportExtras,
   ImportIssue,
   ImportPlan,
+  IssueKind,
   ParsedSheet,
   PlannedAllocationSchedule,
   PlannedCashFlow,
   PlannedTrade,
 } from "./types";
-import { dividendNote } from "@/ledger/dividend";
 import { isDividendKindRaw, parseRowKind } from "./row-kind";
 import { absMoney, extractTickers, parseDate, parseInOut, parseMoney } from "./values";
 
@@ -26,20 +27,36 @@ function looksLikeAllocation(detail: string): boolean {
   return text.includes("%") || text.includes("分配") || text.includes("allocation");
 }
 
-function unknownHolderIssue(
+const HOLDER_ISSUE_KIND: Record<"empty" | "unknown" | "ambiguous", IssueKind> = {
+  empty: "empty_holder",
+  unknown: "unknown_member",
+  ambiguous: "ambiguous_holder",
+};
+
+function holderIssue(
   sheet: "transinfo" | "account",
   excelRow: number,
   ownRaw: string,
+  reason: "empty" | "unknown" | "ambiguous",
   symbol?: string,
 ): ImportIssue {
+  const sheetName = sheet === "transinfo" ? "TransInfo" : "Account Detail";
+  let message: string;
+  if (reason === "empty") {
+    message = `${sheetName} 第 ${excelRow} 行 holder 空白，唔可以當 Hey。`;
+  } else if (reason === "ambiguous") {
+    message = `${sheetName} 第 ${excelRow} 行 holder「${ownRaw}」有歧義。`;
+  } else {
+    message = `${sheetName} 第 ${excelRow} 行 holder「${ownRaw}」唔對應任何成員。`;
+  }
   return {
     id: issueId(sheet === "transinfo" ? "ti-own" : "ad-own", excelRow, symbol || "row"),
     sheet,
     row: excelRow,
     symbol,
     own: ownRaw,
-    kind: "unknown_member",
-    message: `${sheet === "transinfo" ? "TransInfo" : "Account Detail"} 第 ${excelRow} 行 holder「${ownRaw}」唔對應任何成員。`,
+    kind: HOLDER_ISSUE_KIND[reason],
+    message,
     pending: false,
   };
 }
@@ -60,11 +77,10 @@ function parseMembersSheet(sheet: ParsedSheet | undefined): string[] {
     if (!name) {
       continue;
     }
-    const key = name.toLowerCase();
-    if (seen.has(key)) {
+    if (seen.has(name)) {
       continue;
     }
-    seen.add(key);
+    seen.add(name);
     names.push(name);
   }
   return names;
@@ -74,7 +90,15 @@ function headerIndex(headers: string[], aliases: string[]): number {
   return headers.findIndex((header) => aliases.includes(normalizeHeader(header)));
 }
 
-function parseAllocationSheet(sheet: ParsedSheet | undefined): PlannedAllocationSchedule[] {
+function parsePercentRaw(raw: string): string | null {
+  return parseMoney(raw.replace(/%/g, ""));
+}
+
+function parseAllocationSheet(
+  sheet: ParsedSheet | undefined,
+  listedMembers: readonly string[],
+  issues: ImportIssue[],
+): PlannedAllocationSchedule[] {
   if (!sheet) {
     return [];
   }
@@ -82,29 +106,113 @@ function parseAllocationSheet(sheet: ParsedSheet | undefined): PlannedAllocation
   const memberIndex = headerIndex(sheet.headers, ["member", "name", "holder", "成員", "姓名"]);
   const percentIndex = headerIndex(sheet.headers, ["percent", "percentage", "ratio", "share", "比例", "百分比"]);
   if (dateIndex < 0 || memberIndex < 0 || percentIndex < 0) {
+    issues.push({
+      id: "alloc-headers",
+      sheet: "allocation",
+      row: 0,
+      kind: "allocation_invalid",
+      message: `Allocation 表頭缺必要欄（Effective Date / Member / Percent）。`,
+      pending: false,
+    });
     return [];
   }
-  const groups = new Map<string, { name: string; raw: string }[]>();
-  for (const row of sheet.rows) {
-    const date = parseDate((row[dateIndex] ?? "").trim());
+
+  const listed = new Set(listedMembers.map((name) => name.trim().toLowerCase()));
+  const groups = new Map<string, { name: string; raw: string; row: number }[]>();
+  for (const [index, row] of sheet.rows.entries()) {
+    const excelRow = index + 2;
+    const dateRaw = (row[dateIndex] ?? "").trim();
     const name = (row[memberIndex] ?? "").trim();
     const raw = (row[percentIndex] ?? "").trim();
+    if (!dateRaw && !name && !raw) {
+      continue;
+    }
+    const date = parseDate(dateRaw);
     if (!date || !name || !raw) {
+      issues.push({
+        id: issueId("alloc-row", excelRow),
+        sheet: "allocation",
+        row: excelRow,
+        kind: "allocation_invalid",
+        message: `Allocation 第 ${excelRow} 行缺生效日／成員／比例。`,
+        pending: false,
+      });
+      continue;
+    }
+    const percent = parsePercentRaw(raw);
+    if (!percent) {
+      issues.push({
+        id: issueId("alloc-pct", excelRow),
+        sheet: "allocation",
+        row: excelRow,
+        kind: "allocation_invalid",
+        message: `Allocation 第 ${excelRow} 行 percent「${raw}」無效。`,
+        pending: false,
+      });
+      continue;
+    }
+    try {
+      if (!money(percent).gt(0)) {
+        issues.push({
+          id: issueId("alloc-pct", excelRow),
+          sheet: "allocation",
+          row: excelRow,
+          kind: "allocation_invalid",
+          message: `Allocation 第 ${excelRow} 行 percent「${raw}」無效。`,
+          pending: false,
+        });
+        continue;
+      }
+    } catch {
+      issues.push({
+        id: issueId("alloc-pct", excelRow),
+        sheet: "allocation",
+        row: excelRow,
+        kind: "allocation_invalid",
+        message: `Allocation 第 ${excelRow} 行 percent「${raw}」無效。`,
+        pending: false,
+      });
+      continue;
+    }
+    if (!listed.has(name.toLowerCase())) {
+      issues.push({
+        id: issueId("alloc-member", excelRow, name),
+        sheet: "allocation",
+        row: excelRow,
+        kind: "allocation_invalid",
+        message: `Allocation 第 ${excelRow} 行成員「${name}」唔喺 Members 表，無自動開戶。`,
+        pending: false,
+      });
       continue;
     }
     const list = groups.get(date) ?? [];
-    list.push({ name, raw });
+    list.push({ name, raw: percent, row: excelRow });
     groups.set(date, list);
   }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([effectiveOn, legs]) => ({
-      effectiveOn,
-      legs: normalizeScheduleLegs(legs).map((leg) => ({
-        memberName: leg.name,
-        percent: leg.percent,
-      })),
-    }));
+
+  const schedules: PlannedAllocationSchedule[] = [];
+  for (const [effectiveOn, legs] of [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    try {
+      schedules.push({
+        effectiveOn,
+        legs: normalizeScheduleLegs(legs).map((leg) => ({
+          memberName: leg.name,
+          percent: leg.percent,
+        })),
+      });
+    } catch {
+      const row = legs[0]?.row ?? 0;
+      issues.push({
+        id: issueId("alloc-sum", row),
+        sheet: "allocation",
+        row,
+        kind: "allocation_invalid",
+        message: `Allocation 第 ${row} 行 percent 無法正規化。`,
+        pending: false,
+      });
+    }
+  }
+  return schedules;
 }
 
 export function buildPlan(
@@ -125,16 +233,8 @@ export function buildPlan(
   }));
 
   const listedMembers = parseMembersSheet(extras.members);
-  const schedules = parseAllocationSheet(extras.allocation);
-  const knownMembers = [
-    ...new Set([
-      MEMBER_HEY,
-      MEMBER_SZE,
-      MEMBER_WAH,
-      ...listedMembers,
-      ...schedules.flatMap((schedule) => schedule.legs.map((leg) => leg.memberName)),
-    ]),
-  ];
+  const schedules = parseAllocationSheet(extras.allocation, listedMembers, issues);
+  const knownMembers = [...listedMembers];
 
   const cashFlows: PlannedCashFlow[] = [];
   const trades: PlannedTrade[] = [];
@@ -150,7 +250,7 @@ export function buildPlan(
     const date = parseDate(cell(row, mapping.account, "date"));
     const ownRaw = cell(row, mapping.account, "own");
     const resolved = resolveHolder(ownRaw, knownMembers);
-    const own = resolved?.own ?? normalizeOwn(ownRaw);
+    const own = resolved.ok ? resolved.holder.own : ownRaw.trim();
     for (const ticker of extractTickers(detail)) {
       const list = adSymbols.get(ticker) ?? [];
       list.push({ row: excelRow, own, date });
@@ -165,7 +265,9 @@ export function buildPlan(
     const planned = planTransInfoRow(row, excelRow, mapping.transinfo, issues, adSymbols, knownMembers);
     if (planned) {
       trades.push(planned);
-      tiSymbols.add(planned.symbol.toUpperCase());
+      if (planned.symbol) {
+        tiSymbols.add(planned.symbol.toUpperCase());
+      }
     }
   }
 
@@ -186,7 +288,7 @@ export function buildPlan(
     });
   }
   for (const trade of trades) {
-    if (adSymbols.has(trade.symbol.toUpperCase())) {
+    if (trade.holderError || adSymbols.has(trade.symbol.toUpperCase())) {
       continue;
     }
     const id = issueId("mismatch-ti", trade.row, trade.symbol);
@@ -205,8 +307,17 @@ export function buildPlan(
   }
 
   flagSameDayJointMismatch(trades, issues);
-  const blocking = issues.some((item) => item.kind === "unknown_member");
+  const blocking = issues.some((item) => isHolderOrAllocationIssue(item.kind));
   return finish(filename, fileHash, cashFlows, trades, issues, blocking, listedMembers, schedules);
+}
+
+function isHolderOrAllocationIssue(kind: IssueKind): boolean {
+  return (
+    kind === "unknown_member" ||
+    kind === "empty_holder" ||
+    kind === "ambiguous_holder" ||
+    kind === "allocation_invalid"
+  );
 }
 
 function planAccountRow(
@@ -238,17 +349,21 @@ function planAccountRow(
     });
     return;
   }
-  const resolved = resolveHolder(ownRaw, knownMembers);
-  if (!resolved) {
-    issues.push(unknownHolderIssue("account", excelRow, ownRaw));
-    return;
-  }
-  if (resolved.role === "trade") {
-    return;
-  }
   const hkdRaw = parseMoney(cell(row, map, "hkd"));
   const usdRaw = parseMoney(cell(row, map, "usd"));
   const fxRaw = parseMoney(cell(row, map, "fx"));
+  const resolved = resolveHolder(ownRaw, knownMembers);
+  if (!resolved.ok) {
+    if (!hkdRaw && !usdRaw && !fxRaw) {
+      return;
+    }
+    issues.push(holderIssue("account", excelRow, ownRaw, resolved.reason));
+    cashFlows.push(failedCashFlow(excelRow, ownRaw, date, detail, resolved.reason, hkdRaw, fxRaw));
+    return;
+  }
+  if (resolved.holder.role === "trade") {
+    return;
+  }
   if (!hkdRaw && !usdRaw && !fxRaw) {
     return;
   }
@@ -257,7 +372,7 @@ function planAccountRow(
       id: issueId("ad-fx", excelRow),
       sheet: "account",
       row: excelRow,
-      own: resolved.own,
+      own: resolved.holder.own,
       kind: "missing_fx",
       message: `Account Detail 第 ${excelRow} 行缺匯率，已略過，無填 0。`,
       pending: false,
@@ -269,7 +384,7 @@ function planAccountRow(
       id: issueId("ad-amt", excelRow),
       sheet: "account",
       row: excelRow,
-      own: resolved.own,
+      own: resolved.holder.own,
       kind: "missing_amount",
       message: `Account Detail 第 ${excelRow} 行缺金額，已略過，無填 0。`,
       pending: false,
@@ -287,9 +402,9 @@ function planAccountRow(
   cashFlows.push({
     id: issueId("cf", excelRow),
     row: excelRow,
-    own: resolved.own,
-    book: resolved.book,
-    memberName: resolved.memberName,
+    own: resolved.holder.own,
+    book: resolved.holder.book,
+    memberName: resolved.holder.memberName,
     kind: parseInOut(cell(row, map, "in_out"), hkdRaw ?? usdRaw),
     amountHkd: hkdOut,
     fxRate: absMoney(fxRaw),
@@ -298,6 +413,32 @@ function planAccountRow(
     skip: false,
     warningIds: [],
   });
+}
+
+function failedCashFlow(
+  excelRow: number,
+  ownRaw: string,
+  date: string,
+  detail: string,
+  reason: "empty" | "unknown" | "ambiguous",
+  hkdRaw: string | null,
+  fxRaw: string | null,
+): PlannedCashFlow {
+  return {
+    id: issueId("cf", excelRow),
+    row: excelRow,
+    own: ownRaw,
+    book: "personal",
+    memberName: "",
+    kind: "deposit",
+    amountHkd: hkdRaw ?? "0",
+    fxRate: fxRaw ?? "1",
+    occurredOn: date,
+    detail,
+    skip: false,
+    warningIds: [],
+    holderError: reason,
+  };
 }
 
 function planTransInfoRow(
@@ -312,13 +453,33 @@ function planTransInfoRow(
   const ownRaw = cell(row, map, "own");
   const qtyRaw = cell(row, map, "quantity");
   const dateRaw = cell(row, map, "buy_date");
-  if (!symbol && !ownRaw && !qtyRaw && !dateRaw) {
+  const sellDateRaw = cell(row, map, "sell_date");
+  if (!symbol && !ownRaw && !qtyRaw && !dateRaw && !sellDateRaw) {
     return null;
   }
   const kindRaw = cell(row, map, "row_kind");
   const rowKind = parseRowKind(kindRaw);
   const noteRaw = cell(row, map, "note");
   const buyDate = parseDate(dateRaw);
+  const sellDate = parseDate(sellDateRaw);
+
+  if (rowKind === "sell") {
+    const occurredOn = sellDate ?? buyDate;
+    if (!occurredOn) {
+      issues.push({
+        id: issueId("ti-date", excelRow),
+        sheet: "transinfo",
+        row: excelRow,
+        symbol: symbol || undefined,
+        kind: "missing_date",
+        message: `TransInfo 第 ${excelRow} 行缺賣出日期，已略過。`,
+        pending: false,
+      });
+      return null;
+    }
+    return planSellRow(row, excelRow, map, issues, symbol, ownRaw, occurredOn, knownMembers, noteRaw);
+  }
+
   if (!buyDate) {
     issues.push({
       id: issueId("ti-date", excelRow),
@@ -336,9 +497,6 @@ function planTransInfoRow(
   }
   if (rowKind === "adjustment") {
     return planAdjustmentRow(row, excelRow, map, issues, symbol, ownRaw, buyDate, kindRaw, knownMembers, noteRaw);
-  }
-  if (rowKind === "sell") {
-    return planSellRow(row, excelRow, map, issues, symbol, ownRaw, buyDate, knownMembers, noteRaw);
   }
   const quantity = parseMoney(qtyRaw);
   if (!quantity) {
@@ -366,17 +524,20 @@ function planTransInfoRow(
   }
 
   const resolved = resolveImportHolder(excelRow, symbol, ownRaw, issues, knownMembers);
-  if (!resolved) {
-    return null;
+  if (!resolved.ok) {
+    return failedTrade(excelRow, symbol, ownRaw, buyDate, resolved.reason);
   }
-  let book = resolved.book;
-  const own = resolved.own;
+  let book = resolved.holder.book;
+  const own = resolved.holder.own;
 
   const adHits = (adSymbols.get(symbol.toUpperCase()) ?? []).filter(
     (hit) => !hit.date || hit.date === buyDate,
   );
-  const adOwns = new Set(adHits.map((hit) => hit.own));
-  if (adOwns.has("F") && book !== "joint") {
+  const adHasJoint = adHits.some((hit) => {
+    const adHolder = resolveHolder(hit.own, knownMembers);
+    return adHolder.ok && adHolder.holder.book === "joint";
+  });
+  if (adHasJoint && book !== "joint") {
     const id = issueId("joint", excelRow, symbol);
     issues.push({
       id,
@@ -406,12 +567,11 @@ function planTransInfoRow(
     return null;
   }
 
-  const sellDateRaw = cell(row, map, "sell_date");
-  const sellDate = sellDateRaw ? parseDate(sellDateRaw) : null;
+  const parsedSellDate = sellDate;
   const warningIds: string[] = [];
   const pending = false;
 
-  if (!sellDate) {
+  if (!parsedSellDate) {
     const id = issueId("open", excelRow, symbol);
     issues.push({
       id,
@@ -434,12 +594,13 @@ function planTransInfoRow(
     symbol,
     own,
     book,
-    memberName: resolved.memberName,
+    memberName: resolved.holder.memberName,
     quantity,
     buyDate,
     buyPrice: buyPrice ?? cost,
     buyTotal: cost,
-    sellDate,
+    buyFee: parseMoney(cell(row, map, "buy_fee")),
+    sellDate: parsedSellDate,
     sellPrice: parseMoney(cell(row, map, "sell_price")),
     sellFee: parseMoney(cell(row, map, "sell_fee")),
     sellTotal: parseMoney(cell(row, map, "sell_total")),
@@ -452,19 +613,52 @@ function planTransInfoRow(
   };
 }
 
+function failedTrade(
+  excelRow: number,
+  symbol: string,
+  ownRaw: string,
+  buyDate: string,
+  reason: "empty" | "unknown" | "ambiguous",
+): PlannedTrade {
+  return {
+    id: issueId("tr", excelRow),
+    row: excelRow,
+    symbol: symbol || "—",
+    own: ownRaw,
+    book: "personal",
+    memberName: "",
+    quantity: "0",
+    buyDate,
+    buyPrice: "0",
+    buyTotal: "0",
+    buyFee: null,
+    sellDate: null,
+    sellPrice: null,
+    sellFee: null,
+    sellTotal: null,
+    sheetPnl: null,
+    side: "buy",
+    note: null,
+    skip: false,
+    pending: false,
+    warningIds: [],
+    holderError: reason,
+  };
+}
+
 function resolveImportHolder(
   excelRow: number,
   symbol: string,
   ownRaw: string,
   issues: ImportIssue[],
   knownMembers: readonly string[],
-): { own: string; book: NonNullable<ReturnType<typeof resolveHolder>>["book"]; memberName: string } | null {
+): { ok: true; holder: ResolvedHolder } | { ok: false; reason: "empty" | "unknown" | "ambiguous" } {
   const resolved = resolveHolder(ownRaw, knownMembers);
-  if (!resolved) {
-    issues.push(unknownHolderIssue("transinfo", excelRow, ownRaw, symbol || undefined));
-    return null;
+  if (!resolved.ok) {
+    issues.push(holderIssue("transinfo", excelRow, ownRaw, resolved.reason, symbol || undefined));
+    return resolved;
   }
-  return { own: resolved.own, book: resolved.book, memberName: resolved.memberName };
+  return { ok: true, holder: resolved.holder };
 }
 
 function planSplitRow(
@@ -516,20 +710,21 @@ function planSplitRow(
     return null;
   }
   const resolved = resolveImportHolder(excelRow, symbol, ownRaw, issues, knownMembers);
-  if (!resolved) {
-    return null;
+  if (!resolved.ok) {
+    return failedTrade(excelRow, symbol, ownRaw, buyDate, resolved.reason);
   }
   return {
     id: issueId("tr", excelRow),
     row: excelRow,
     symbol,
-    own: resolved.own,
-    book: resolved.book,
-    memberName: resolved.memberName,
+    own: resolved.holder.own,
+    book: resolved.holder.book,
+    memberName: resolved.holder.memberName,
     quantity: newShares,
     buyDate,
     buyPrice: oldShares,
     buyTotal: "0",
+    buyFee: null,
     sellDate: null,
     sellPrice: null,
     sellFee: null,
@@ -557,8 +752,8 @@ function planAdjustmentRow(
 ): PlannedTrade | null {
   const amount = parseMoney(cell(row, map, "buy_total")) ?? parseMoney(cell(row, map, "buy_price"));
   const resolved = resolveImportHolder(excelRow, symbol || "—", ownRaw, issues, knownMembers);
-  if (!resolved) {
-    return null;
+  if (!resolved.ok) {
+    return failedTrade(excelRow, symbol || "—", ownRaw, buyDate, resolved.reason);
   }
   const fallbackNote = isDividendKindRaw(kindRaw)
     ? dividendNote(symbol && symbol !== "—" ? symbol : "")
@@ -569,13 +764,14 @@ function planAdjustmentRow(
     id: issueId("tr", excelRow),
     row: excelRow,
     symbol: symbol || "—",
-    own: resolved.own,
-    book: resolved.book,
-    memberName: resolved.memberName,
+    own: resolved.holder.own,
+    book: resolved.holder.book,
+    memberName: resolved.holder.memberName,
     quantity: parseMoney(cell(row, map, "quantity")) ?? "0",
     buyDate,
     buyPrice: amount ?? "0",
     buyTotal: amount ?? "0",
+    buyFee: null,
     sellDate: null,
     sellPrice: null,
     sellFee: null,
@@ -596,7 +792,7 @@ function planSellRow(
   issues: ImportIssue[],
   symbol: string,
   ownRaw: string,
-  buyDate: string,
+  occurredOn: string,
   knownMembers: readonly string[],
   noteRaw: string,
 ): PlannedTrade | null {
@@ -625,13 +821,11 @@ function planSellRow(
     return null;
   }
   const resolved = resolveImportHolder(excelRow, symbol, ownRaw, issues, knownMembers);
-  if (!resolved) {
-    return null;
+  if (!resolved.ok) {
+    return failedTrade(excelRow, symbol, ownRaw, occurredOn, resolved.reason);
   }
-  const sellDate = parseDate(cell(row, map, "sell_date")) ?? buyDate;
   const sellPrice = parseMoney(cell(row, map, "sell_price")) ?? parseMoney(cell(row, map, "buy_price"));
-  const sellTotal =
-    parseMoney(cell(row, map, "sell_total")) ?? parseMoney(cell(row, map, "buy_total"));
+  const sellTotal = parseMoney(cell(row, map, "sell_total")) ?? parseMoney(cell(row, map, "buy_total"));
   if (!sellPrice && !sellTotal) {
     issues.push({
       id: issueId("ti-px", excelRow),
@@ -649,14 +843,15 @@ function planSellRow(
     id: issueId("tr", excelRow),
     row: excelRow,
     symbol,
-    own: resolved.own,
-    book: resolved.book,
-    memberName: resolved.memberName,
+    own: resolved.holder.own,
+    book: resolved.holder.book,
+    memberName: resolved.holder.memberName,
     quantity,
-    buyDate: sellDate,
+    buyDate: occurredOn,
     buyPrice: sellPrice ?? proceeds,
     buyTotal: proceeds,
-    sellDate,
+    buyFee: null,
+    sellDate: occurredOn,
     sellPrice: sellPrice,
     sellFee: parseMoney(cell(row, map, "sell_fee")),
     sellTotal: proceeds,
@@ -672,7 +867,7 @@ function planSellRow(
 function flagSameDayJointMismatch(trades: PlannedTrade[], issues: ImportIssue[]): void {
   const groups = new Map<string, PlannedTrade[]>();
   for (const trade of trades) {
-    if (trade.side === "split" || trade.side === "adjustment" || trade.side === "sell") {
+    if (trade.side === "split" || trade.side === "adjustment" || trade.side === "sell" || trade.holderError) {
       continue;
     }
     const key = `${trade.buyDate}|${trade.symbol.toUpperCase()}`;
@@ -721,30 +916,25 @@ function finish(
       members.add(name.trim());
     }
   }
-  for (const schedule of schedules) {
-    for (const leg of schedule.legs) {
-      members.add(leg.memberName);
-    }
-  }
   for (const row of cashFlows) {
-    if (!row.skip) {
+    if (!row.skip && !row.holderError && row.memberName.trim()) {
       members.add(row.memberName);
     }
   }
   for (const row of trades) {
-    if (!row.skip) {
-      for (const name of membersForBook(row.book, row.memberName)) {
+    if (row.skip || row.holderError) {
+      continue;
+    }
+    for (const name of membersForBook(row.book, row.memberName)) {
+      if (name.trim()) {
         members.add(name);
       }
     }
   }
-  if (members.size === 0) {
-    members.add(MEMBER_HEY);
-  }
 
   const skippedKinds = new Set(["missing_fx", "missing_date", "missing_qty", "missing_amount", "unknown_own"]);
   const mapKinds = new Set(["unmapped_column", "column_collision", "missing_required"]);
-  const blocked = blocking || issues.some((item) => item.kind === "unknown_member");
+  const blocked = blocking || issues.some((item) => isHolderOrAllocationIssue(item.kind));
 
   return {
     filename,
@@ -766,11 +956,17 @@ function finish(
     blocking: blocked,
     counts: {
       members: members.size,
-      cashFlows: cashFlows.filter((row) => !row.skip).length,
-      trades: trades.filter((row) => !row.skip).length,
+      cashFlows: cashFlows.filter((row) => !row.skip && !row.holderError).length,
+      trades: trades.filter((row) => !row.skip && !row.holderError).length,
       warnings: issues.filter((item) => !item.pending && !mapKinds.has(item.kind) && !skippedKinds.has(item.kind))
         .length,
-      skipped: issues.filter((item) => skippedKinds.has(item.kind) || item.kind === "unknown_member").length,
+      skipped: issues.filter(
+        (item) =>
+          skippedKinds.has(item.kind) ||
+          item.kind === "unknown_member" ||
+          item.kind === "empty_holder" ||
+          item.kind === "ambiguous_holder",
+      ).length,
       pending: issues.filter((item) => item.pending).length,
     },
   };

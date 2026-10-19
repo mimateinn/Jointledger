@@ -1,8 +1,8 @@
-import { money } from "@/ledger/money";
+import { money, moneyString } from "@/ledger/money";
 import type { AllocationScheduleView } from "@/ledger/store";
 import { tradeCashAmountUsd } from "@/ledger/trade-amount";
 import type { CashFlow, LedgerAccount, Member, Trade, TradeAllocation } from "@/ledger/types";
-import { cashOwnForMember, tradeOwnForAccount } from "./own";
+import { cashOwnForMember, jointHolderToken, tradeOwnForAccount } from "./own";
 import { exportRowKind, type ExportRowKind } from "./row-kind";
 
 export type TransInfoExportRow = {
@@ -13,6 +13,7 @@ export type TransInfoExportRow = {
   buyDate: string;
   buyPrice: string;
   buyTotal: string;
+  buyFee: string;
   sellDate: string;
   sellPrice: string;
   sellFee: string;
@@ -75,10 +76,38 @@ function holderForTrade(
   trade: Trade,
   accountsById: Map<string, LedgerAccount>,
   membersById: Map<string, Member>,
+  jointToken: string,
 ): string {
   const account = accountsById.get(trade.ledgerAccountId);
   const member = account?.memberId ? membersById.get(account.memberId) : undefined;
-  return tradeOwnForAccount(account?.kind, member?.displayName);
+  return tradeOwnForAccount(account?.kind, member?.displayName, jointToken);
+}
+
+function equalMemberPercents(count: number): string[] {
+  if (count <= 0) {
+    return [];
+  }
+  const each = money("1").div(count);
+  const parts: string[] = [];
+  let left = money("1");
+  for (let i = 0; i < count; i += 1) {
+    if (i === count - 1) {
+      parts.push(left.toString());
+      break;
+    }
+    const part = each.toString();
+    parts.push(part);
+    left = left.minus(money(part));
+  }
+  return parts;
+}
+
+function feeCell(value: string): string {
+  try {
+    return money(value).gt(0) ? num(value) : "";
+  } catch {
+    return value;
+  }
 }
 
 export function buildExportPayload(input: {
@@ -91,6 +120,7 @@ export function buildExportPayload(input: {
 }): BookExportPayload {
   const membersById = new Map(input.members.map((row) => [row.id, row]));
   const accountsById = new Map(input.accounts.map((row) => [row.id, row]));
+  const jointToken = jointHolderToken(input.members.map((row) => row.displayName));
 
   const transinfo: TransInfoExportRow[] = [];
   const tradeRows = input.trades.slice().sort((a, b) => {
@@ -108,7 +138,7 @@ export function buildExportPayload(input: {
   });
 
   for (const trade of tradeRows) {
-    const own = holderForTrade(trade, accountsById, membersById);
+    const own = holderForTrade(trade, accountsById, membersById, jointToken);
     const note = trade.note ?? "";
     if (trade.side === "split") {
       transinfo.push({
@@ -119,6 +149,7 @@ export function buildExportPayload(input: {
         buyDate: trade.occurredOn,
         buyPrice: num(trade.price),
         buyTotal: "0",
+        buyFee: "",
         sellDate: "",
         sellPrice: "",
         sellFee: "",
@@ -143,6 +174,7 @@ export function buildExportPayload(input: {
         buyDate: trade.occurredOn,
         buyPrice: "0",
         buyTotal: num(amountUsd),
+        buyFee: "",
         sellDate: "",
         sellPrice: "",
         sellFee: "",
@@ -154,18 +186,18 @@ export function buildExportPayload(input: {
     }
     if (trade.side === "sell") {
       const sellTotal = sumAlloc(input.allocations, trade.id, "proceedsUsd");
-      const sellFee = money(trade.feeUsd).gt(0) ? num(trade.feeUsd) : "";
       transinfo.push({
         kind: "sell",
         symbol: trade.symbol,
         quantity: num(trade.quantity),
         own,
-        buyDate: trade.occurredOn,
-        buyPrice: num(trade.price),
-        buyTotal: sellTotal ? num(sellTotal) : "",
+        buyDate: "",
+        buyPrice: "",
+        buyTotal: "",
+        buyFee: "",
         sellDate: trade.occurredOn,
         sellPrice: num(trade.price),
-        sellFee,
+        sellFee: feeCell(trade.feeUsd),
         sellTotal: sellTotal ? num(sellTotal) : "",
         pnl: "",
         note,
@@ -182,6 +214,7 @@ export function buildExportPayload(input: {
       buyDate: trade.occurredOn,
       buyPrice: num(trade.price),
       buyTotal: num(buyTotal),
+      buyFee: feeCell(trade.feeUsd),
       sellDate: "",
       sellPrice: "",
       sellFee: "",
@@ -227,23 +260,34 @@ export function buildExportPayload(input: {
   const schedules = (input.schedules ?? [])
     .slice()
     .sort((a, b) => a.effectiveOn.localeCompare(b.effectiveOn));
-  for (const schedule of schedules) {
-    const legs = schedule.legs.slice().sort((a, b) => {
-      const nameA = membersById.get(a.memberId)?.displayName ?? a.memberId;
-      const nameB = membersById.get(b.memberId)?.displayName ?? b.memberId;
-      return nameA.localeCompare(nameB);
-    });
-    for (const leg of legs) {
-      const memberName = membersById.get(leg.memberId)?.displayName;
-      if (!memberName) {
-        continue;
+  if (schedules.length > 0) {
+    for (const schedule of schedules) {
+      for (const leg of schedule.legs) {
+        const memberName = membersById.get(leg.memberId)?.displayName;
+        if (!memberName) {
+          continue;
+        }
+        allocations.push({
+          effectiveOn: schedule.effectiveOn,
+          memberName,
+          percent: num(leg.percent),
+        });
       }
-      allocations.push({
-        effectiveOn: schedule.effectiveOn,
-        memberName,
-        percent: num(leg.percent),
-      });
     }
+  } else if (input.members.length > 0) {
+    const eventDates = [
+      ...input.cashFlows.map((row) => row.occurredOn),
+      ...input.trades.map((row) => row.occurredOn),
+    ].sort((a, b) => a.localeCompare(b));
+    const effectiveOn = eventDates[0] ?? "1970-01-01";
+    const percents = equalMemberPercents(input.members.length);
+    input.members.forEach((member, index) => {
+      allocations.push({
+        effectiveOn,
+        memberName: member.displayName,
+        percent: percents[index] ?? moneyString("0"),
+      });
+    });
   }
 
   return { transinfo, account, members, allocations };
@@ -257,6 +301,7 @@ export function transinfoCells(row: TransInfoExportRow): string[] {
     row.buyDate,
     row.buyPrice,
     row.buyTotal,
+    row.buyFee,
     row.sellDate,
     row.sellPrice,
     row.sellFee,

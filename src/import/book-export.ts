@@ -24,6 +24,7 @@ export const TRANSINFO_EXPORT_HEADERS = [
   "買入日期",
   "買入價",
   "買入總額",
+  "買入手續費",
   "賣出日期",
   "賣出價",
   "手續費",

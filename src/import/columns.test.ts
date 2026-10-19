@@ -18,18 +18,20 @@ describe("column map", () => {
     expect(ad.issues).toHaveLength(0);
   });
 
-  it("maps holder and note headers", () => {
+  it("maps holder, note, and buy-fee headers", () => {
     const ti = autoMapSheet("transinfo", [
       "Code",
       "Qty",
       "Holder",
       "Buy Date",
       "Buy Total",
+      "買入手續費",
       "Note",
     ]);
     expect(ti.issues).toHaveLength(0);
     expect(ti.map.targets).toContain("own");
     expect(ti.map.targets).toContain("note");
+    expect(ti.map.targets).toContain("buy_fee");
   });
 
   it("stops when one target is claimed twice", () => {

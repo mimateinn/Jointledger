@@ -8,6 +8,7 @@ export type TransInfoTarget =
   | "buy_date"
   | "buy_price"
   | "buy_total"
+  | "buy_fee"
   | "sell_date"
   | "sell_price"
   | "sell_fee"
@@ -72,6 +73,9 @@ export type IssueKind =
   | "joint_mismatch"
   | "unknown_own"
   | "unknown_member"
+  | "empty_holder"
+  | "ambiguous_holder"
+  | "allocation_invalid"
   | "missing_fx"
   | "missing_date"
   | "missing_qty"
@@ -80,7 +84,7 @@ export type IssueKind =
 
 export type ImportIssue = {
   id: string;
-  sheet: SheetKind | "all";
+  sheet: SheetKind | ExtraSheetKind | "all";
   row: number;
   symbol?: string;
   own?: string;
@@ -114,6 +118,7 @@ export type PlannedCashFlow = {
   detail: string;
   skip: boolean;
   warningIds: string[];
+  holderError?: "empty" | "unknown" | "ambiguous";
 };
 
 export type PlannedTrade = {
@@ -126,6 +131,7 @@ export type PlannedTrade = {
   buyDate: string;
   buyPrice: string;
   buyTotal: string;
+  buyFee?: string | null;
   sellDate: string | null;
   sellPrice: string | null;
   sellFee: string | null;
@@ -138,6 +144,7 @@ export type PlannedTrade = {
   skip: boolean;
   pending: boolean;
   warningIds: string[];
+  holderError?: "empty" | "unknown" | "ambiguous";
 };
 
 export type OwnAccountMap = {
