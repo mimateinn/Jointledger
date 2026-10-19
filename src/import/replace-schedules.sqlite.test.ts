@@ -175,4 +175,106 @@ describe("replace clears schedules on sqlite", () => {
     expect(allocations.find((row) => names.get(row.memberId) === "Hey")?.quantity).toBe("5.00000000");
     expect(allocations.find((row) => names.get(row.memberId) === "Sze")?.quantity).toBe("5.00000000");
   });
+
+  it("treats a sqlite invite with no expiry as claimed and does not prune it (u3a/f)", async () => {
+    const store = createDrizzleStore();
+    const { book } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-demo",
+      creatorDisplayName: "Hey",
+      creatorEmail: "demo@example.com",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const client = createClient({ url: process.env.DATABASE_URL! });
+    await client.execute({
+      sql: "UPDATE members SET invite_secret_hash = ?, invite_expires_at = NULL WHERE id = ?",
+      args: ["pending-hash", sze.member.id],
+    });
+    client.close();
+
+    const listed = await store.listMembers(book.id);
+    expect(listed.find((row) => row.id === sze.member.id)?.hasPendingInvite).toBe(true);
+
+    await store.removeUnclaimedMember(book.id, sze.member.id);
+    expect((await store.listMembers(book.id)).map((row) => row.displayName)).toContain("Sze");
+
+    const source = await mingHongPlan();
+    await applyImport(store, source, {
+      createdByUserId: "user-demo",
+      creatorDisplayName: "Hey",
+      existingBookId: book.id,
+      decisions: { ...importAll(source), reimportMode: "replace" },
+    });
+    expect((await store.listMembers(book.id)).map((row) => row.displayName).sort()).toEqual(
+      expect.arrayContaining(["Hey", "Sze", "小明", "小紅"]),
+    );
+  });
+
+  it("keeps a sqlite invite that has not expired (u3b)", async () => {
+    const store = createDrizzleStore();
+    const { book } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-demo",
+      creatorDisplayName: "Hey",
+      creatorEmail: "demo@example.com",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const client = createClient({ url: process.env.DATABASE_URL! });
+    await client.execute({
+      sql: "UPDATE members SET invite_secret_hash = ?, invite_expires_at = ? WHERE id = ?",
+      args: ["pending-hash", Date.now() + 86_400_000, sze.member.id],
+    });
+    client.close();
+    expect((await store.listMembers(book.id)).find((row) => row.id === sze.member.id)?.hasPendingInvite).toBe(true);
+    await store.removeUnclaimedMember(book.id, sze.member.id);
+    expect((await store.listMembers(book.id)).map((row) => row.displayName)).toContain("Sze");
+  });
+
+  it("prunes an expired sqlite invite with no remaining entries (u3c)", async () => {
+    const store = createDrizzleStore();
+    const { book } = await createBook(store, {
+      name: "聯倉",
+      createdByUserId: "user-demo",
+      creatorDisplayName: "Hey",
+      creatorEmail: "demo@example.com",
+    });
+    const sze = await addMember(store, { bookId: book.id, displayName: "Sze" });
+    const client = createClient({ url: process.env.DATABASE_URL! });
+    await client.execute({
+      sql: "UPDATE members SET invite_secret_hash = ?, invite_expires_at = ? WHERE id = ?",
+      args: ["expired-hash", Date.now() - 86_400_000, sze.member.id],
+    });
+    client.close();
+    expect((await store.listMembers(book.id)).find((row) => row.id === sze.member.id)?.hasPendingInvite).toBe(false);
+    await store.removeUnclaimedMember(book.id, sze.member.id);
+    expect((await store.listMembers(book.id)).map((row) => row.displayName)).not.toContain("Sze");
+  });
 });
+
+async function mingHongPlan() {
+  const transinfo = {
+    kind: "transinfo" as const,
+    name: "TransInfo",
+    headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+    rows: [["NVDA", "10", "F", "2024-03-01", "100"]],
+  };
+  const account = {
+    kind: "account" as const,
+    name: "Account Detail",
+    headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+    rows: [["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"]],
+  };
+  const members = {
+    kind: "members" as const,
+    name: "Members",
+    headers: ["Name"],
+    rows: [["小明"], ["小紅"]],
+  };
+  const allocation = {
+    kind: "allocation" as const,
+    name: "Allocation",
+    headers: ["EffectiveOn", "Member", "Percent"],
+    rows: [] as string[][],
+  };
+  return buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { members, allocation });
+}

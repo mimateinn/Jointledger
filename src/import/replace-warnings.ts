@@ -82,7 +82,7 @@ export function annotateReplaceWarnings(
         sheet: "allocation",
         row: 0,
         kind: "schedule_member_missing",
-        message: `檔案無 Allocation 表，會保留現有分配；分配裏嘅「${name}」唔喺檔案 Members。`,
+        message: `檔案無 Allocation 表，會保留現有分配；分配裏嘅「${name}」唔喺檔案 Members，之後聯名買賣仍會按呢份分配攤。`,
         pending: false,
       });
     }

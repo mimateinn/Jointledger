@@ -1194,6 +1194,104 @@ describe("export / import round-trip", () => {
     expect(after.allocations.find((row) => row.side === "split")?.memberName).toBe("小明");
   });
 
+  it("posts a nameless joint split to the first listed member (u8 fallback)", async () => {
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Price", "Buy Total", "Kind"],
+      rows: [
+        ["NVDA", "10", "F", "2024-02-01", "10", "100", "buy"],
+        ["NVDA", "2", "F", "2024-03-01", "1", "0", "split"],
+      ],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [
+        ["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"],
+        ["2024-02-01", "NVDA", "F", "", "", "", ""],
+      ],
+    };
+    const members = {
+      kind: "members" as const,
+      name: "Members",
+      headers: ["Name"],
+      rows: [["小紅"], ["小明"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { members });
+    expect(plan.listedMembers[0]).toBe("小紅");
+    const empty = createMemoryStore();
+    const result = await applyImport(empty, plan, {
+      createdByUserId: "user-2",
+      creatorDisplayName: "小明",
+      decisions: importAll(plan),
+    });
+    const after = await snapshotBook(empty, result.bookId);
+    expect(after.allocations.find((row) => row.side === "split")?.memberName).toBe("小紅");
+    expect(after.members.map((row) => row.displayName).sort()).toEqual(["小明", "小紅"]);
+  });
+
+  it("splits a Members-only F buy among listed members, not dest schedule or extra cash names (u6/u7/u8)", async () => {
+    const dest = createMemoryStore();
+    const { book: destBook, member: hey } = await createBook(dest, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(dest, { bookId: destBook.id, displayName: "Sze" });
+    await createJointAccount(dest, { bookId: destBook.id, name: "聯名" });
+    await setAllocationSchedule(dest, {
+      bookId: destBook.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.7" },
+        { memberId: sze.member.id, percent: "0.3" },
+      ],
+    });
+
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "12", "F", "2024-03-01", "120"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [
+        ["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"],
+        ["2024-01-01", "入金", "Wah", "1000", "1", "1000", "in"],
+        ["2024-03-01", "NVDA", "F", "", "", "", ""],
+      ],
+    };
+    const members = {
+      kind: "members" as const,
+      name: "Members",
+      headers: ["Name"],
+      rows: [["小明"], ["小紅"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { members });
+    expect(plan.hasMembersSheet).toBe(true);
+    expect(plan.hasAllocationSheet).toBe(false);
+    expect(plan.members).toEqual(expect.arrayContaining(["小明", "小紅", "Wah"]));
+    await applyImport(dest, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: destBook.id,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+    const after = await snapshotBook(dest, destBook.id);
+    const nvda = after.allocations.filter((row) => row.symbol === "NVDA" && row.side === "buy");
+    expect(nvda.find((row) => row.memberName === "小明")?.quantity).toBe(moneyKey("6"));
+    expect(nvda.find((row) => row.memberName === "小紅")?.quantity).toBe(moneyKey("6"));
+    expect(nvda.some((row) => row.memberName === "Hey" || row.memberName === "Sze" || row.memberName === "Wah")).toBe(
+      false,
+    );
+    expect(nvda).toHaveLength(2);
+  });
+
   it("keeps schedule count unchanged across three replace imports, and export1 equals export2 including Members", async () => {
     const { store, bookId } = await seedFullLedger();
     const beforeCount = (await store.listAllocationSchedules(bookId)).length;
@@ -2004,8 +2102,73 @@ describe("export / import round-trip", () => {
     const issue = plan.issues.find((item) => item.kind === "schedule_member_missing");
     expect(issue?.message).toContain("Wah");
     expect(issue?.message).toContain("Members");
+    expect(issue?.message).toMatch(/之後聯名|仍會按呢份分配/);
     expect(plan.counts.warnings).toBeGreaterThan(0);
     expect(plan.blocking).toBe(false);
+  });
+
+  it("warns that a kept schedule naming unlisted members still applies to future trades", async () => {
+    const dest = createMemoryStore();
+    const { book, member: hey } = await createBook(dest, {
+      name: "聯倉",
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+    });
+    const sze = await addMember(dest, { bookId: book.id, displayName: "Sze" });
+    const destJoint = await createJointAccount(dest, { bookId: book.id, name: "聯名" });
+    await setAllocationSchedule(dest, {
+      bookId: book.id,
+      effectiveOn: "2024-01-01",
+      legs: [
+        { memberId: hey.id, percent: "0.7" },
+        { memberId: sze.member.id, percent: "0.3" },
+      ],
+    });
+    const transinfo = {
+      kind: "transinfo" as const,
+      name: "TransInfo",
+      headers: ["Code", "Qty", "Holder", "Buy Date", "Buy Total"],
+      rows: [["NVDA", "10", "F", "2024-03-01", "100"]],
+    };
+    const account = {
+      kind: "account" as const,
+      name: "Account Detail",
+      headers: ["Date", "Detail", "Own", "HKD", "FX", "USD", "In/Out"],
+      rows: [["2024-01-01", "入金", "小明", "1000", "1", "1000", "in"]],
+    };
+    const members = {
+      kind: "members" as const,
+      name: "Members",
+      headers: ["Name"],
+      rows: [["小明"], ["小紅"]],
+    };
+    const plan = buildPlan("x.xlsx", "h", transinfo, account, mapUpload(transinfo, account), { members });
+    annotateReplaceWarnings(plan, {
+      members: await dest.listMembers(book.id),
+      schedules: await dest.listAllocationSchedules(book.id),
+    });
+    const warning = plan.issues.find((item) => item.kind === "schedule_member_missing" && item.message.includes("Sze"));
+    expect(warning?.message).toMatch(/之後聯名|仍會按呢份分配/);
+
+    await applyImport(dest, plan, {
+      createdByUserId: "user-1",
+      creatorDisplayName: "Hey",
+      existingBookId: book.id,
+      decisions: { ...importAll(plan), reimportMode: "replace" },
+    });
+    const later = await createTrade(dest, {
+      bookId: book.id,
+      ledgerAccountId: destJoint.id,
+      memberId: hey.id,
+      symbol: "AAPL",
+      quantity: "10",
+      price: "10",
+      occurredOn: "2024-08-01",
+    });
+    const names = new Map((await dest.listMembers(book.id)).map((row) => [row.id, row.displayName]));
+    const legs = (await dest.listTradeAllocations(book.id)).filter((row) => row.tradeId === later.trade.id);
+    expect(legs.find((row) => names.get(row.memberId) === "Hey")?.quantity).toBe("7.00000000");
+    expect(legs.find((row) => names.get(row.memberId) === "Sze")?.quantity).toBe("3.00000000");
   });
 
   it("round-trips a joint -6 fee with custom 4/2 legs", async () => {

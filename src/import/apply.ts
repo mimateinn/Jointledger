@@ -143,7 +143,6 @@ function resolvedTradeLegs(
   trade: PlannedTrade,
   lookup: (name: string) => { memberId: string; accountId: string },
   destSchedules: AllocationScheduleView[],
-  fileMemberIds: { id: string }[],
   listedMemberIds: { id: string }[],
 ): CreateTradeLeg[] | undefined {
   if (trade.customLegs?.length) {
@@ -161,28 +160,18 @@ function resolvedTradeLegs(
   if (trade.book !== "joint") {
     return undefined;
   }
-  const occurredOn = trade.side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate;
-  const dest = scheduleInForce(destSchedules, occurredOn);
-  if (listedMemberIds.length > 0) {
-    const listedIds = new Set(listedMemberIds.map((row) => row.id));
-    const destOnlyListed =
-      !!dest && dest.legs.length > 0 && dest.legs.every((leg) => listedIds.has(leg.memberId));
-    const { quantity, total, field } = tradeAmountField(trade);
-    return jointTradeLegs({
-      scheduleLegs: destOnlyListed ? dest!.legs : null,
-      members: listedMemberIds,
-      quantity,
-      total,
-      field,
-    });
-  }
-  if (dest || fileMemberIds.length === 0) {
+  if (listedMemberIds.length === 0) {
     return undefined;
   }
+  const occurredOn = trade.side === "sell" ? (trade.sellDate ?? trade.buyDate) : trade.buyDate;
+  const dest = scheduleInForce(destSchedules, occurredOn);
+  const listedIds = new Set(listedMemberIds.map((row) => row.id));
+  const destOnlyListed =
+    !!dest && dest.legs.length > 0 && dest.legs.every((leg) => listedIds.has(leg.memberId));
   const { quantity, total, field } = tradeAmountField(trade);
   return jointTradeLegs({
-    scheduleLegs: null,
-    members: fileMemberIds,
+    scheduleLegs: destOnlyListed && dest ? dest.legs : null,
+    members: listedMemberIds,
     quantity,
     total,
     field,
@@ -453,19 +442,6 @@ async function applyImportBody(
     input.decisions.reimportMode,
   );
   const destSchedules = await store.listAllocationSchedules(bookId);
-  const fileMemberIds: { id: string }[] = [];
-  const seenFileMembers = new Set<string>();
-  for (const name of needed) {
-    try {
-      const id = lookup(name).memberId;
-      if (!seenFileMembers.has(id)) {
-        seenFileMembers.add(id);
-        fileMemberIds.push({ id });
-      }
-    } catch {
-      /* not on this book */
-    }
-  }
   const listedMemberIds: { id: string }[] = [];
   const seenListed = new Set<string>();
   for (const name of plan.listedMembers) {
@@ -535,13 +511,7 @@ async function applyImportBody(
     }
     const accountId = trade.book === "joint" ? joint!.id : memberRef.accountId;
     const memberId = memberRef.memberId;
-    const customLegs = resolvedTradeLegs(
-      trade,
-      lookup,
-      destSchedules,
-      fileMemberIds,
-      listedMemberIds,
-    );
+    const customLegs = resolvedTradeLegs(trade, lookup, destSchedules, listedMemberIds);
 
     if (trade.side === "split") {
       await w.createSplit(store, {

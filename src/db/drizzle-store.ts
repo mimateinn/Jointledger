@@ -50,7 +50,7 @@ function asMember(row: typeof members.$inferSelect): Member {
     userId: row.userId,
     displayName: row.displayName,
     email: row.email,
-    hasPendingInvite: Boolean(row.inviteSecretHash && (!row.inviteExpiresAt || expires > Date.now())),
+    hasPendingInvite: Boolean(row.inviteSecretHash && (!row.inviteExpiresAt || expires > Date.now())), // no expiry = claimed
   };
 }
 

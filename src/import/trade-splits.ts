@@ -201,9 +201,9 @@ export function attachCustomTradeSplits(
 
     const moneyField = adjustmentAwareMoneyField(trade, legs);
     let amountsOk = true;
-    if (hasMoneyColumns && trade.side !== "split" && trade.side !== "adjustment") {
+    if (hasMoneyColumns && trade.side !== "split") {
       const wrong =
-        trade.side === "sell"
+        moneyField === "proceedsUsd"
           ? legs.find((leg) => money(leg.costUsd).gt(0))
           : legs.find((leg) => money(leg.proceedsUsd).gt(0));
       if (wrong) {
@@ -212,10 +212,7 @@ export function attachCustomTradeSplits(
           sheet: "tradesplits",
           row: wrong.excelRow,
           kind: "tradesplit_invalid",
-          message:
-            trade.side === "sell"
-              ? `TradeSplits 第 ${wrong.excelRow} 行賣出金額唔可以寫喺買入欄。`
-              : `TradeSplits 第 ${wrong.excelRow} 行買入金額唔可以寫喺賣出欄。`,
+          message: wrongColumnMessage(trade.side, moneyField, wrong.excelRow),
           pending: false,
         });
         amountsOk = false;
@@ -318,6 +315,21 @@ export function attachCustomTradeSplits(
  * App export writes negative adjustments (fees) in Cost and credits in Proceeds.
  * Match the column the exporter actually filled, using the signed TransInfo amount.
  */
+function wrongColumnMessage(
+  side: PlannedTrade["side"],
+  moneyField: "costUsd" | "proceedsUsd",
+  excelRow: number,
+): string {
+  if (side === "adjustment") {
+    return moneyField === "proceedsUsd"
+      ? `TradeSplits 第 ${excelRow} 行股息／調整金額唔可以寫喺買入欄。`
+      : `TradeSplits 第 ${excelRow} 行調整金額唔可以寫喺賣出欄。`;
+  }
+  return side === "sell"
+    ? `TradeSplits 第 ${excelRow} 行賣出金額唔可以寫喺買入欄。`
+    : `TradeSplits 第 ${excelRow} 行買入金額唔可以寫喺賣出欄。`;
+}
+
 function adjustmentAwareMoneyField(
   trade: PlannedTrade,
   legs: TradeSplitRow[],

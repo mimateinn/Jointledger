@@ -16,7 +16,7 @@ export type Member = {
   userId: string | null;
   displayName: string;
   email: string | null;
-  /** True when an unused invite secret is still outstanding. Treated as claimed for replace-prune. */
+  /** True when an unused invite secret is outstanding. A hash with no expiry counts as claimed. */
   hasPendingInvite?: boolean;
 };
 
