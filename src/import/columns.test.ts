@@ -18,6 +18,20 @@ describe("column map", () => {
     expect(ad.issues).toHaveLength(0);
   });
 
+  it("maps holder and note headers", () => {
+    const ti = autoMapSheet("transinfo", [
+      "Code",
+      "Qty",
+      "Holder",
+      "Buy Date",
+      "Buy Total",
+      "Note",
+    ]);
+    expect(ti.issues).toHaveLength(0);
+    expect(ti.map.targets).toContain("own");
+    expect(ti.map.targets).toContain("note");
+  });
+
   it("stops when one target is claimed twice", () => {
     const result = autoMapSheet("transinfo", ["Qty", "Quantity", "Code", "Own", "Buy Date", "Buy Total"]);
     expect(result.issues.some((issue) => issue.kind === "column_collision")).toBe(true);

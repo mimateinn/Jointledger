@@ -90,6 +90,10 @@ export async function applyImport(
   writers: Partial<ImportWriters> = {},
 ): Promise<ApplyResult> {
   if (plan.blocking) {
+    const unknown = plan.issues.find((issue) => issue.kind === "unknown_member");
+    if (unknown) {
+      throw new Error(unknown.message);
+    }
     throw new Error("欄位未確認，零寫入。");
   }
 
@@ -140,13 +144,22 @@ export async function applyImport(
     });
   }
 
+  const importedSchedules = plan.schedules ?? [];
   const needed = new Set<string>(plan.members);
-  for (const name of [MEMBER_HEY, MEMBER_SZE]) {
-    if (plan.trades.some((trade) => !trade.skip && trade.book === "joint")) {
-      needed.add(name);
+  const hasJoint = plan.trades.some((trade) => !trade.skip && trade.book === "joint");
+  if (hasJoint && importedSchedules.length === 0) {
+    needed.add(MEMBER_HEY);
+    needed.add(MEMBER_SZE);
+  }
+  for (const schedule of importedSchedules) {
+    for (const leg of schedule.legs) {
+      needed.add(leg.memberName);
     }
   }
   for (const name of needed) {
+    if (!name?.trim()) {
+      continue;
+    }
     const key = name.trim().toLowerCase();
     if (members.has(key)) {
       continue;
@@ -164,15 +177,29 @@ export async function applyImport(
   };
 
   const existingAccounts = await store.listLedgerAccounts(bookId);
-  const joint =
-    existingAccounts.find((row) => row.kind === "joint") ??
-    (await w.createJointAccount(store, { bookId, name: "聯名" }));
-
-  const schedules = await store.listAllocationSchedules(bookId);
+  const needsJoint =
+    hasJoint || importedSchedules.length > 0 || existingAccounts.some((row) => row.kind === "joint");
+  const joint = needsJoint
+    ? (existingAccounts.find((row) => row.kind === "joint") ??
+      (await w.createJointAccount(store, { bookId, name: "聯名" })))
+    : null;
 
   if (input.decisions.reimportMode === "replace") {
     await store.clearBookEntries(bookId);
   }
+
+  for (const schedule of importedSchedules) {
+    await w.setAllocationSchedule(store, {
+      bookId,
+      effectiveOn: schedule.effectiveOn,
+      legs: schedule.legs.map((leg) => ({
+        memberId: lookup(leg.memberName).memberId,
+        percent: leg.percent,
+      })),
+    });
+  }
+
+  const schedules = await store.listAllocationSchedules(bookId);
 
   let cashFlowCount = 0;
   let tradeCount = 0;
@@ -213,9 +240,15 @@ export async function applyImport(
       continue;
     }
 
-    const accountId = trade.book === "joint" ? joint.id : lookup(membersForBook(trade.book)[0]).accountId;
-    const memberId = lookup(membersForBook(trade.book)[0]).memberId;
+    const memberNames = membersForBook(trade.book, trade.memberName);
+    const memberRef = lookup(memberNames[0] ?? trade.memberName);
+    if (trade.book === "joint" && !joint) {
+      throw new Error("聯名倉未開，無寫入幽靈戶口。");
+    }
+    const accountId = trade.book === "joint" ? joint!.id : memberRef.accountId;
+    const memberId = memberRef.memberId;
     const schedule = scheduleInForce(schedules, trade.buyDate);
+    const useImportedSchedule = importedSchedules.length > 0;
 
     if (trade.side === "split") {
       await w.createSplit(store, {
@@ -241,7 +274,7 @@ export async function applyImport(
       const amountUsd = trade.buyTotal && trade.buyTotal !== "0" ? trade.buyTotal : null;
       const signed = amountUsd ? money(amountUsd) : null;
       const legs =
-        trade.book === "joint" && signed && !signed.eq(0)
+        trade.book === "joint" && signed && !signed.eq(0) && !useImportedSchedule
           ? jointLegs(
               schedule,
               "0",
@@ -269,8 +302,41 @@ export async function applyImport(
       continue;
     }
 
+    if (trade.side === "sell") {
+      const proceeds = trade.sellTotal ?? trade.buyTotal;
+      const sellPrice =
+        trade.sellPrice ??
+        trade.buyPrice ??
+        moneyString(money(proceeds).div(money(trade.quantity)));
+      const sellLegs =
+        trade.book === "joint" && !useImportedSchedule
+          ? jointLegs(schedule, trade.quantity, proceeds, lookup, "proceeds")
+          : undefined;
+      await w.createTrade(store, {
+        bookId,
+        ledgerAccountId: accountId,
+        memberId,
+        symbol: trade.symbol,
+        quantity: trade.quantity,
+        price: sellPrice,
+        occurredOn: trade.sellDate ?? trade.buyDate,
+        side: "sell",
+        proceedsUsd: proceeds,
+        feeUsd: trade.sellFee ?? undefined,
+        legs: sellLegs,
+        note: trade.note?.trim() ? trade.note.trim() : null,
+      });
+      tradeCount += 1;
+      rowLog.push({
+        id: trade.id,
+        status: "written",
+        message: `賣出第 ${trade.row} 行已寫入`,
+      });
+      continue;
+    }
+
     const legs =
-      trade.book === "joint"
+      trade.book === "joint" && !useImportedSchedule
         ? jointLegs(schedule, trade.quantity, trade.buyTotal, lookup)
         : undefined;
 
@@ -285,7 +351,7 @@ export async function applyImport(
       side: "buy",
       costUsd: trade.buyTotal,
       legs,
-      note: trade.own ? `Own ${trade.own}` : null,
+      note: trade.note?.trim() ? trade.note.trim() : null,
     });
     tradeCount += 1;
 
@@ -301,7 +367,9 @@ export async function applyImport(
         });
       } else {
         const sellLegs =
-          trade.book === "joint" ? jointLegs(schedule, sellQty, proceeds, lookup, "proceeds") : undefined;
+          trade.book === "joint" && !useImportedSchedule
+            ? jointLegs(schedule, sellQty, proceeds, lookup, "proceeds")
+            : undefined;
         await w.createTrade(store, {
           bookId,
           ledgerAccountId: accountId,
@@ -316,7 +384,7 @@ export async function applyImport(
           proceedsUsd: proceeds,
           feeUsd: trade.sellFee ?? undefined,
           legs: sellLegs,
-          note: trade.own ? `Own ${trade.own}` : null,
+          note: null,
         });
         tradeCount += 1;
       }

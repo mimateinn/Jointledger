@@ -1,7 +1,7 @@
 import {
   ACCOUNT_EXPORT_HEADERS,
   ACCOUNT_SHEET_NAME,
-  TRANSINFO_EXPORT_HEADERS,
+  LEGACY_V012_TRANSINFO_HEADERS,
   TRANSINFO_SHEET_NAME,
 } from "../book-export";
 import type { ParsedSheet } from "../types";
@@ -16,7 +16,7 @@ export function legacyExportDividendSheets(): { transinfo: ParsedSheet; account:
     transinfo: {
       kind: "transinfo",
       name: TRANSINFO_SHEET_NAME,
-      headers: [...TRANSINFO_EXPORT_HEADERS],
+      headers: [...LEGACY_V012_TRANSINFO_HEADERS],
       rows: [
         ["NVDA", "10", "B", "2024-01-02", "50", "500", "", "", "", "", "", "buy"],
         ["MSFT", "0", "B", "2024-07-01", "0", "12.5", "", "", "", "", "", "adjustment"],

@@ -1,19 +1,15 @@
 import { money, moneyString } from "@/ledger/money";
-import { MEMBER_HEY } from "./canon";
-import { cell } from "./columns";
-import {
-  ACCOUNT_OWN,
-  classifyTransInfoBook,
-  membersForBook,
-  normalizeOwn,
-  ownAccountLabel,
-} from "./own";
+import { MEMBER_HEY, MEMBER_SZE, MEMBER_WAH, normalizeScheduleLegs } from "./canon";
+import { cell, normalizeHeader } from "./columns";
+import { membersForBook, normalizeOwn, ownAccountLabel, resolveHolder } from "./own";
 import type {
   ColumnMap,
   ColumnMapResult,
+  ImportExtras,
   ImportIssue,
   ImportPlan,
   ParsedSheet,
+  PlannedAllocationSchedule,
   PlannedCashFlow,
   PlannedTrade,
 } from "./types";
@@ -30,12 +26,94 @@ function looksLikeAllocation(detail: string): boolean {
   return text.includes("%") || text.includes("分配") || text.includes("allocation");
 }
 
+function unknownHolderIssue(
+  sheet: "transinfo" | "account",
+  excelRow: number,
+  ownRaw: string,
+  symbol?: string,
+): ImportIssue {
+  return {
+    id: issueId(sheet === "transinfo" ? "ti-own" : "ad-own", excelRow, symbol || "row"),
+    sheet,
+    row: excelRow,
+    symbol,
+    own: ownRaw,
+    kind: "unknown_member",
+    message: `${sheet === "transinfo" ? "TransInfo" : "Account Detail"} 第 ${excelRow} 行 holder「${ownRaw}」唔對應任何成員。`,
+    pending: false,
+  };
+}
+
+function parseMembersSheet(sheet: ParsedSheet | undefined): string[] {
+  if (!sheet) {
+    return [];
+  }
+  const nameIndex = sheet.headers.findIndex((header) => {
+    const key = normalizeHeader(header);
+    return key === "name" || key === "member" || key === "displayname" || key === "成員" || key === "姓名";
+  });
+  const index = nameIndex >= 0 ? nameIndex : 0;
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const row of sheet.rows) {
+    const name = (row[index] ?? "").trim();
+    if (!name) {
+      continue;
+    }
+    const key = name.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    names.push(name);
+  }
+  return names;
+}
+
+function headerIndex(headers: string[], aliases: string[]): number {
+  return headers.findIndex((header) => aliases.includes(normalizeHeader(header)));
+}
+
+function parseAllocationSheet(sheet: ParsedSheet | undefined): PlannedAllocationSchedule[] {
+  if (!sheet) {
+    return [];
+  }
+  const dateIndex = headerIndex(sheet.headers, ["effectivedate", "effectiveon", "date", "生效日", "日期"]);
+  const memberIndex = headerIndex(sheet.headers, ["member", "name", "holder", "成員", "姓名"]);
+  const percentIndex = headerIndex(sheet.headers, ["percent", "percentage", "ratio", "share", "比例", "百分比"]);
+  if (dateIndex < 0 || memberIndex < 0 || percentIndex < 0) {
+    return [];
+  }
+  const groups = new Map<string, { name: string; raw: string }[]>();
+  for (const row of sheet.rows) {
+    const date = parseDate((row[dateIndex] ?? "").trim());
+    const name = (row[memberIndex] ?? "").trim();
+    const raw = (row[percentIndex] ?? "").trim();
+    if (!date || !name || !raw) {
+      continue;
+    }
+    const list = groups.get(date) ?? [];
+    list.push({ name, raw });
+    groups.set(date, list);
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([effectiveOn, legs]) => ({
+      effectiveOn,
+      legs: normalizeScheduleLegs(legs).map((leg) => ({
+        memberName: leg.name,
+        percent: leg.percent,
+      })),
+    }));
+}
+
 export function buildPlan(
   filename: string,
   fileHash: string,
   transinfo: ParsedSheet,
   account: ParsedSheet,
   mapping: ColumnMapResult,
+  extras: ImportExtras = {},
 ): ImportPlan {
   const issues: ImportIssue[] = mapping.issues.map((item, index) => ({
     id: `map-${index}`,
@@ -46,11 +124,23 @@ export function buildPlan(
     pending: false,
   }));
 
+  const listedMembers = parseMembersSheet(extras.members);
+  const schedules = parseAllocationSheet(extras.allocation);
+  const knownMembers = [
+    ...new Set([
+      MEMBER_HEY,
+      MEMBER_SZE,
+      MEMBER_WAH,
+      ...listedMembers,
+      ...schedules.flatMap((schedule) => schedule.legs.map((leg) => leg.memberName)),
+    ]),
+  ];
+
   const cashFlows: PlannedCashFlow[] = [];
   const trades: PlannedTrade[] = [];
 
   if (mapping.blocking) {
-    return finish(filename, fileHash, cashFlows, trades, issues, true);
+    return finish(filename, fileHash, cashFlows, trades, issues, true, listedMembers, schedules);
   }
 
   const adSymbols = new Map<string, { row: number; own: string; date: string | null }[]>();
@@ -58,19 +148,21 @@ export function buildPlan(
     const excelRow = index + 2;
     const detail = cell(row, mapping.account, "detail");
     const date = parseDate(cell(row, mapping.account, "date"));
-    const own = normalizeOwn(cell(row, mapping.account, "own"));
+    const ownRaw = cell(row, mapping.account, "own");
+    const resolved = resolveHolder(ownRaw, knownMembers);
+    const own = resolved?.own ?? normalizeOwn(ownRaw);
     for (const ticker of extractTickers(detail)) {
       const list = adSymbols.get(ticker) ?? [];
       list.push({ row: excelRow, own, date });
       adSymbols.set(ticker, list);
     }
-    planAccountRow(row, excelRow, mapping.account, issues, cashFlows);
+    planAccountRow(row, excelRow, mapping.account, issues, cashFlows, knownMembers);
   }
 
   const tiSymbols = new Set<string>();
   for (const [index, row] of transinfo.rows.entries()) {
     const excelRow = index + 2;
-    const planned = planTransInfoRow(row, excelRow, mapping.transinfo, issues, adSymbols);
+    const planned = planTransInfoRow(row, excelRow, mapping.transinfo, issues, adSymbols, knownMembers);
     if (planned) {
       trades.push(planned);
       tiSymbols.add(planned.symbol.toUpperCase());
@@ -113,7 +205,8 @@ export function buildPlan(
   }
 
   flagSameDayJointMismatch(trades, issues);
-  return finish(filename, fileHash, cashFlows, trades, issues, false);
+  const blocking = issues.some((item) => item.kind === "unknown_member");
+  return finish(filename, fileHash, cashFlows, trades, issues, blocking, listedMembers, schedules);
 }
 
 function planAccountRow(
@@ -122,6 +215,7 @@ function planAccountRow(
   map: ColumnMap,
   issues: ImportIssue[],
   cashFlows: PlannedCashFlow[],
+  knownMembers: readonly string[],
 ): void {
   const ownRaw = cell(row, map, "own");
   const dateRaw = cell(row, map, "date");
@@ -144,32 +238,26 @@ function planAccountRow(
     });
     return;
   }
-  const own = normalizeOwn(ownRaw);
-  const mapped = ACCOUNT_OWN[own];
-  if (!mapped) {
-    issues.push({
-      id: issueId("ad-own", excelRow),
-      sheet: "account",
-      row: excelRow,
-      own,
-      kind: "unknown_own",
-      message: `Account Detail 第 ${excelRow} 行 Own「${ownRaw}」唔識，無開幽靈成員，已略過。`,
-      pending: false,
-    });
+  const resolved = resolveHolder(ownRaw, knownMembers);
+  if (!resolved) {
+    issues.push(unknownHolderIssue("account", excelRow, ownRaw));
     return;
   }
-  if (mapped.role === "trade") {
+  if (resolved.role === "trade") {
     return;
   }
   const hkdRaw = parseMoney(cell(row, map, "hkd"));
   const usdRaw = parseMoney(cell(row, map, "usd"));
   const fxRaw = parseMoney(cell(row, map, "fx"));
+  if (!hkdRaw && !usdRaw && !fxRaw) {
+    return;
+  }
   if (!fxRaw) {
     issues.push({
       id: issueId("ad-fx", excelRow),
       sheet: "account",
       row: excelRow,
-      own,
+      own: resolved.own,
       kind: "missing_fx",
       message: `Account Detail 第 ${excelRow} 行缺匯率，已略過，無填 0。`,
       pending: false,
@@ -181,7 +269,7 @@ function planAccountRow(
       id: issueId("ad-amt", excelRow),
       sheet: "account",
       row: excelRow,
-      own,
+      own: resolved.own,
       kind: "missing_amount",
       message: `Account Detail 第 ${excelRow} 行缺金額，已略過，無填 0。`,
       pending: false,
@@ -199,9 +287,9 @@ function planAccountRow(
   cashFlows.push({
     id: issueId("cf", excelRow),
     row: excelRow,
-    own,
-    book: mapped.book,
-    memberName: mapped.memberName,
+    own: resolved.own,
+    book: resolved.book,
+    memberName: resolved.memberName,
     kind: parseInOut(cell(row, map, "in_out"), hkdRaw ?? usdRaw),
     amountHkd: hkdOut,
     fxRate: absMoney(fxRaw),
@@ -218,6 +306,7 @@ function planTransInfoRow(
   map: ColumnMap,
   issues: ImportIssue[],
   adSymbols: Map<string, { row: number; own: string; date: string | null }[]>,
+  knownMembers: readonly string[],
 ): PlannedTrade | null {
   const symbol = cell(row, map, "symbol").trim();
   const ownRaw = cell(row, map, "own");
@@ -228,6 +317,7 @@ function planTransInfoRow(
   }
   const kindRaw = cell(row, map, "row_kind");
   const rowKind = parseRowKind(kindRaw);
+  const noteRaw = cell(row, map, "note");
   const buyDate = parseDate(dateRaw);
   if (!buyDate) {
     issues.push({
@@ -242,10 +332,13 @@ function planTransInfoRow(
     return null;
   }
   if (rowKind === "split") {
-    return planSplitRow(row, excelRow, map, issues, symbol, ownRaw, buyDate);
+    return planSplitRow(row, excelRow, map, issues, symbol, ownRaw, buyDate, knownMembers, noteRaw);
   }
   if (rowKind === "adjustment") {
-    return planAdjustmentRow(row, excelRow, map, issues, symbol, ownRaw, buyDate, kindRaw);
+    return planAdjustmentRow(row, excelRow, map, issues, symbol, ownRaw, buyDate, kindRaw, knownMembers, noteRaw);
+  }
+  if (rowKind === "sell") {
+    return planSellRow(row, excelRow, map, issues, symbol, ownRaw, buyDate, knownMembers, noteRaw);
   }
   const quantity = parseMoney(qtyRaw);
   if (!quantity) {
@@ -272,21 +365,12 @@ function planTransInfoRow(
     return null;
   }
 
-  const own = normalizeOwn(ownRaw);
-  let book = classifyTransInfoBook(own);
-  if (!book) {
-    issues.push({
-      id: issueId("ti-own", excelRow),
-      sheet: "transinfo",
-      row: excelRow,
-      symbol,
-      own,
-      kind: "unknown_own",
-      message: `TransInfo 第 ${excelRow} 行 Own「${ownRaw}」唔識，無開幽靈成員，已略過。`,
-      pending: false,
-    });
+  const resolved = resolveImportHolder(excelRow, symbol, ownRaw, issues, knownMembers);
+  if (!resolved) {
     return null;
   }
+  let book = resolved.book;
+  const own = resolved.own;
 
   const adHits = (adSymbols.get(symbol.toUpperCase()) ?? []).filter(
     (hit) => !hit.date || hit.date === buyDate,
@@ -350,6 +434,7 @@ function planTransInfoRow(
     symbol,
     own,
     book,
+    memberName: resolved.memberName,
     quantity,
     buyDate,
     buyPrice: buyPrice ?? cost,
@@ -360,34 +445,26 @@ function planTransInfoRow(
     sellTotal: parseMoney(cell(row, map, "sell_total")),
     sheetPnl: parseMoney(cell(row, map, "pnl")),
     side: "buy",
+    note: noteRaw.trim() ? noteRaw.trim() : null,
     skip: false,
     pending,
     warningIds,
   };
 }
 
-function resolveImportBook(
+function resolveImportHolder(
   excelRow: number,
   symbol: string,
   ownRaw: string,
   issues: ImportIssue[],
-): { own: string; book: NonNullable<ReturnType<typeof classifyTransInfoBook>> } | null {
-  const own = normalizeOwn(ownRaw);
-  const book = classifyTransInfoBook(own);
-  if (!book) {
-    issues.push({
-      id: issueId("ti-own", excelRow, symbol || "row"),
-      sheet: "transinfo",
-      row: excelRow,
-      symbol: symbol || undefined,
-      own,
-      kind: "unknown_own",
-      message: `TransInfo 第 ${excelRow} 行 Own「${ownRaw}」唔識，無開幽靈成員，已略過。`,
-      pending: false,
-    });
+  knownMembers: readonly string[],
+): { own: string; book: NonNullable<ReturnType<typeof resolveHolder>>["book"]; memberName: string } | null {
+  const resolved = resolveHolder(ownRaw, knownMembers);
+  if (!resolved) {
+    issues.push(unknownHolderIssue("transinfo", excelRow, ownRaw, symbol || undefined));
     return null;
   }
-  return { own, book };
+  return { own: resolved.own, book: resolved.book, memberName: resolved.memberName };
 }
 
 function planSplitRow(
@@ -398,6 +475,8 @@ function planSplitRow(
   symbol: string,
   ownRaw: string,
   buyDate: string,
+  knownMembers: readonly string[],
+  noteRaw: string,
 ): PlannedTrade | null {
   if (!symbol) {
     issues.push({
@@ -436,7 +515,7 @@ function planSplitRow(
     });
     return null;
   }
-  const resolved = resolveImportBook(excelRow, symbol, ownRaw, issues);
+  const resolved = resolveImportHolder(excelRow, symbol, ownRaw, issues, knownMembers);
   if (!resolved) {
     return null;
   }
@@ -446,6 +525,7 @@ function planSplitRow(
     symbol,
     own: resolved.own,
     book: resolved.book,
+    memberName: resolved.memberName,
     quantity: newShares,
     buyDate,
     buyPrice: oldShares,
@@ -456,7 +536,7 @@ function planSplitRow(
     sellTotal: null,
     sheetPnl: null,
     side: "split",
-    note: `拆股 ${newShares}:${oldShares}`,
+    note: noteRaw.trim() ? noteRaw.trim() : `拆股 ${newShares}:${oldShares}`,
     skip: false,
     pending: false,
     warningIds: [],
@@ -472,18 +552,26 @@ function planAdjustmentRow(
   ownRaw: string,
   buyDate: string,
   kindRaw = "",
+  knownMembers: readonly string[] = [],
+  noteRaw = "",
 ): PlannedTrade | null {
   const amount = parseMoney(cell(row, map, "buy_total")) ?? parseMoney(cell(row, map, "buy_price"));
-  const resolved = resolveImportBook(excelRow, symbol || "—", ownRaw, issues);
+  const resolved = resolveImportHolder(excelRow, symbol || "—", ownRaw, issues, knownMembers);
   if (!resolved) {
     return null;
   }
+  const fallbackNote = isDividendKindRaw(kindRaw)
+    ? dividendNote(symbol && symbol !== "—" ? symbol : "")
+    : symbol
+      ? `匯入調整 ${symbol}`
+      : "匯入調整";
   return {
     id: issueId("tr", excelRow),
     row: excelRow,
     symbol: symbol || "—",
     own: resolved.own,
     book: resolved.book,
+    memberName: resolved.memberName,
     quantity: parseMoney(cell(row, map, "quantity")) ?? "0",
     buyDate,
     buyPrice: amount ?? "0",
@@ -494,11 +582,87 @@ function planAdjustmentRow(
     sellTotal: null,
     sheetPnl: null,
     side: "adjustment",
-    note: isDividendKindRaw(kindRaw)
-      ? dividendNote(symbol && symbol !== "—" ? symbol : "")
-      : symbol
-        ? `匯入調整 ${symbol}`
-        : "匯入調整",
+    note: noteRaw.trim() ? noteRaw.trim() : fallbackNote,
+    skip: false,
+    pending: false,
+    warningIds: [],
+  };
+}
+
+function planSellRow(
+  row: string[],
+  excelRow: number,
+  map: ColumnMap,
+  issues: ImportIssue[],
+  symbol: string,
+  ownRaw: string,
+  buyDate: string,
+  knownMembers: readonly string[],
+  noteRaw: string,
+): PlannedTrade | null {
+  if (!symbol) {
+    issues.push({
+      id: issueId("ti-sym", excelRow),
+      sheet: "transinfo",
+      row: excelRow,
+      kind: "missing_qty",
+      message: `TransInfo 第 ${excelRow} 行賣出缺代碼，已略過。`,
+      pending: false,
+    });
+    return null;
+  }
+  const quantity = parseMoney(cell(row, map, "quantity"));
+  if (!quantity) {
+    issues.push({
+      id: issueId("ti-qty", excelRow),
+      sheet: "transinfo",
+      row: excelRow,
+      symbol,
+      kind: "missing_qty",
+      message: `TransInfo 第 ${excelRow} 行賣出缺數量，已略過，無填 0。`,
+      pending: false,
+    });
+    return null;
+  }
+  const resolved = resolveImportHolder(excelRow, symbol, ownRaw, issues, knownMembers);
+  if (!resolved) {
+    return null;
+  }
+  const sellDate = parseDate(cell(row, map, "sell_date")) ?? buyDate;
+  const sellPrice = parseMoney(cell(row, map, "sell_price")) ?? parseMoney(cell(row, map, "buy_price"));
+  const sellTotal =
+    parseMoney(cell(row, map, "sell_total")) ?? parseMoney(cell(row, map, "buy_total"));
+  if (!sellPrice && !sellTotal) {
+    issues.push({
+      id: issueId("ti-px", excelRow),
+      sheet: "transinfo",
+      row: excelRow,
+      symbol,
+      kind: "missing_amount",
+      message: `TransInfo 第 ${excelRow} 行賣出缺賣出價／總額，已略過。`,
+      pending: false,
+    });
+    return null;
+  }
+  const proceeds = sellTotal ?? moneyString(money(quantity).mul(money(sellPrice!)));
+  return {
+    id: issueId("tr", excelRow),
+    row: excelRow,
+    symbol,
+    own: resolved.own,
+    book: resolved.book,
+    memberName: resolved.memberName,
+    quantity,
+    buyDate: sellDate,
+    buyPrice: sellPrice ?? proceeds,
+    buyTotal: proceeds,
+    sellDate,
+    sellPrice: sellPrice,
+    sellFee: parseMoney(cell(row, map, "sell_fee")),
+    sellTotal: proceeds,
+    sheetPnl: parseMoney(cell(row, map, "pnl")),
+    side: "sell",
+    note: noteRaw.trim() ? noteRaw.trim() : null,
     skip: false,
     pending: false,
     warningIds: [],
@@ -508,7 +672,7 @@ function planAdjustmentRow(
 function flagSameDayJointMismatch(trades: PlannedTrade[], issues: ImportIssue[]): void {
   const groups = new Map<string, PlannedTrade[]>();
   for (const trade of trades) {
-    if (trade.side === "split" || trade.side === "adjustment") {
+    if (trade.side === "split" || trade.side === "adjustment" || trade.side === "sell") {
       continue;
     }
     const key = `${trade.buyDate}|${trade.symbol.toUpperCase()}`;
@@ -548,8 +712,20 @@ function finish(
   trades: PlannedTrade[],
   issues: ImportIssue[],
   blocking: boolean,
+  listedMembers: readonly string[] = [],
+  schedules: PlannedAllocationSchedule[] = [],
 ): ImportPlan {
   const members = new Set<string>();
+  for (const name of listedMembers) {
+    if (name.trim()) {
+      members.add(name.trim());
+    }
+  }
+  for (const schedule of schedules) {
+    for (const leg of schedule.legs) {
+      members.add(leg.memberName);
+    }
+  }
   for (const row of cashFlows) {
     if (!row.skip) {
       members.add(row.memberName);
@@ -557,7 +733,7 @@ function finish(
   }
   for (const row of trades) {
     if (!row.skip) {
-      for (const name of membersForBook(row.book)) {
+      for (const name of membersForBook(row.book, row.memberName)) {
         members.add(name);
       }
     }
@@ -568,6 +744,7 @@ function finish(
 
   const skippedKinds = new Set(["missing_fx", "missing_date", "missing_qty", "missing_amount", "unknown_own"]);
   const mapKinds = new Set(["unmapped_column", "column_collision", "missing_required"]);
+  const blocked = blocking || issues.some((item) => item.kind === "unknown_member");
 
   return {
     filename,
@@ -582,17 +759,18 @@ function finish(
       { own: "D", account: ownAccountLabel("D", "wah") },
       { own: "A", account: ownAccountLabel("A", "sze") },
     ],
+    schedules,
     cashFlows,
     trades,
     issues,
-    blocking,
+    blocking: blocked,
     counts: {
       members: members.size,
       cashFlows: cashFlows.filter((row) => !row.skip).length,
       trades: trades.filter((row) => !row.skip).length,
       warnings: issues.filter((item) => !item.pending && !mapKinds.has(item.kind) && !skippedKinds.has(item.kind))
         .length,
-      skipped: issues.filter((item) => skippedKinds.has(item.kind)).length,
+      skipped: issues.filter((item) => skippedKinds.has(item.kind) || item.kind === "unknown_member").length,
       pending: issues.filter((item) => item.pending).length,
     },
   };

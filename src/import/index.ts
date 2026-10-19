@@ -1,4 +1,4 @@
-export { parseUpload, pickSheets, hashParts } from "./parse";
+export { parseUpload, pickSheets, pickOptionalSheets, hashParts } from "./parse";
 export { mapUpload, autoMapSheet, applyManualMap } from "./columns";
 export { buildPlan } from "./plan";
 export { applyImport } from "./apply";

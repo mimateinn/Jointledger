@@ -1,4 +1,5 @@
 export type SheetKind = "transinfo" | "account";
+export type ExtraSheetKind = "members" | "allocation";
 
 export type TransInfoTarget =
   | "symbol"
@@ -13,6 +14,7 @@ export type TransInfoTarget =
   | "sell_total"
   | "pnl"
   | "row_kind"
+  | "note"
   | "split_hey"
   | "split_sze"
   | "split_wah";
@@ -22,10 +24,15 @@ export type AccountTarget = "date" | "detail" | "own" | "hkd" | "fx" | "usd" | "
 export type ColumnTarget = TransInfoTarget | AccountTarget | "ignore";
 
 export type ParsedSheet = {
-  kind: SheetKind | "unknown";
+  kind: SheetKind | ExtraSheetKind | "unknown";
   name: string;
   headers: string[];
   rows: string[][];
+};
+
+export type ImportExtras = {
+  members?: ParsedSheet;
+  allocation?: ParsedSheet;
 };
 
 export type ParsedUpload = {
@@ -82,7 +89,17 @@ export type ImportIssue = {
   pending: boolean;
 };
 
-export type BookKind = "hey" | "sze" | "wah" | "joint";
+export type BookKind = "hey" | "sze" | "wah" | "joint" | "personal";
+
+export type PlannedAllocationLeg = {
+  memberName: string;
+  percent: string;
+};
+
+export type PlannedAllocationSchedule = {
+  effectiveOn: string;
+  legs: PlannedAllocationLeg[];
+};
 
 export type PlannedCashFlow = {
   id: string;
@@ -115,7 +132,8 @@ export type PlannedTrade = {
   sellTotal: string | null;
   /** Old-sheet Net P/L. Comparison only — never written to CashFlow/Trade. */
   sheetPnl: string | null;
-  side?: "buy" | "split" | "adjustment";
+  memberName: string;
+  side?: "buy" | "sell" | "split" | "adjustment";
   note?: string | null;
   skip: boolean;
   pending: boolean;
@@ -132,6 +150,7 @@ export type ImportPlan = {
   fileHash: string;
   members: string[];
   ownMapping: OwnAccountMap[];
+  schedules: PlannedAllocationSchedule[];
   cashFlows: PlannedCashFlow[];
   trades: PlannedTrade[];
   issues: ImportIssue[];

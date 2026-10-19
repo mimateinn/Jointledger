@@ -27,6 +27,7 @@ const TI_OPTIONS: { value: ColumnTarget; label: string }[] = [
   { value: "sell_total", label: "賣出總額" },
   { value: "pnl", label: "盈虧" },
   { value: "row_kind", label: "種類" },
+  { value: "note", label: "備註" },
   { value: "split_hey", label: "Hey 分帳" },
   { value: "split_sze", label: "Sze 分帳" },
   { value: "split_wah", label: "Wah 分帳" },

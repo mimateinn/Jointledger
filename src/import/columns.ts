@@ -3,6 +3,7 @@ import type {
   ColumnMap,
   ColumnMapResult,
   ColumnTarget,
+  ExtraSheetKind,
   MapIssue,
   ParsedSheet,
   SheetKind,
@@ -25,6 +26,8 @@ const TRANSINFO_ALIASES: Record<string, TransInfoTarget> = {
   股數: "quantity",
   own: "own",
   owner: "own",
+  holder: "own",
+  holders: "own",
   持有: "own",
   持倉人: "own",
   buydate: "buy_date",
@@ -63,6 +66,11 @@ const TRANSINFO_ALIASES: Record<string, TransInfoTarget> = {
   rowkind: "row_kind",
   種類: "row_kind",
   類型: "row_kind",
+  note: "note",
+  notes: "note",
+  備註: "note",
+  备注: "note",
+  附註: "note",
   hey: "split_hey",
   heypercent: "split_hey",
   hpercent: "split_hey",
@@ -82,6 +90,8 @@ const ACCOUNT_ALIASES: Record<string, AccountTarget> = {
   摘要: "detail",
   own: "own",
   owner: "own",
+  holder: "own",
+  holders: "own",
   持有: "own",
   hkd: "hkd",
   港元: "hkd",
@@ -275,8 +285,14 @@ export function cell(row: string[], map: ColumnMap, target: ColumnTarget): strin
   return (row[index] ?? "").trim();
 }
 
-export function detectSheetKind(name: string, headers: string[]): SheetKind | "unknown" {
+export function detectSheetKind(name: string, headers: string[]): SheetKind | ExtraSheetKind | "unknown" {
   const n = normalizeHeader(name);
+  if (n === "members" || n === "member") {
+    return "members";
+  }
+  if (n === "allocation" || n === "allocations" || n === "schedule" || n === "schedules") {
+    return "allocation";
+  }
   if (n.includes("transinfo") || n.includes("交易")) {
     return "transinfo";
   }

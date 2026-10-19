@@ -11,7 +11,7 @@ import { importBatches } from "@/db/tables";
 import { applyImport } from "@/import/apply";
 import { applyManualMap, mapUpload } from "@/import/columns";
 import { readInviteSecret } from "@/import/invite-secrets";
-import { parseUpload, pickSheets } from "@/import/parse";
+import { parseUpload, pickOptionalSheets, pickSheets } from "@/import/parse";
 import { buildPlan } from "@/import/plan";
 import type { ColumnTarget, ImportDecisions, ImportPlan, PendingChoice } from "@/import/types";
 import { getCurrentMembership } from "@/lib/current-book";
@@ -39,6 +39,8 @@ type DraftPayload = {
   fileHash: string;
   transinfo: { name: string; headers: string[]; rows: string[][] };
   account: { name: string; headers: string[]; rows: string[][] };
+  membersSheet?: { name: string; headers: string[]; rows: string[][] };
+  allocationSheet?: { name: string; headers: string[]; rows: string[][] };
   plan: ImportPlan;
   transinfoTargets: Array<ColumnTarget | null>;
   accountTargets: Array<ColumnTarget | null>;
@@ -85,14 +87,25 @@ export async function parseImportAction(
     const files = await readFiles(formData);
     const parsed = await parseUpload(files);
     const { transinfo, account } = pickSheets(parsed);
+    const extras = pickOptionalSheets(parsed);
     const mapping = mapUpload(transinfo, account);
-    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapping);
+    const plan = buildPlan(parsed.filename, parsed.fileHash, transinfo, account, mapping, extras);
     const db = getDb();
     const payload: DraftPayload = {
       filename: parsed.filename,
       fileHash: parsed.fileHash,
       transinfo: { name: transinfo.name, headers: transinfo.headers, rows: transinfo.rows },
       account: { name: account.name, headers: account.headers, rows: account.rows },
+      membersSheet: extras.members
+        ? { name: extras.members.name, headers: extras.members.headers, rows: extras.members.rows }
+        : undefined,
+      allocationSheet: extras.allocation
+        ? {
+            name: extras.allocation.name,
+            headers: extras.allocation.headers,
+            rows: extras.allocation.rows,
+          }
+        : undefined,
       plan,
       transinfoTargets: mapping.transinfo.targets,
       accountTargets: mapping.account.targets,
@@ -155,6 +168,14 @@ export async function confirmMapAction(
 
     const transinfo = { ...payload.transinfo, kind: "transinfo" as const };
     const account = { ...payload.account, kind: "account" as const };
+    const extras = {
+      members: payload.membersSheet
+        ? { ...payload.membersSheet, kind: "members" as const }
+        : undefined,
+      allocation: payload.allocationSheet
+        ? { ...payload.allocationSheet, kind: "allocation" as const }
+        : undefined,
+    };
     const ti = applyManualMap("transinfo", transinfo.headers, transinfoTargets);
     const ad = applyManualMap("account", account.headers, accountTargets);
     const mapping = {
@@ -163,7 +184,7 @@ export async function confirmMapAction(
       issues: [...ti.issues, ...ad.issues],
       blocking: ti.issues.length + ad.issues.length > 0,
     };
-    const plan = buildPlan(payload.filename, payload.fileHash, transinfo, account, mapping);
+    const plan = buildPlan(payload.filename, payload.fileHash, transinfo, account, mapping, extras);
     const next: DraftPayload = {
       ...payload,
       plan,

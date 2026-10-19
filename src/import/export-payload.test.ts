@@ -41,6 +41,7 @@ describe("export adjustment / dividend amount", () => {
       cashFlows: await store.listCashFlows(book.id),
       trades: await store.listTrades(book.id),
       allocations: await store.listTradeAllocations(book.id),
+      schedules: await store.listAllocationSchedules(book.id),
     });
     const row = payload.transinfo.find((item) => item.symbol === "MSFT");
     expect(row).toBeTruthy();
@@ -50,6 +51,10 @@ describe("export adjustment / dividend amount", () => {
     expect(row?.buyTotal).toBe("100");
     expect(transinfoCells(row!)).toContain("100");
     expect(transinfoCells(row!)).toContain("dividend");
+    expect(row?.note).toBe("股息 MSFT");
+    expect(payload.allocations.some((item) => item.percent === "0.6" && item.memberName === "Hey")).toBe(
+      true,
+    );
   });
 
   it("writes a signed cost adjustment, not an unsigned zero", async () => {
